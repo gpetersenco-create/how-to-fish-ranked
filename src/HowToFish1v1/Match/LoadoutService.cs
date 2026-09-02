@@ -10,16 +10,19 @@ namespace HowToFish1v1.Match
     {
         private static List<Item> _weapons;
 
-        /// <summary>Every item prefab that is a gun (has a Weapon component), sorted by name.</summary>
+        /// <summary>Every item prefab that is a gun (a Weapon subclass of Item), sorted by name.</summary>
         public static IReadOnlyList<Item> Weapons()
         {
             if (_weapons == null || _weapons.Count == 0)
             {
-                _weapons = Resources.LoadAll<Item>("Items")
-                    .Where(i => i && i.Weapon)
+                // GameInfo already loaded every item prefab from Resources/Items into a private registry.
+                var registry = Traverse.Create(typeof(GameInfo)).Field<Dictionary<byte, Item>>("_allItems").Value;
+                IEnumerable<Item> all = registry != null && registry.Count > 0 ? registry.Values : Resources.LoadAll<Item>("Items");
+                _weapons = all
+                    .Where(i => i && i is Weapon)
                     .OrderBy(i => i.name)
                     .ToList();
-                Plugin.Log.LogInfo($"Weapon catalog: {string.Join(", ", _weapons.Select(w => $"{w.name}#{w.ID}"))}");
+                Plugin.Log.LogInfo($"Weapon catalog ({_weapons.Count}): {string.Join(", ", _weapons.Select(w => $"{w.name}#{w.ID}"))}");
             }
             return _weapons;
         }
@@ -56,7 +59,8 @@ namespace HowToFish1v1.Match
             {
                 var prefab = GameInfo.IDToItem(itemIds[i]);
                 if (!prefab) { Plugin.Log.LogWarning($"Unknown item id {itemIds[i]}"); continue; }
-                var item = Object.Instantiate(prefab, pos + Vector3.up * 0.5f, Quaternion.identity);
+                // Spawn above the head: an item instantiated inside the player's capsule shoves them away.
+                var item = Object.Instantiate(prefab, pos + Vector3.up * 2.5f, Quaternion.identity);
                 item.SetSyncedHolder(p, true);
                 InstanceFinder.ServerManager.Spawn(item.gameObject);
                 if (i == 0)
@@ -78,9 +82,9 @@ namespace HowToFish1v1.Match
             var p = Player.LocalPlayer;
             if (!p) return;
             var guns = new List<Weapon>();
-            if (p.Holding.HeldItem && p.Holding.HeldItem.Weapon) guns.Add(p.Holding.HeldItem.Weapon);
+            if (p.Holding.HeldItem is Weapon held) guns.Add(held);
             foreach (var kv in p.Inventory._items)
-                if (kv.Value && kv.Value.Weapon) guns.Add(kv.Value.Weapon);
+                if (kv.Value is Weapon w) guns.Add(w);
             foreach (var w in guns)
             {
                 var t = Traverse.Create(w);

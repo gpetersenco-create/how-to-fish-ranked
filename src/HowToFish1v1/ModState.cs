@@ -10,6 +10,11 @@ namespace HowToFish1v1
         public static MatchPhase Phase = MatchPhase.Inactive;
         public static bool PanelOpen;
 
+        /// <summary>Unscaled time until which player teleports use the instant path even when the mode is inactive (island return).</summary>
+        public static float ForceInstantTeleportUntil = -1f;
+
+        public static bool InstantTeleports => IsActive || Time.unscaledTime < ForceInstantTeleportUntil;
+
         /// <summary>Owner id of the local player, or -1 when not in a game.</summary>
         public static int LocalOwnerId => Player.LocalPlayer ? Player.LocalPlayer.OwnerId : -1;
 

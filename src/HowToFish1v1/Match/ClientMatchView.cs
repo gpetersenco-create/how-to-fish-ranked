@@ -1,0 +1,113 @@
+using System.Collections;
+using FishNet;
+using HowToFish1v1.Arena;
+using HowToFish1v1.Core;
+using HowToFish1v1.Net;
+using UnityEngine;
+
+namespace HowToFish1v1.Match
+{
+    public struct PlayerSlotView
+    {
+        public int Id; public string Name; public int Score; public bool Ready; public bool HasMod; public byte[] Loadout;
+        public bool Present => Id != -1;
+    }
+
+    /// <summary>Runs on every peer (host included). Applies host broadcasts to ModState, the arena, and local ammo.</summary>
+    public static class ClientMatchView
+    {
+        public static MatchStateBroadcast Latest;
+        public static bool HasState;
+
+        private static MonoBehaviour _runner;
+        private static MatchPhase _prevPhase = MatchPhase.Inactive;
+
+        public static void Init(MonoBehaviour runner)
+        {
+            _runner = runner;
+            ModNet.StateReceived += OnState;
+            ModNet.ArenaReceived += OnArena;
+            ModNet.ClientStopped += OnStopped;
+        }
+
+        public static double SecondsLeftInPhase
+        {
+            get
+            {
+                if (!HasState) return 0;
+                var tm = InstanceFinder.TimeManager;
+                if (tm == null) return 0;
+                long dt = (long)Latest.PhaseEndsAtTick - tm.Tick;
+                return dt <= 0 ? 0 : dt * tm.TickDelta;
+            }
+        }
+
+        public static PlayerSlotView A => new PlayerSlotView { Id = HasState ? Latest.AId : -1, Name = Latest.AName ?? "", Score = Latest.AScore, Ready = Latest.AReady, HasMod = Latest.AHasMod, Loadout = Latest.ALoadout };
+        public static PlayerSlotView B => new PlayerSlotView { Id = HasState ? Latest.BId : -1, Name = Latest.BName ?? "", Score = Latest.BScore, Ready = Latest.BReady, HasMod = Latest.BHasMod, Loadout = Latest.BLoadout };
+        public static PlayerSlotView Me => A.Id == ModState.LocalOwnerId ? A : B;
+        public static PlayerSlotView Them => A.Id == ModState.LocalOwnerId ? B : A;
+
+        private static Side? SideOf(int ownerId)
+        {
+            if (!HasState) return null;
+            if (ownerId == Latest.AId) return Latest.AIsLeft ? Side.Left : Side.Right;
+            if (ownerId == Latest.BId) return Latest.AIsLeft ? Side.Right : Side.Left;
+            return null;
+        }
+
+        private static void OnState(MatchStateBroadcast s)
+        {
+            Latest = s;
+            HasState = true;
+            var phase = (MatchPhase)s.Phase;
+            if (phase != _prevPhase)
+                Plugin.Log.LogInfo($"Phase {_prevPhase} -> {phase} round {s.Round} score {s.AScore}-{s.BScore} AIsLeft={s.AIsLeft} status='{s.StatusText}'");
+            ModState.Phase = phase;
+            ModState.SideLookup = SideOf;
+            if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live) LoadoutService.RefillLocalAmmo();
+            if (phase == MatchPhase.Inactive) { ModState.PanelOpen = false; PlayerCamera.ToggleMouse(false); }
+            // The host may not have our hello if we connected before it registered handlers; resend when it says we lack the mod.
+            int me = ModState.LocalOwnerId;
+            if ((s.AId == me && !s.AHasMod) || (s.BId == me && !s.BHasMod)) ModNet.SendHello();
+            _prevPhase = phase;
+        }
+
+        private static void OnArena(ArenaBroadcast a)
+        {
+            if (a.Build) _runner.StartCoroutine(BuildRoutine(a.MapIndex));
+            else _runner.StartCoroutine(ReturnRoutine(a.ReturnIsland));
+        }
+
+        /// <summary>Load the island first and only then remove the arena, so players stand on something until the game teleports them.</summary>
+        private static IEnumerator ReturnRoutine(byte returnIsland)
+        {
+            ModState.ForceInstantTeleportUntil = Time.unscaledTime + 30f;
+            IslandManager.LoadIsland(returnIsland);
+            yield return new WaitForSeconds(0.5f);
+            float deadline = Time.unscaledTime + 20f;
+            yield return new WaitUntil(() => !IslandManager.IsLoading || Time.unscaledTime > deadline);
+            yield return new WaitForSeconds(1.5f);
+            ArenaBuilder.Destroy();
+            ModState.ForceInstantTeleportUntil = Time.unscaledTime + 5f;
+        }
+
+        /// <summary>Build first, unload the island afterwards: the arena is far from any island, and players must never stand on nothing.</summary>
+        private static IEnumerator BuildRoutine(int mapIndex)
+        {
+            float deadline = Time.unscaledTime + 15f;
+            yield return new WaitUntil(() => !IslandManager.IsLoading || Time.unscaledTime > deadline);
+            ArenaBuilder.Destroy();
+            ArenaBuilder.Build(mapIndex);
+            yield return new WaitForSeconds(0.75f);
+            IslandManager.UnloadIslands();
+        }
+
+        private static void OnStopped()
+        {
+            HasState = false;
+            _prevPhase = MatchPhase.Inactive;
+            ModState.Reset();
+            ArenaBuilder.Destroy();
+        }
+    }
+}

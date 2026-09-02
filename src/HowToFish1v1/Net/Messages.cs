@@ -17,6 +17,7 @@ namespace HowToFish1v1.Net
     {
         public bool Build;
         public byte ReturnIsland;
+        public byte MapIndex;
     }
 
     public struct MatchStateBroadcast : IBroadcast
@@ -30,5 +31,6 @@ namespace HowToFish1v1.Net
         public int LastRoundWinnerId;
         public int MatchWinnerId;
         public string StatusText;
+        public byte MapIndex;
     }
 }

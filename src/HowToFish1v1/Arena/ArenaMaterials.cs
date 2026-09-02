@@ -16,6 +16,12 @@ namespace HowToFish1v1.Arena
             {
                 case BoxKind.Rust: c = new Color(0.72f, 0.33f, 0.12f); break;
                 case BoxKind.Steel: c = new Color(0.25f, 0.27f, 0.30f); break;
+                case BoxKind.Wood: c = new Color(0.55f, 0.38f, 0.20f); break;
+                case BoxKind.Brick: c = new Color(0.45f, 0.20f, 0.15f); break;
+                case BoxKind.Yellow: c = new Color(0.95f, 0.78f, 0.10f); break;
+                case BoxKind.Red: c = new Color(0.75f, 0.12f, 0.10f); break;
+                case BoxKind.Blue: c = new Color(0.15f, 0.30f, 0.70f); break;
+                case BoxKind.White: c = new Color(0.90f, 0.90f, 0.85f); break;
                 default: c = new Color(0.62f, 0.62f, 0.60f); break;
             }
             var shader = FindShader();

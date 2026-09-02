@@ -1,7 +1,9 @@
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using HowToFish1v1.Match;
 using HowToFish1v1.Net;
+using HowToFish1v1.UI;
 using UnityEngine;
 
 namespace HowToFish1v1
@@ -16,6 +18,7 @@ namespace HowToFish1v1
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
         public static ModConfig Cfg { get; private set; }
+        public static HostMatchController Host { get; private set; }
 
         private Harmony _harmony;
         private bool _autoHosted;
@@ -28,6 +31,8 @@ namespace HowToFish1v1
             ModNet.Init();
             _harmony = new Harmony(Guid);
             _harmony.PatchAll(typeof(Plugin).Assembly);
+            ClientMatchView.Init(this);
+            Host = new HostMatchController(this);
             Log.LogInfo($"{Name} {Version} loaded. Panel key: {Cfg.PanelKey.Value}");
         }
 
@@ -38,8 +43,17 @@ namespace HowToFish1v1
 
         private void Update()
         {
+            if (Input.GetKeyDown(Cfg.PanelKey.Value)) LobbyPanel.Toggle();
             ModNet.Update();
+            Host.Update();
+            Hud.Update();
             AutoHostForTesting();
+            DebugAutoTest.Update();
+        }
+
+        private void OnGUI()
+        {
+            LobbyPanel.Draw();
         }
 
         private void AutoHostForTesting()
