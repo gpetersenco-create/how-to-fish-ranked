@@ -367,45 +367,13 @@ namespace HowToFish1v1.UI
         private static void EnsureStyles()
         {
             if (_title != null) return;
-            _bg = Solid(new Color(0.06f, 0.09f, 0.13f, 1f));
-            _panel = Solid(new Color(0.09f, 0.13f, 0.19f, 0.95f));
-            _panelLight = Solid(new Color(0.14f, 0.20f, 0.28f, 0.95f));
-            _gold = Solid(new Color(0.95f, 0.78f, 0.25f));
-            _bar = Solid(new Color(0.95f, 0.78f, 0.25f));
-            _barBg = Solid(new Color(0.22f, 0.26f, 0.32f));
-            _white = Solid(Color.white);
-            Color white = Color.white, goldc = new Color(0.95f, 0.78f, 0.25f), muted = new Color(0.72f, 0.77f, 0.84f);
-
-            _tab_ = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            _tab_.normal.textColor = muted;
-            _tab_.hover.textColor = white;
-            _tabOn = new GUIStyle(_tab_);
-            _tabOn.normal.textColor = white;
-            _tabOn.hover.textColor = white;
-            _title = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            _title.normal.textColor = white;
-            _h1 = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            _h1.normal.textColor = white;
-            _h2 = new GUIStyle(_h1) { fontSize = 22 };
-            _body = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleLeft, wordWrap = true };
-            _body.normal.textColor = white;
-            _small = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleLeft, wordWrap = true };
-            _small.normal.textColor = muted;
-            _smallRight = new GUIStyle(_small) { alignment = TextAnchor.MiddleRight };
-            _smallCenter = new GUIStyle(_small) { alignment = TextAnchor.MiddleCenter };
-            _bodyCenter = new GUIStyle(_body) { alignment = TextAnchor.MiddleCenter };
-            _h1Center = new GUIStyle(_h1) { alignment = TextAnchor.MiddleCenter };
-            _stat = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            _stat.normal.textColor = white;
-            _statLabel = new GUIStyle(_small);
-            _gold_ = new GUIStyle(_body);
-            _gold_.normal.textColor = goldc;
-            _bigButton = new GUIStyle(GUI.skin.button) { fontSize = 26, fontStyle = FontStyle.Bold };
-            _bigButton.normal.background = _gold; _bigButton.hover.background = Solid(new Color(1f, 0.86f, 0.4f)); _bigButton.active.background = _gold;
-            _bigButton.normal.textColor = new Color(0.08f, 0.08f, 0.1f); _bigButton.hover.textColor = _bigButton.normal.textColor; _bigButton.active.textColor = _bigButton.normal.textColor;
-            _button_ = new GUIStyle(GUI.skin.button) { fontSize = 22, fontStyle = FontStyle.Bold };
-            _button_.normal.background = _panelLight; _button_.hover.background = Solid(new Color(0.22f, 0.30f, 0.40f)); _button_.active.background = _panelLight;
-            _button_.normal.textColor = white; _button_.hover.textColor = white; _button_.active.textColor = white;
+            RankedStyles.Ensure();
+            _bg = RankedStyles.Bg; _panel = RankedStyles.Panel; _panelLight = RankedStyles.PanelLight; _gold = RankedStyles.Gold;
+            _bar = RankedStyles.Gold; _barBg = RankedStyles.BarBg; _white = RankedStyles.White;
+            _tab_ = RankedStyles.Tab; _tabOn = RankedStyles.TabOn; _title = RankedStyles.Title; _h1 = RankedStyles.H1; _h2 = RankedStyles.H2;
+            _body = RankedStyles.Body; _small = RankedStyles.Small; _smallRight = RankedStyles.SmallRight; _smallCenter = RankedStyles.SmallCenter;
+            _bodyCenter = RankedStyles.BodyCenter; _h1Center = RankedStyles.H1Center; _stat = RankedStyles.Stat; _statLabel = RankedStyles.StatLabel;
+            _gold_ = RankedStyles.GoldText; _bigButton = RankedStyles.BigButton; _button_ = RankedStyles.Button;
         }
 
         private static Texture2D Solid(Color c)

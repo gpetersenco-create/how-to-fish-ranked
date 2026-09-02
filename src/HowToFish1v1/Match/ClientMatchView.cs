@@ -89,7 +89,12 @@ namespace HowToFish1v1.Match
 
             if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live) LoadoutService.RefillLocalAmmo();
             if (phase == MatchPhase.MatchEnd && s.MatchNumber != _lastRankedMatch) ApplyRank(s);
-            if (phase == MatchPhase.Lobby && _prevPhase == MatchPhase.Inactive && ModState.RankedSession && !ModState.PanelOpen) LobbyPanel.Open();
+            // Ranked sessions: the lobby screen shows itself whenever the match is in the lobby and hides when a match starts.
+            if (ModState.RankedSession)
+            {
+                if (phase == MatchPhase.Lobby && _prevPhase != MatchPhase.Lobby && !ModState.PanelOpen) LobbyPanel.Open();
+                if (phase == MatchPhase.Countdown && _prevPhase == MatchPhase.Lobby && ModState.PanelOpen) LobbyPanel.Close();
+            }
             if (phase == MatchPhase.Inactive) { ModState.PanelOpen = false; PlayerCamera.ToggleMouse(false); }
 
             // The host may not have our hello if we connected before it registered handlers; resend when it says we lack the mod.

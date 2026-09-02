@@ -17,6 +17,7 @@ namespace HowToFish1v1
 
         private static Step _step = Step.WaitPlayer;
         private static float _at;
+        private static bool _startPending;
         private static int _liveCount;
         private static MatchPhase _prev = MatchPhase.Inactive;
 
@@ -34,6 +35,7 @@ namespace HowToFish1v1
                     if (!Player.LocalPlayer || !ModNet.IsHost) return;
                     if (_at == 0f) { _at = Time.time + 6f; return; }
                     if (Time.time < _at) return;
+                    ModState.RankedSession = true;   // exercise the lobby screen's auto open/close
                     Plugin.Host.Open();
                     Plugin.Host.SetMode((MatchMode)Mathf.Clamp(Plugin.Cfg.AutoSoloMode.Value, 0, 3));
                     Plugin.Host.SetMap(Plugin.Cfg.AutoSoloMap.Value);
@@ -41,15 +43,26 @@ namespace HowToFish1v1
                     var ids = gun ? new[] { gun.ID } : new byte[0];
                     Plugin.Log.LogInfo($"AutoTest: open + loadout [{(gun ? gun.name : "none")}] + start");
                     Plugin.Host.SetLocalLoadout(ids, true, RankService.Points);
-                    Plugin.Host.Start();
+                    Plugin.Log.LogInfo($"AutoTest: lobby open={ModState.PanelOpen}; starting in 6 s");
                     _step = Step.Started;
-                    _at = Time.time + 30f;
+                    _at = Time.time + 6f;
+                    _startPending = true;
                     break;
                 case Step.Started:
-                    if (_liveCount >= 1) { _step = Step.WaitLive1; _at = Time.time + 4f; }
+                    if (_startPending)
+                    {
+                        if (Time.time < _at) return;
+                        _startPending = false;
+                        Plugin.Log.LogInfo($"AutoTest: start (lobby open={ModState.PanelOpen})");
+                        Plugin.Host.Start();
+                        _at = Time.time + 30f;
+                        return;
+                    }
+                    if (_liveCount >= 1) { Plugin.Log.LogInfo($"AutoTest: live (lobby open={ModState.PanelOpen})"); _step = Step.WaitLive1; _at = Time.time + 4f; }
                     else if (Time.time > _at) { Plugin.Log.LogError("AutoTest: never went live"); _step = Step.Done; }
                     break;
                 case Step.WaitLive1:
+                    if (Time.time >= _nextTrace) { _nextTrace = Time.time + 0.5f; TraceAmmo(); }
                     if (Time.time < _at) return;
                     LogPlayer("before self-kill");
                     Plugin.Log.LogInfo("AutoTest: killing local player");
@@ -77,6 +90,16 @@ namespace HowToFish1v1
                     _step = Step.Done;
                     break;
             }
+        }
+
+        private static float _nextTrace;
+
+        private static void TraceAmmo()
+        {
+            var p = Player.LocalPlayer;
+            if (!p || !(p.Holding.HeldItem is Weapon w)) { Plugin.Log.LogInfo("AutoTest trace: no weapon held"); return; }
+            var t = HarmonyLib.Traverse.Create(w);
+            Plugin.Log.LogInfo($"AutoTest trace: ammo={w.Ammo} perMag={w.Attachments.AmmoPerMag} reloading={t.Field("_isReloading").GetValue<bool>()} queueReload={t.Field("_queueReload").GetValue<bool>()} holdingFire={t.Field("_holdingFireInput").GetValue<bool>()} blockInputs={p.BlockInputs} phase={ModState.Phase}");
         }
 
         private static void LogPlayer(string when)

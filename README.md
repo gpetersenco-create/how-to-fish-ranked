@@ -5,9 +5,15 @@ local fishing-rank ladder. Each player picks their own guns. Four maps: Rust, Nu
 
 ## Ranked (main menu)
 
-A **Ranked** button sits under Character on the main menu. It shows your rank card and lets the host pick a mode and
-map, then **Host Ranked** creates an invite-only Steam lobby (no save file is touched). Invite friends from the Steam
-overlay; when everyone is in the world the match panel opens by itself. **Solo practice** hosts an offline session.
+A **Ranked** button sits under Character on the main menu. It opens a full-screen ranked page (My Rank, Rank Rewards,
+Gameplay, Match Format, Maps) with your rank emblem, stats and match history. **Matchmake** creates an invite-only
+Steam lobby (no save file is touched); **Solo practice** hosts an offline session.
+
+Once you are in the world the **lobby screen** opens by itself: team columns (or a free-for-all grid) of player cards
+with rank emblems and ready badges, an **Invite Friends** button that opens the Steam overlay, your loadout picker and
+**Ready Up**. Friends who join see the same screen. The host picks mode and map at the bottom and presses
+**Start Match** once everyone is ready; the screen closes at the countdown and comes back after the match. F5 hides
+or shows it.
 
 | Mode | Rules |
 |---|---|

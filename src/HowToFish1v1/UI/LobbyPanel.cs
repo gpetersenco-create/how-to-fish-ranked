@@ -3,28 +3,29 @@ using System.Linq;
 using HowToFish1v1.Core;
 using HowToFish1v1.Match;
 using HowToFish1v1.Net;
+using Steamworks;
 using UnityEngine;
+using S = HowToFish1v1.UI.RankedStyles;
 
 namespace HowToFish1v1.UI
 {
-    /// <summary>In-session IMGUI panel: mode, map, players and teams, loadout picker, ready, and host controls.</summary>
+    /// <summary>
+    /// Full-screen lobby: player cards per team (or a free-for-all grid), invite button, loadout picker, Ready, and for
+    /// the host the mode/map pickers and Start. Opens by itself in ranked sessions and closes when the match starts.
+    /// </summary>
     public static class LobbyPanel
     {
         public static bool IsOpen => ModState.PanelOpen;
 
         private static readonly List<byte> _selected = new List<byte>();
         private static bool _ready;
-        private static Vector2 _scroll;
-        private static Rect _rect = new Rect(40, 40, 620, 700);
+        private static string _hint = "";
 
-        public static void Toggle()
-        {
-            if (IsOpen) Close(); else Open();
-        }
+        public static void Toggle() { if (IsOpen) Close(); else Open(); }
 
         public static void Open()
         {
-            if (!Player.LocalPlayer) { Plugin.Log.LogInfo("Join or host a game before opening the match panel"); return; }
+            if (!Player.LocalPlayer) { Plugin.Log.LogInfo("Join or host a game before opening the lobby"); return; }
             ModState.PanelOpen = true;
             PlayerCamera.ToggleMouse(true);
             if (ModNet.IsHost && !Plugin.Host.IsOpen) Plugin.Host.Open();
@@ -39,120 +40,208 @@ namespace HowToFish1v1.UI
         public static void Draw()
         {
             if (!IsOpen) return;
-            _rect = GUILayout.Window(19191, _rect, DrawWindow, "How to Fish Ranked");
-        }
+            var saved = S.BeginCanvas();
+            GUI.DrawTexture(new Rect(0, 0, S.DesignW, S.DesignH), S.Bg);
+            GUI.color = new Color(1f, 1f, 1f, 0.05f);
+            GUI.DrawTexture(new Rect(1100, -200, 500, 1600), S.White);
+            GUI.color = Color.white;
 
-        private static void DrawWindow(int id)
-        {
             bool host = ModNet.IsHost;
             var s = ClientMatchView.Latest;
             bool has = ClientMatchView.HasState && ModState.IsActive;
 
-            GUILayout.Label($"You: {RankService.RankName}  ({RankService.Points} pts, {RankService.Wins}W {RankService.Losses}L)");
-            GUILayout.Label(host ? "You are the host." : "Host controls the match.");
+            DrawHeader(host, has, s);
             if (!has)
             {
-                GUILayout.Label(host ? "Opening..." : "Waiting for the host to open the match panel.");
-                if (GUILayout.Button("Close")) Close();
-                GUI.DragWindow();
-                return;
-            }
-
-            var mode = (MatchMode)s.Mode;
-            bool inLobby = (MatchPhase)s.Phase == MatchPhase.Lobby;
-            bool ffa = MatchModes.IsFfa(mode);
-            GUILayout.Label($"Phase: {(MatchPhase)s.Phase}   {(ffa ? $"First to {s.KillsToWin} kills" : $"Round {s.Round}, first to {s.RoundsToWin}")}");
-            GUILayout.Label(s.StatusText ?? "");
-            GUILayout.Space(4);
-
-            // Mode
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Mode:", GUILayout.Width(50));
-            foreach (var m in MatchModes.All)
-            {
-                GUI.enabled = host && inLobby;
-                bool on = m == mode;
-                if (GUILayout.Toggle(on, " " + MatchModes.Name(m), "Button", GUILayout.Width(120)) && !on) Plugin.Host.SetMode(m);
-                GUI.enabled = true;
-            }
-            GUILayout.EndHorizontal();
-
-            // Map
-            string mapName = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
-            GUILayout.BeginHorizontal();
-            GUILayout.Label($"Map: {mapName}", GUILayout.Width(200));
-            if (host)
-            {
-                GUI.enabled = inLobby;
-                if (GUILayout.Button("<", GUILayout.Width(40))) Plugin.Host.SetMap(s.MapIndex - 1);
-                if (GUILayout.Button(">", GUILayout.Width(40))) Plugin.Host.SetMap(s.MapIndex + 1);
-                GUI.enabled = true;
-            }
-            GUILayout.EndHorizontal();
-            GUILayout.Space(6);
-
-            // Players
-            var players = ClientMatchView.Players;
-            if (!ffa)
-            {
-                GUILayout.Label($"Team A  {s.TeamScoreA}  -  {s.TeamScoreB}  Team B");
-                foreach (int team in new[] { 0, 1 })
-                {
-                    GUILayout.Label(team == 0 ? "Team A:" : "Team B:");
-                    foreach (var p in players.Where(p => p.Team == team)) DrawPlayer(p, host && inLobby, ffa);
-                }
+                GUI.Label(new Rect(0, 460, S.DesignW, 60), host ? "OPENING LOBBY..." : "WAITING FOR THE HOST TO OPEN THE LOBBY", S.H1Center);
+                GUI.Label(new Rect(0, 520, S.DesignW, 40), "Press F5 to hide this screen.", S.SmallCenter);
             }
             else
             {
-                GUILayout.Label("Players (kills):");
-                foreach (var p in players.OrderByDescending(p => p.Kills)) DrawPlayer(p, false, ffa);
+                var mode = (MatchMode)s.Mode;
+                bool inLobby = (MatchPhase)s.Phase == MatchPhase.Lobby;
+                if (MatchModes.IsFfa(mode)) DrawFfaGrid(s, host && inLobby);
+                else DrawTeams(s, host && inLobby);
+                DrawLoadout(inLobby);
+                DrawFooter(host, inLobby, s);
             }
-            if (players.Length == 0) GUILayout.Label("  (nobody yet)");
-            GUILayout.Space(8);
+            GUI.matrix = saved;
+        }
 
-            // Loadout
-            if (inLobby && _ready && ClientMatchView.Me is PlayerEntry me && !me.Ready) _ready = false;
+        // ------------------------------------------------------------ pieces
+
+        private static void DrawHeader(bool host, bool has, Net.MatchStateBroadcast s)
+        {
+            GUI.DrawTexture(new Rect(0, 0, S.DesignW, 92), S.Panel);
+            GUI.Label(new Rect(40, 20, 500, 52), "RANKED LOBBY", S.Title);
+            if (has)
+            {
+                var mode = (MatchMode)s.Mode;
+                string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
+                GUI.Label(new Rect(420, 26, 700, 40), $"{MatchModes.Name(mode).ToUpperInvariant()}   |   {map.ToUpperInvariant()}   |   {ClientMatchView.Players.Length}/{MatchModes.MaxPlayers(mode)} PLAYERS", S.H2);
+            }
+            bool steam = ConnectionManager.IsUsingSteam;
+            GUI.enabled = steam;
+            if (GUI.Button(new Rect(S.DesignW - 560, 18, 260, 56), steam ? "INVITE FRIENDS" : "OFFLINE SESSION", S.Button)) Invite();
+            GUI.enabled = true;
+            if (GUI.Button(new Rect(S.DesignW - 280, 18, 240, 56), host ? "END RANKED" : "HIDE (F5)", S.Button))
+            {
+                if (host) { Plugin.Host.Quit(); _ready = false; }
+                else Close();
+            }
+        }
+
+        private static void DrawTeams(Net.MatchStateBroadcast s, bool canMove)
+        {
+            var mode = (MatchMode)s.Mode;
+            int size = MatchModes.TeamSize(mode);
+            var players = ClientMatchView.Players;
+            float colW = 560, top = 120;
+            float[] xs = { 60, 60 + colW + 40 };
+            for (int team = 0; team < 2; team++)
+            {
+                float x = xs[team];
+                int score = team == 0 ? s.TeamScoreA : s.TeamScoreB;
+                GUI.DrawTexture(new Rect(x, top, colW, 56), S.Panel);
+                GUI.DrawTexture(new Rect(x, top, 6, 56), team == 0 ? S.Gold : S.PanelHover);
+                GUI.Label(new Rect(x + 20, top + 10, 300, 36), team == 0 ? "TEAM A" : "TEAM B", S.H1);
+                GUI.Label(new Rect(x + colW - 120, top + 10, 100, 36), score.ToString(), S.H1Center);
+                var members = players.Where(p => p.Team == team).ToList();
+                float y = top + 70;
+                for (int i = 0; i < size; i++)
+                {
+                    if (i < members.Count) DrawCard(x, y, colW, members[i], canMove, false);
+                    else DrawEmptyCard(x, y, colW);
+                    y += 130;
+                }
+            }
+        }
+
+        private static void DrawFfaGrid(Net.MatchStateBroadcast s, bool canMove)
+        {
+            var players = ClientMatchView.Players.OrderByDescending(p => p.Kills).ToList();
+            float top = 120, colW = 560;
+            GUI.DrawTexture(new Rect(60, top, colW * 2 + 40, 56), S.Panel);
+            GUI.DrawTexture(new Rect(60, top, 6, 56), S.Gold);
+            GUI.Label(new Rect(80, top + 10, 600, 36), $"FREE-FOR-ALL   first to {s.KillsToWin} kills", S.H1);
+            int max = MatchModes.MaxPlayers(MatchMode.FreeForAll);
+            for (int i = 0; i < max; i++)
+            {
+                float x = 60 + (i % 2) * (colW + 40);
+                float y = top + 70 + (i / 2) * 130;
+                if (i < players.Count) DrawCard(x, y, colW, players[i], false, true);
+                else DrawEmptyCard(x, y, colW);
+            }
+        }
+
+        private static void DrawCard(float x, float y, float w, Net.PlayerEntry p, bool canMove, bool showKills)
+        {
+            bool me = p.Id == ModState.LocalOwnerId;
+            GUI.DrawTexture(new Rect(x, y, w, 118), me ? S.PanelLight : S.Panel);
+            if (p.Ready) GUI.DrawTexture(new Rect(x, y, 6, 118), S.Green);
+            int tier = RankService.Ladder.TierIndex(p.RankPoints);
+            S.Emblem(x + 62, y + 12, 94, tier);
+            GUI.Label(new Rect(x + 120, y + 12, w - 260, 36), p.Name + (me ? "  (you)" : ""), S.H1);
+            GUI.Label(new Rect(x + 120, y + 48, w - 260, 28), RankService.Ladder.TierName(p.RankPoints).ToUpperInvariant() + $"   {p.RankPoints} RP", S.GoldText);
+            string guns = p.Loadout == null || p.Loadout.Length == 0 ? "fists" :
+                string.Join(", ", p.Loadout.Select(b => LoadoutService.DisplayName(GameInfo.IDToItem(b))));
+            GUI.Label(new Rect(x + 120, y + 78, w - 260, 28), (showKills ? $"{p.Kills} kills   " : "") + guns, S.Small);
+            string badge = !p.HasMod ? "NO MOD" : (p.Ready ? "READY" : "NOT READY");
+            GUI.DrawTexture(new Rect(x + w - 130, y + 14, 116, 34), !p.HasMod ? S.Red : (p.Ready ? S.Green : S.BarBg));
+            GUI.Label(new Rect(x + w - 130, y + 14, 116, 34), badge, S.SmallCenter);
+            if (canMove && GUI.Button(new Rect(x + w - 130, y + 62, 116, 40), "MOVE", S.ToggleButton)) Plugin.Host.MoveTeam(p.Id);
+        }
+
+        private static void DrawEmptyCard(float x, float y, float w)
+        {
+            GUI.DrawTexture(new Rect(x, y, w, 118), S.Panel);
+            GUI.color = new Color(1f, 1f, 1f, 0.5f);
+            GUI.Label(new Rect(x, y, w, 118), "WAITING FOR PLAYER...", S.BodyCenter);
+            GUI.color = Color.white;
+        }
+
+        private static void DrawLoadout(bool inLobby)
+        {
+            float x = 1300, y = 120, w = 580;
+            GUI.DrawTexture(new Rect(x, y, w, 56), S.Panel);
+            GUI.DrawTexture(new Rect(x, y, 6, 56), S.Gold);
             int max = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value);
-            GUILayout.Label($"Your loadout (pick up to {max}):");
+            GUI.Label(new Rect(x + 20, y + 10, 540, 36), $"YOUR LOADOUT   (pick up to {max})", S.H1);
+            if (inLobby && _ready && ClientMatchView.Me is Net.PlayerEntry me && !me.Ready) _ready = false;
+
             GUI.enabled = inLobby;
-            _scroll = GUILayout.BeginScrollView(_scroll, GUILayout.Height(150));
+            float gy = y + 72;
             foreach (var item in LoadoutService.Weapons())
             {
                 bool on = _selected.Contains(item.ID);
-                bool now = GUILayout.Toggle(on, $"  {LoadoutService.DisplayName(item)}");
-                if (now && !on && _selected.Count < max) { _selected.Add(item.ID); SendLoadout(false); }
-                else if (!now && on) { _selected.Remove(item.ID); SendLoadout(false); }
+                if (GUI.Button(new Rect(x, gy, w, 54), (on ? "  [x]  " : "  [ ]  ") + LoadoutService.DisplayName(item).ToUpperInvariant(), on ? S.ToggleButtonOn : S.ToggleButton))
+                {
+                    if (on) { _selected.Remove(item.ID); SendLoadout(false); }
+                    else if (_selected.Count < max) { _selected.Add(item.ID); SendLoadout(false); }
+                    else _hint = $"Only {max} guns per loadout";
+                }
+                gy += 60;
             }
-            GUILayout.EndScrollView();
-            bool readyNow = GUILayout.Toggle(_ready, _ready ? "  READY" : "  Ready up");
-            if (readyNow != _ready) { _ready = readyNow; SendLoadout(_ready); }
+            if (!string.IsNullOrEmpty(_hint)) GUI.Label(new Rect(x, gy, w, 30), _hint, S.Small);
+            gy += 40;
+            if (GUI.Button(new Rect(x, gy, w, 70), _ready ? "READY  (click to unready)" : "READY UP", _ready ? S.BigButton : S.Button))
+            {
+                _ready = !_ready;
+                _hint = "";
+                SendLoadout(_ready);
+            }
             GUI.enabled = true;
+        }
 
-            GUILayout.Space(8);
-            GUILayout.BeginHorizontal();
+        private static void DrawFooter(bool host, bool inLobby, Net.MatchStateBroadcast s)
+        {
+            GUI.DrawTexture(new Rect(0, S.DesignH - 130, S.DesignW, 130), S.Panel);
+            var mode = (MatchMode)s.Mode;
             if (host)
             {
                 GUI.enabled = inLobby;
-                if (GUILayout.Button("Start match")) Plugin.Host.Start();
+                float x = 40;
+                GUI.Label(new Rect(x, S.DesignH - 118, 100, 40), "MODE", S.Small);
+                foreach (var m in MatchModes.All)
+                {
+                    bool on = m == mode;
+                    if (GUI.Button(new Rect(x, S.DesignH - 84, 150, 54), MatchModes.Name(m), on ? S.ToggleButtonOn : S.ToggleButton) && !on) Plugin.Host.SetMode(m);
+                    x += 158;
+                }
+                x += 30;
+                string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
+                GUI.Label(new Rect(x, S.DesignH - 118, 300, 40), "MAP", S.Small);
+                if (GUI.Button(new Rect(x, S.DesignH - 84, 54, 54), "<", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex - 1);
+                GUI.Label(new Rect(x + 60, S.DesignH - 84, 200, 54), map.ToUpperInvariant(), S.H1Center);
+                if (GUI.Button(new Rect(x + 266, S.DesignH - 84, 54, 54), ">", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex + 1);
                 GUI.enabled = true;
-                if (GUILayout.Button("Quit ranked")) { Plugin.Host.Quit(); _ready = false; }
+
+                string why = "";
+                bool canStart = false;
+                if (!inLobby) why = "Match in progress";
+                else if (Plugin.Host.Machine != null) canStart = Plugin.Host.Machine.CanStart(out why);
+                GUI.Label(new Rect(S.DesignW - 760, S.DesignH - 118, 720, 30), canStart ? "Everyone is ready." : why, S.SmallRight);
+                GUI.enabled = canStart;
+                if (GUI.Button(new Rect(S.DesignW - 420, S.DesignH - 84, 380, 60), "START MATCH", S.BigButton)) Plugin.Host.Start();
+                GUI.enabled = true;
             }
-            if (GUILayout.Button("Close panel")) Close();
-            GUILayout.EndHorizontal();
-            GUI.DragWindow();
+            else
+            {
+                GUI.Label(new Rect(40, S.DesignH - 100, 1200, 40), inLobby ? (s.StatusText ?? "Waiting for the host to start the match.") : "Match in progress.", S.Body);
+            }
         }
 
-        private static void DrawPlayer(PlayerEntry p, bool canMove, bool ffa)
+        private static void Invite()
         {
-            string guns = p.Loadout == null || p.Loadout.Length == 0 ? "fists" :
-                string.Join(", ", p.Loadout.Select(b => LoadoutService.DisplayName(GameInfo.IDToItem(b))));
-            string you = p.Id == ModState.LocalOwnerId ? " (you)" : "";
-            string rank = RankService.Ladder.TierName(p.RankPoints);
-            string score = ffa ? $"{p.Kills} kills" : "";
-            GUILayout.BeginHorizontal();
-            GUILayout.Label($"  {p.Name}{you}  [{rank}]  {score}  {(p.HasMod ? "mod OK" : "NO MOD")}  {(p.Ready ? "READY" : "not ready")}  ({guns})");
-            if (canMove && GUILayout.Button("Move", GUILayout.Width(50))) Plugin.Host.MoveTeam(p.Id);
-            GUILayout.EndHorizontal();
+            try
+            {
+                if (SteamManager.CurrentLobbyID != CSteamID.Nil) SteamFriends.ActivateGameOverlayInviteDialog(SteamManager.CurrentLobbyID);
+                else _hint = "No Steam lobby to invite to";
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogWarning("Invite failed: " + e.Message);
+            }
         }
 
         private static void SendLoadout(bool ready)
