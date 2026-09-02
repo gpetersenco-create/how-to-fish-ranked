@@ -27,6 +27,7 @@ namespace HowToFish1v1.Net
         public string Name;
         public byte Team;
         public int Kills;
+        public int Deaths;
         public bool Ready;
         public bool HasMod;
         public int RankPoints;

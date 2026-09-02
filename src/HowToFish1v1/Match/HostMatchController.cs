@@ -227,7 +227,7 @@ namespace HowToFish1v1.Match
             uint endTick = tm.TickDelta > 0 ? (uint)System.Math.Max(0, System.Math.Round(s.PhaseEndsAt / tm.TickDelta)) : 0u;
             var entries = s.Players.Select(p => new PlayerEntry
             {
-                Id = p.Id, Name = p.Name ?? "", Team = (byte)p.Team, Kills = p.Kills, Ready = p.Ready, HasMod = p.HasMod,
+                Id = p.Id, Name = p.Name ?? "", Team = (byte)p.Team, Kills = p.Kills, Deaths = p.Deaths, Ready = p.Ready, HasMod = p.HasMod,
                 RankPoints = p.RankPoints, Loadout = p.Loadout
             }).ToArray();
             return new MatchStateBroadcast

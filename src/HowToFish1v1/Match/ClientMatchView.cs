@@ -105,7 +105,8 @@ namespace HowToFish1v1.Match
             if (me == null) return;
             bool ffa = MatchModes.IsFfa((MatchMode)s.Mode);
             bool won = ffa ? s.MatchWinnerId == me.Value.Id : s.MatchWinnerTeam == me.Value.Team;
-            RankService.ApplyResult(won, ffa);
+            string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
+            RankService.ApplyResult(won, ffa, me.Value.Kills, me.Value.Deaths, MatchModes.Name((MatchMode)s.Mode), map);
             // Tell the host our new points so the panel shows the fresh rank next round.
             LobbyPanel.ResendLoadout();
         }

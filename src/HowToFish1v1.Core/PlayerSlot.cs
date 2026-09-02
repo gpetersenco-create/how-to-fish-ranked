@@ -12,6 +12,7 @@ namespace HowToFish1v1.Core
         /// <summary>0 or 1 in team modes; ignored in free-for-all.</summary>
         public int Team;
         public int Kills;
+        public int Deaths;
         public bool DeadThisRound;
         public int RankPoints;
 

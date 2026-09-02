@@ -178,6 +178,19 @@ namespace HowToFish1v1.Tests
         }
 
         [Fact]
+        public void TeamModesCountKillsAndDeathsButNotTeamKills()
+        {
+            var m = Live(MatchMode.TwoVTwo, 4);   // teams: {1,3} vs {2,4}
+            m.Kill(1, 2, 5.0);
+            Assert.Equal(1, m.State.Slot(2).Kills);
+            Assert.Equal(1, m.State.Slot(1).Deaths);
+            m.Kill(3, 1, 5.5);                   // team kill: death counted, no credit
+            Assert.Equal(0, m.State.Slot(1).Kills);
+            Assert.Equal(1, m.State.Slot(3).Deaths);
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+        }
+
+        [Fact]
         public void TeammatesGetSpacedPadSlots()
         {
             var m = Live(MatchMode.ThreeVThree, 6);   // team 0: 1,3,5

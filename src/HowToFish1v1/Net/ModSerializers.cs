@@ -70,6 +70,7 @@ namespace HowToFish1v1.Net
                     w.WriteString(p.Name ?? "");
                     w.WriteUInt8Unpacked(p.Team);
                     w.WriteInt32(p.Kills);
+                    w.WriteInt32(p.Deaths);
                     w.WriteBoolean(p.Ready);
                     w.WriteBoolean(p.HasMod);
                     w.WriteInt32(p.RankPoints);
@@ -106,6 +107,7 @@ namespace HowToFish1v1.Net
                         Name = r.ReadStringAllocated() ?? "",
                         Team = r.ReadUInt8Unpacked(),
                         Kills = r.ReadInt32(),
+                        Deaths = r.ReadInt32(),
                         Ready = r.ReadBoolean(),
                         HasMod = r.ReadBoolean(),
                         RankPoints = r.ReadInt32(),

@@ -132,7 +132,7 @@ namespace HowToFish1v1.Core
             State.Round = 1;
             State.TeamScore[0] = 0;
             State.TeamScore[1] = 0;
-            foreach (var p in State.Players) p.Kills = 0;
+            foreach (var p in State.Players) { p.Kills = 0; p.Deaths = 0; }
             State.TeamAIsLeft = true;
             State.MatchWinnerTeam = -1;
             State.MatchWinnerId = -1;
@@ -197,14 +197,17 @@ namespace HowToFish1v1.Core
             var victim = State.Slot(victimId);
             if (victim == null || victim.DeadThisRound) return;
             victim.DeadThisRound = true;
+            victim.Deaths++;
             Dirty = true;
+
+            var killer = State.Slot(killerId);
+            bool credited = killer != null && killerId != victimId && (State.IsFfa || killer.Team != victim.Team);
+            if (credited) killer.Kills++;
 
             if (State.IsFfa)
             {
-                var killer = State.Slot(killerId);
-                if (killer != null && killerId != victimId)
+                if (credited)
                 {
-                    killer.Kills++;
                     State.StatusText = killer.Name + " killed " + victim.Name;
                     if (killer.Kills >= Rules.KillsToWin)
                     {
@@ -289,7 +292,7 @@ namespace HowToFish1v1.Core
             State.Phase = MatchPhase.Lobby;
             State.Round = 0;
             State.TeamScore[0] = 0; State.TeamScore[1] = 0;
-            foreach (var p in State.Players) { p.Ready = false; p.DeadThisRound = false; p.Kills = 0; }
+            foreach (var p in State.Players) { p.Ready = false; p.DeadThisRound = false; p.Kills = 0; p.Deaths = 0; }
             State.LastRoundWinnerTeam = -1;
             State.StatusText = status;
             Dirty = true;
