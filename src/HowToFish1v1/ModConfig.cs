@@ -11,6 +11,7 @@ namespace HowToFish1v1
         public ConfigEntry<float> DamageMultiplier;
         public ConfigEntry<int> MaxLoadoutGuns;
         public ConfigEntry<bool> SoloDebug;
+        public ConfigEntry<bool> AutoHostOffline;
 
         public ModConfig(ConfigFile file)
         {
@@ -20,6 +21,7 @@ namespace HowToFish1v1
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");
             MaxLoadoutGuns = file.Bind("Rules", "MaxLoadoutGuns", 2, "How many guns each player may pick.");
             SoloDebug = file.Bind("Debug", "SoloDebug", false, "Allow starting a match with only one player, for testing.");
+            AutoHostOffline = file.Bind("Debug", "AutoHostOffline", false, "Testing only: automatically host an offline session a few seconds after the main menu appears.");
         }
     }
 }
