@@ -8,7 +8,7 @@ namespace HowToFish1v1.Patches
     {
         private static bool Skip()
         {
-            if (!ModState.IsActive) return true;
+            if (!ModState.BlockSaves) return true;
             Plugin.Log.LogInfo("Save suppressed during 1v1");
             return false;
         }
@@ -16,6 +16,6 @@ namespace HowToFish1v1.Patches
         [HarmonyPatch(typeof(SaveSystem), "SaveServer")] [HarmonyPrefix] private static bool NoServerSave() => Skip();
         [HarmonyPatch(typeof(SaveSystem), "SaveLocal")] [HarmonyPrefix] private static bool NoLocalSave() => Skip();
         [HarmonyPatch(typeof(SaveSystem), "DeleteServer")] [HarmonyPrefix] private static bool NoDelete() => Skip();
-        [HarmonyPatch(typeof(SaveManager), "LoadWorldItems")] [HarmonyPrefix] private static bool NoWorldItems() => !ModState.IsActive;
+        [HarmonyPatch(typeof(SaveManager), "LoadWorldItems")] [HarmonyPrefix] private static bool NoWorldItems() => !ModState.BlockSaves;
     }
 }

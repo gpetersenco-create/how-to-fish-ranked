@@ -1,4 +1,5 @@
-﻿using HowToFish1v1.Core;
+using System.Linq;
+using HowToFish1v1.Core;
 using HowToFish1v1.Match;
 using TMPro;
 using UnityEngine;
@@ -26,12 +27,23 @@ namespace HowToFish1v1.UI
             _score.gameObject.SetActive(true);
             _banner.gameObject.SetActive(true);
 
-            var me = ClientMatchView.Me;
-            var them = ClientMatchView.Them;
-            string themName = them.Present ? them.Name : "---";
-            _score.text = $"YOU  {me.Score}  -  {them.Score}  {themName}";
-
             var s = ClientMatchView.Latest;
+            var me = ClientMatchView.Me;
+            if (ClientMatchView.IsFfa)
+            {
+                var leader = ClientMatchView.Players.OrderByDescending(p => p.Kills).FirstOrDefault();
+                int myKills = me?.Kills ?? 0;
+                _score.text = leader.Name == null ? "" : $"YOU {myKills} kills   |   leader {leader.Name} {leader.Kills}   |   first to {s.KillsToWin}";
+            }
+            else
+            {
+                int myTeam = me?.Team ?? 0;
+                int mine = myTeam == 0 ? s.TeamScoreA : s.TeamScoreB;
+                int theirs = myTeam == 0 ? s.TeamScoreB : s.TeamScoreA;
+                string them = ClientMatchView.TeamLabel(1 - myTeam);
+                _score.text = $"YOU  {mine}  -  {theirs}  {them}";
+            }
+
             double left = ClientMatchView.SecondsLeftInPhase;
             TrackLive();
             switch (ModState.Phase)
@@ -41,22 +53,24 @@ namespace HowToFish1v1.UI
                     break;
                 case MatchPhase.Countdown:
                     int n = (int)System.Math.Ceiling(left);
-                    _banner.text = n <= 0 ? "FIGHT" : $"Round {s.Round}\n{n}";
+                    _banner.text = n <= 0 ? "FIGHT" : (ClientMatchView.IsFfa ? $"{n}" : $"Round {s.Round}\n{n}");
                     break;
                 case MatchPhase.Live:
-                    _banner.text = (Time.unscaledTime - _liveAt < 1f) ? "FIGHT" : "";
+                    _banner.text = (Time.unscaledTime - _liveAt < 1f) ? "FIGHT" : (ClientMatchView.IsFfa && me != null && DeadNow() ? "Respawning..." : "");
                     break;
                 case MatchPhase.RoundEnd:
                     _banner.text = s.StatusText ?? "";
                     break;
                 case MatchPhase.MatchEnd:
-                    _banner.text = (s.StatusText ?? "") + "\n" + $"{s.AName} {s.AScore} - {s.BScore} {s.BName}";
+                    _banner.text = (s.StatusText ?? "") + "\n" + RankService.LastResultText;
                     break;
                 default:
                     _banner.text = "";
                     break;
             }
         }
+
+        private static bool DeadNow() => Player.LocalPlayer && Player.LocalPlayer.Dying.IsDead;
 
         /// <summary>Remembers when the phase became Live so the banner can flash FIGHT for one second.</summary>
         private static void TrackLive()
@@ -86,7 +100,7 @@ namespace HowToFish1v1.UI
             var rt = t.rectTransform;
             rt.anchorMin = anchor; rt.anchorMax = anchor; rt.pivot = new Vector2(0.5f, anchor.y);
             rt.anchoredPosition = offset;
-            rt.sizeDelta = new Vector2(900f, 200f);
+            rt.sizeDelta = new Vector2(1100f, 200f);
             t.alignment = TextAlignmentOptions.Center;
             t.fontSize = size;
             t.textWrappingMode = TextWrappingModes.Normal;

@@ -1,7 +1,23 @@
-# How to Fish: 1v1 Mode (BepInEx mod)
+# How to Fish: Ranked PvP (BepInEx mod)
 
-Round-based 1v1 PvP for *How to Fish*. One kill wins the round, first to 6 rounds wins the match, played on small
-symmetric arenas with spawn cover. Each player picks their own guns. Four maps: Rust, Nuketown, Shipment, Killhouse.
+Ranked PvP for *How to Fish*: 1v1, 2v2, 3v3, and free-for-all on small symmetric arenas with spawn cover, plus a
+local fishing-rank ladder. Each player picks their own guns. Four maps: Rust, Nuketown, Shipment, Killhouse.
+
+## Ranked (main menu)
+
+A **Ranked** button sits under Character on the main menu. It shows your rank card and lets the host pick a mode and
+map, then **Host Ranked** creates an invite-only Steam lobby (no save file is touched). Invite friends from the Steam
+overlay; when everyone is in the world the match panel opens by itself. **Solo practice** hosts an offline session.
+
+| Mode | Rules |
+|---|---|
+| 1v1, 2v2, 3v3 | Round-based. A round ends when a whole team is dead. First to 6 rounds. Teams auto-balance by join order; the host can move players. |
+| Free-for-all | 2 to 8 players. First to 10 kills. 3-second respawn at the spawn farthest from everyone else. |
+
+**Ranks** are stored per Steam account in `BepInEx\config\HowToFish1v1.ranks.json`. Win +20, loss -10 (free-for-all
+loss -5), never below 0, a new tier every 100 points:
+Master Baiter, Bottom Feeder, Small Fry, Chum Chucker, Reel Deal, Hook Line and Sinker, Big Fish, Apex Angler,
+Kraken, Poseidon. Names are editable in the config (`RankNames`).
 
 ## Install (both players)
 
@@ -31,8 +47,11 @@ and autosave are all paused inside the arena.
 | Key | Default | Meaning |
 |---|---|---|
 | `PanelKey` | F5 | Opens/closes the 1v1 panel |
-| `RoundsToWin` | 6 | Round wins needed to take the match |
+| `RoundsToWin` | 6 | Round wins needed to take a team-mode match |
+| `KillsToWin` | 10 | Kills needed to win a free-for-all |
 | `CountdownSeconds` | 3 | Freeze time before each round goes live |
+| `FfaRespawnSeconds` | 3 | Respawn delay in free-for-all |
+| `RankNames`, `PointsPerTier` | ten names / 100 | The rank ladder |
 | `DamageMultiplier` | 1.0 | Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25 between players) |
 | `MaxLoadoutGuns` | 2 | Guns per player |
 | `SoloDebug` | false | Allow starting with one player, for testing |

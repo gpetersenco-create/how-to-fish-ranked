@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -29,11 +29,12 @@ namespace HowToFish1v1
             Log = Logger;
             Cfg = new ModConfig(Config);
             ModNet.Init();
+            RankService.Init();
             _harmony = new Harmony(Guid);
             _harmony.PatchAll(typeof(Plugin).Assembly);
             ClientMatchView.Init(this);
             Host = new HostMatchController(this);
-            Log.LogInfo($"{Name} {Version} loaded. Panel key: {Cfg.PanelKey.Value}");
+            Log.LogInfo($"{Name} {Version} loaded. Panel key: {Cfg.PanelKey.Value}. Rank: {RankService.RankName} ({RankService.Points})");
         }
 
         private void Start()
@@ -43,17 +44,21 @@ namespace HowToFish1v1
 
         private void Update()
         {
-            if (Input.GetKeyDown(Cfg.PanelKey.Value)) LobbyPanel.Toggle();
+            if (Input.GetKeyDown(Cfg.PanelKey.Value) && !MainMenuManager.IsInMenu) LobbyPanel.Toggle();
             ModNet.Update();
+            RankedMenu.Update();
+            RankedMenu.ApplyPendingSetup();
             Host.Update();
             Hud.Update();
             AutoHostForTesting();
             DebugAutoTest.Update();
+            DebugMenuDump.Update();
         }
 
         private void OnGUI()
         {
             LobbyPanel.Draw();
+            RankedMenu.Draw();
         }
 
         private void AutoHostForTesting()

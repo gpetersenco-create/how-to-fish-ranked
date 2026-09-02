@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using HowToFish1v1.Core;
 using UnityEngine;
@@ -8,12 +9,14 @@ namespace HowToFish1v1.Arena
     public static class ArenaBuilder
     {
         private const string RootName = "HTF1v1_Arena";
+        private const float SpawnLift = 1.6f;
         private static GameObject _root;
         private static ArenaLayout _layout;
 
         public static bool IsBuilt => _root != null;
         public static int MapIndex { get; private set; } = -1;
         public static Vector3 Origin { get; private set; }
+        public static ArenaLayout Layout => _layout ?? ArenaLayout.Create();
 
         public static void Build(int mapIndex)
         {
@@ -51,10 +54,10 @@ namespace HowToFish1v1.Arena
             Island.IslandSize = Mathf.Max(_layout.HalfWidth, _layout.HalfDepth) + 10f;
             Island.IslandPos = Origin;
 
-            var left = Spawn(Side.Left);
+            var left = Spawn(Side.Left, 0, 1);
             SpawnManager.PlayerSpawnPos = left.pos;
             SpawnManager.PlayerSpawnRot = left.yaw;
-            ModState.SpawnLookup = side => Spawn(side);
+            ModState.SpawnLookup = (side, index, count) => Spawn(side, index, count);
             Plugin.Log.LogInfo($"Arena '{_layout.Name}' built at {Origin} on layer {layer} with {_layout.Boxes.Count} boxes");
         }
 
@@ -69,13 +72,22 @@ namespace HowToFish1v1.Arena
             Plugin.Log.LogInfo("Arena destroyed");
         }
 
-        public static (Vector3 pos, float yaw) Spawn(Side side)
+        /// <summary>World spawn for the index-th of count teammates on a side. Lifted so the capsule never overlaps the pad.</summary>
+        public static (Vector3 pos, float yaw) Spawn(Side side, int index, int count)
         {
-            var l = _layout ?? ArenaLayout.Create();
-            var s = side == Side.Left ? l.Left : l.Right;
-            // Layout spawns are feet positions; the player's rigidbody is teleported by its center, so lift it clear of the pad
-            // and let it drop. Overlapping the pad collider would fling the player with depenetration.
-            return (Origin + new Vector3(s.X, s.Y + 1.6f, s.Z), s.Yaw);
+            var s = Layout.TeamSpawn(side, index, count);
+            return (Origin + new Vector3(s.X, s.Y + SpawnLift, s.Z), s.Yaw);
+        }
+
+        public static (Vector3 pos, float yaw) Spawn(Side side) => Spawn(side, 0, 1);
+
+        /// <summary>World free-for-all spawns.</summary>
+        public static List<(Vector3 pos, float yaw)> FfaSpawns()
+        {
+            var list = new List<(Vector3, float)>();
+            foreach (var s in Layout.FfaSpawns)
+                list.Add((Origin + new Vector3(s.X, s.Y + SpawnLift, s.Z), s.Yaw));
+            return list;
         }
 
         /// <summary>

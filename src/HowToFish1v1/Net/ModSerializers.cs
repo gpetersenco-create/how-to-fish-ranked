@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using FishNet.Serializing;
 
 namespace HowToFish1v1.Net
@@ -23,11 +23,13 @@ namespace HowToFish1v1.Net
             {
                 w.WriteUInt8ArrayAndSize(v.ItemIds ?? Array.Empty<byte>());
                 w.WriteBoolean(v.Ready);
+                w.WriteInt32(v.RankPoints);
             });
             GenericReader<LoadoutBroadcast>.SetRead(r => new LoadoutBroadcast
             {
                 ItemIds = r.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
-                Ready = r.ReadBoolean()
+                Ready = r.ReadBoolean(),
+                RankPoints = r.ReadInt32()
             });
 
             GenericWriter<ArenaBroadcast>.SetWrite((w, v) =>
@@ -46,28 +48,71 @@ namespace HowToFish1v1.Net
             GenericWriter<MatchStateBroadcast>.SetWrite((w, v) =>
             {
                 w.WriteUInt8Unpacked(v.Phase);
+                w.WriteUInt8Unpacked(v.Mode);
                 w.WriteInt32(v.Round);
-                w.WriteInt32(v.AId); w.WriteString(v.AName ?? ""); w.WriteInt32(v.AScore); w.WriteBoolean(v.AReady); w.WriteBoolean(v.AHasMod); w.WriteUInt8ArrayAndSize(v.ALoadout ?? Array.Empty<byte>());
-                w.WriteInt32(v.BId); w.WriteString(v.BName ?? ""); w.WriteInt32(v.BScore); w.WriteBoolean(v.BReady); w.WriteBoolean(v.BHasMod); w.WriteUInt8ArrayAndSize(v.BLoadout ?? Array.Empty<byte>());
-                w.WriteBoolean(v.AIsLeft);
+                w.WriteInt32(v.MatchNumber);
+                w.WriteInt32(v.TeamScoreA);
+                w.WriteInt32(v.TeamScoreB);
+                w.WriteBoolean(v.TeamAIsLeft);
                 w.WriteUInt32(v.PhaseEndsAtTick);
-                w.WriteInt32(v.LastRoundWinnerId);
+                w.WriteInt32(v.LastRoundWinnerTeam);
+                w.WriteInt32(v.MatchWinnerTeam);
                 w.WriteInt32(v.MatchWinnerId);
                 w.WriteString(v.StatusText ?? "");
                 w.WriteUInt8Unpacked(v.MapIndex);
+                w.WriteInt32(v.KillsToWin);
+                w.WriteInt32(v.RoundsToWin);
+                var players = v.Players ?? Array.Empty<PlayerEntry>();
+                w.WriteUInt8Unpacked((byte)players.Length);
+                foreach (var p in players)
+                {
+                    w.WriteInt32(p.Id);
+                    w.WriteString(p.Name ?? "");
+                    w.WriteUInt8Unpacked(p.Team);
+                    w.WriteInt32(p.Kills);
+                    w.WriteBoolean(p.Ready);
+                    w.WriteBoolean(p.HasMod);
+                    w.WriteInt32(p.RankPoints);
+                    w.WriteUInt8ArrayAndSize(p.Loadout ?? Array.Empty<byte>());
+                }
             });
-            GenericReader<MatchStateBroadcast>.SetRead(r => new MatchStateBroadcast
+            GenericReader<MatchStateBroadcast>.SetRead(r =>
             {
-                Phase = r.ReadUInt8Unpacked(),
-                Round = r.ReadInt32(),
-                AId = r.ReadInt32(), AName = r.ReadStringAllocated() ?? "", AScore = r.ReadInt32(), AReady = r.ReadBoolean(), AHasMod = r.ReadBoolean(), ALoadout = r.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
-                BId = r.ReadInt32(), BName = r.ReadStringAllocated() ?? "", BScore = r.ReadInt32(), BReady = r.ReadBoolean(), BHasMod = r.ReadBoolean(), BLoadout = r.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
-                AIsLeft = r.ReadBoolean(),
-                PhaseEndsAtTick = r.ReadUInt32(),
-                LastRoundWinnerId = r.ReadInt32(),
-                MatchWinnerId = r.ReadInt32(),
-                StatusText = r.ReadStringAllocated() ?? "",
-                MapIndex = r.ReadUInt8Unpacked()
+                var s = new MatchStateBroadcast
+                {
+                    Phase = r.ReadUInt8Unpacked(),
+                    Mode = r.ReadUInt8Unpacked(),
+                    Round = r.ReadInt32(),
+                    MatchNumber = r.ReadInt32(),
+                    TeamScoreA = r.ReadInt32(),
+                    TeamScoreB = r.ReadInt32(),
+                    TeamAIsLeft = r.ReadBoolean(),
+                    PhaseEndsAtTick = r.ReadUInt32(),
+                    LastRoundWinnerTeam = r.ReadInt32(),
+                    MatchWinnerTeam = r.ReadInt32(),
+                    MatchWinnerId = r.ReadInt32(),
+                    StatusText = r.ReadStringAllocated() ?? "",
+                    MapIndex = r.ReadUInt8Unpacked(),
+                    KillsToWin = r.ReadInt32(),
+                    RoundsToWin = r.ReadInt32()
+                };
+                int n = r.ReadUInt8Unpacked();
+                s.Players = new PlayerEntry[n];
+                for (int i = 0; i < n; i++)
+                {
+                    s.Players[i] = new PlayerEntry
+                    {
+                        Id = r.ReadInt32(),
+                        Name = r.ReadStringAllocated() ?? "",
+                        Team = r.ReadUInt8Unpacked(),
+                        Kills = r.ReadInt32(),
+                        Ready = r.ReadBoolean(),
+                        HasMod = r.ReadBoolean(),
+                        RankPoints = r.ReadInt32(),
+                        Loadout = r.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>()
+                    };
+                }
+                return s;
             });
         }
     }

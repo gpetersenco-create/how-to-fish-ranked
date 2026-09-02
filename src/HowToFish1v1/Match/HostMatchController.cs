@@ -6,6 +6,7 @@ using FishNet.Connection;
 using HowToFish1v1.Arena;
 using HowToFish1v1.Core;
 using HowToFish1v1.Net;
+using HowToFish1v1.Patches;
 using UnityEngine;
 
 namespace HowToFish1v1.Match
@@ -32,7 +33,9 @@ namespace HowToFish1v1.Match
         private MatchRules RulesFromConfig() => new MatchRules
         {
             RoundsToWin = Mathf.Max(1, Plugin.Cfg.RoundsToWin.Value),
+            KillsToWin = Mathf.Max(1, Plugin.Cfg.KillsToWin.Value),
             CountdownSeconds = Mathf.Max(0f, Plugin.Cfg.CountdownSeconds.Value),
+            FfaRespawnSeconds = Mathf.Max(0f, Plugin.Cfg.FfaRespawnSeconds.Value),
             MaxLoadoutGuns = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value),
             SoloDebug = Plugin.Cfg.SoloDebug.Value
         };
@@ -49,31 +52,16 @@ namespace HowToFish1v1.Match
             Flush();
         }
 
-        public void Start()
-        {
-            if (Machine == null) return;
-            Machine.Start(Now);
-            Flush();
-        }
+        public void Start() { if (Machine != null) { Machine.Start(Now); Flush(); } }
+        public void Quit() { if (Machine != null) { Machine.Quit(); Flush(); } }
+        public void SetMap(int mapIndex) { if (Machine != null) { Machine.SetMap(mapIndex); Flush(); } }
+        public void SetMode(MatchMode mode) { if (Machine != null) { Machine.SetMode(mode); Flush(); } }
+        public void MoveTeam(int ownerId) { if (Machine != null) { Machine.MoveTeam(ownerId); Flush(); } }
 
-        public void Quit()
-        {
-            if (Machine == null) return;
-            Machine.Quit();
-            Flush();
-        }
-
-        public void SetMap(int mapIndex)
-        {
-            if (Machine == null) return;
-            Machine.SetMap(mapIndex);
-            Flush();
-        }
-
-        public void SetLocalLoadout(byte[] ids, bool ready)
+        public void SetLocalLoadout(byte[] ids, bool ready, int rankPoints)
         {
             if (Machine == null || Player.LocalPlayer == null) return;
-            Machine.SetLoadout(Player.LocalPlayer.OwnerId, ids, ready);
+            Machine.SetLoadout(Player.LocalPlayer.OwnerId, ids, ready, rankPoints);
             Flush();
         }
 
@@ -85,8 +73,8 @@ namespace HowToFish1v1.Match
             // Joins / leaves
             var present = new HashSet<int>(PlayerManager.Players.Select(p => p.OwnerId));
             foreach (var p in PlayerManager.Players) Machine.PlayerJoined(p.OwnerId, p.SteamName);
-            foreach (var slot in new[] { Machine.State.A, Machine.State.B })
-                if (slot.IsPresent && !present.Contains(slot.Id)) Machine.PlayerLeft(slot.Id);
+            foreach (var slot in Machine.State.Players.ToList())
+                if (!present.Contains(slot.Id)) Machine.PlayerLeft(slot.Id);
 
             Machine.Tick(Now);
             Flush();
@@ -101,14 +89,15 @@ namespace HowToFish1v1.Match
         private void OnLoadout(NetworkConnection conn, LoadoutBroadcast msg)
         {
             if (Machine == null) return;
-            Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready);
+            Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready, msg.RankPoints);
             Flush();
         }
 
         private void OnKill(Player victim)
         {
             if (Machine == null || !ModNet.IsHost) return;
-            Machine.Kill(victim.OwnerId, Now);
+            int killer = KillAttribution.Take(victim.OwnerId);
+            Machine.Kill(victim.OwnerId, killer, Now);
             Flush();
         }
 
@@ -116,7 +105,7 @@ namespace HowToFish1v1.Match
         {
             foreach (var e in Machine.Effects)
             {
-                switch (e)
+                switch (e.Kind)
                 {
                     case EffectKind.BuildArena:
                         if (!ArenaBuilder.IsBuilt) _returnIsland = OnlineIslandManager.CurIsland;
@@ -128,7 +117,11 @@ namespace HowToFish1v1.Match
                         ModNet.BroadcastArena(new ArenaBroadcast { Build = false, ReturnIsland = _returnIsland });
                         break;
                     case EffectKind.ResetPlayers:
+                        KillAttribution.Clear();
                         _runner.StartCoroutine(ResetPlayersRoutine());
+                        break;
+                    case EffectKind.RespawnPlayer:
+                        _runner.StartCoroutine(FfaRespawnRoutine(e.PlayerId));
                         break;
                 }
             }
@@ -136,7 +129,7 @@ namespace HowToFish1v1.Match
             if (Machine.Dirty)
             {
                 Machine.Dirty = false;
-                ModNet.BroadcastState(ToBroadcast(Machine.State));
+                ModNet.BroadcastState(ToBroadcast(Machine.State, Machine.Rules));
             }
         }
 
@@ -149,14 +142,24 @@ namespace HowToFish1v1.Match
             if (!ArenaBuilder.IsBuilt) { Plugin.Log.LogError("Arena never built; aborting reset"); _resetRunning = false; yield break; }
 
             var state = Machine.State;
+            var ffaSpawns = ArenaBuilder.FfaSpawns();
             var players = new List<(Player player, Vector3 pos, float yaw, byte[] loadout)>();
-            foreach (var slot in new[] { state.A, state.B })
+            for (int i = 0; i < state.Players.Count; i++)
             {
-                if (!slot.IsPresent) continue;
+                var slot = state.Players[i];
                 var player = PlayerManager.Players.FirstOrDefault(p => p.OwnerId == slot.Id);
                 if (!player) continue;
-                var (pos, yaw) = ArenaBuilder.Spawn(state.SideFor(slot.Id));
-                players.Add((player, pos, yaw, slot.Loadout));
+                (Vector3 pos, float yaw) spawn;
+                if (state.IsFfa)
+                {
+                    spawn = ffaSpawns[i % ffaSpawns.Count];
+                }
+                else
+                {
+                    var (index, count) = state.TeamSlot(slot.Id);
+                    spawn = ArenaBuilder.Spawn(state.SideFor(slot.Id), index, count);
+                }
+                players.Add((player, spawn.pos, spawn.yaw, slot.Loadout));
             }
 
             // Move everyone to their pads immediately so nobody is standing on an island that is about to unload.
@@ -179,6 +182,31 @@ namespace HowToFish1v1.Match
             _resetRunning = false;
         }
 
+        /// <summary>Free-for-all: after the delay, revive at the spawn farthest from everyone else and hand out the loadout again.</summary>
+        private IEnumerator FfaRespawnRoutine(int ownerId)
+        {
+            yield return new WaitForSeconds((float)Machine.Rules.FfaRespawnSeconds);
+            if (!IsOpen || !Machine.State.IsFfa || Machine.State.Phase != MatchPhase.Live) yield break;
+            var slot = Machine.State.Slot(ownerId);
+            var player = PlayerManager.Players.FirstOrDefault(p => p.OwnerId == ownerId);
+            if (slot == null || !player) yield break;
+
+            var others = PlayerManager.Players.Where(p => p && p.OwnerId != ownerId && !p.Dying.IsDead).Select(p => p.Transform.position).ToList();
+            var best = ArenaBuilder.FfaSpawns()
+                .OrderByDescending(s => others.Count == 0 ? 0f : others.Min(o => Vector3.Distance(o, s.pos)))
+                .First();
+
+            LoadoutService.ServerClearItems(player);
+            ReviveInPlace(player);
+            Server.Instance.TeleportPlayer(player, best.pos, best.yaw);
+            yield return new WaitForSeconds(0.3f);
+            if (!player) yield break;
+            Server.Instance.TeleportPlayer(player, best.pos, best.yaw);
+            LoadoutService.ServerGive(player, slot.Loadout, best.pos);
+            Machine.PlayerRespawned(ownerId);
+            Flush();
+        }
+
         /// <summary>Server only. Full health and fullness, no poison or fire, ragdoll removed. The game's own reset leaves fire burning.</summary>
         private static void ReviveInPlace(Player player)
         {
@@ -193,18 +221,22 @@ namespace HowToFish1v1.Match
             player.Vitals._syncedPoison.Value = 0;
         }
 
-        private static MatchStateBroadcast ToBroadcast(MatchState s)
+        private static MatchStateBroadcast ToBroadcast(MatchState s, MatchRules rules)
         {
             var tm = InstanceFinder.TimeManager;
             uint endTick = tm.TickDelta > 0 ? (uint)System.Math.Max(0, System.Math.Round(s.PhaseEndsAt / tm.TickDelta)) : 0u;
+            var entries = s.Players.Select(p => new PlayerEntry
+            {
+                Id = p.Id, Name = p.Name ?? "", Team = (byte)p.Team, Kills = p.Kills, Ready = p.Ready, HasMod = p.HasMod,
+                RankPoints = p.RankPoints, Loadout = p.Loadout
+            }).ToArray();
             return new MatchStateBroadcast
             {
-                Phase = (byte)s.Phase, Round = s.Round,
-                AId = s.A.Id, AName = s.A.Name, AScore = s.A.Score, AReady = s.A.Ready, AHasMod = s.A.HasMod, ALoadout = s.A.Loadout,
-                BId = s.B.Id, BName = s.B.Name, BScore = s.B.Score, BReady = s.B.Ready, BHasMod = s.B.HasMod, BLoadout = s.B.Loadout,
-                AIsLeft = s.AIsLeft, PhaseEndsAtTick = endTick,
-                LastRoundWinnerId = s.LastRoundWinnerId, MatchWinnerId = s.MatchWinnerId, StatusText = s.StatusText ?? "",
-                MapIndex = (byte)s.MapIndex
+                Phase = (byte)s.Phase, Mode = (byte)s.Mode, Round = s.Round, MatchNumber = s.MatchNumber,
+                TeamScoreA = s.TeamScore[0], TeamScoreB = s.TeamScore[1], TeamAIsLeft = s.TeamAIsLeft,
+                PhaseEndsAtTick = endTick, LastRoundWinnerTeam = s.LastRoundWinnerTeam,
+                MatchWinnerTeam = s.MatchWinnerTeam, MatchWinnerId = s.MatchWinnerId, StatusText = s.StatusText ?? "",
+                MapIndex = (byte)s.MapIndex, KillsToWin = rules.KillsToWin, RoundsToWin = rules.RoundsToWin, Players = entries
             };
         }
     }
