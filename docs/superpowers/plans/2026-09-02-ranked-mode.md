@@ -28,7 +28,7 @@ tests `MatchMachineTests.cs`, `RankLadderTests.cs`, `ArenaLayoutTests.cs` (FFA s
   pad slot spacing, FFA kill/respawn/suicide/kills-to-win/leave rules, rank ladder tiers and deltas, FFA spawn spread.
 - [x] Implementation: `MatchMachine.Kill(victim, killer, now)`, `MoveTeam`, `SetMode`, `PlayerRespawned`,
   `Effect{Kind, PlayerId}`, `RankLadder`, `ArenaLayout.TeamSpawn/FfaSpawns/YawToCenter`.
-- [ ] `dotnet test` green. Commit `feat(core): modes, teams, free-for-all, rank ladder`.
+- [x] `dotnet test` green. Commit `feat(core): modes, teams, free-for-all, rank ladder`.
 
 ### Task 2: Plugin: state, network, host, client, UI
 
@@ -37,13 +37,13 @@ tests `MatchMachineTests.cs`, `RankLadderTests.cs`, `ArenaLayoutTests.cs` (FFA s
 `Patches/{KillAttribution,SavePatches}.cs`, `UI/{LobbyPanel,Hud,RankedMenu}.cs`, `Plugin.cs`, `DebugAutoTest.cs`, csproj.
 
 - [x] Written as described in the spec section 3.
-- [ ] `dotnet build` clean.
-- [ ] Scripted solo run, mode 0 (1v1) and mode 3 (FFA): log shows arena, spawns on pads, self-kill handled
+- [x] `dotnet build` clean.
+- [x] Scripted solo run, mode 0 (1v1) and mode 3 (FFA): log shows arena, spawns on pads, self-kill handled
   (round reset in 1v1, respawn at a far spawn in FFA), rank applied at match end is not expected in the solo run
   (no match end); Quit returns to island.
-- [ ] Menu run: log shows `Ranked button added to the main menu`; no exceptions.
-- [ ] Commit `feat: ranked menu, team and free-for-all modes, rank ladder`.
+- [x] Menu run: log shows `Ranked button added to the main menu`; no exceptions.
+- [x] Commit `feat: ranked menu, team and free-for-all modes, rank ladder`.
 
 ### Task 3: Docs
 
-- [ ] README: Ranked section (menu, modes, ranks, config keys). Commit `docs: ranked mode`.
+- [x] README: Ranked section (menu, modes, ranks, config keys). Commit `docs: ranked mode`.
