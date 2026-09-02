@@ -258,7 +258,26 @@ BepInEx assemblies are referenced from the extracted `BepInEx\core` folder.
   kill leads to round win and reset on the correct pads with side swap, match to 6, rematch,
   disconnect handling, real save untouched afterwards.
 
-## 14. Out of scope
+## 14. Implementation notes (added after in-game verification)
+
+- **Maps.** The user asked for spawn cover and several maps mid-implementation. `ArenaLayout.Create(mapIndex)` now
+  offers Rust, Nuketown, Shipment, and Killhouse. Every map has a shield wall or building in front of each pad, and a
+  unit test proves no straight line exists between any two points on the two pads. The host picks the map in the panel;
+  the index travels in `ArenaBroadcast` and `MatchStateBroadcast`, and changing the map after a match rebuilds the arena.
+- **Arena height.** The game's drowning check uses the wave-adjusted water height, so the floor sits at
+  mean water + crest amplitude (read from the water material) + 4 m.
+- **Vitals reset.** `ServerResetVitals` restores the prefab's serialized 50 hp / 25 fullness, so the mod writes
+  100 to both SyncVars afterwards and clears fire and poison.
+- **Teleports.** `Player.RPCTeleport` is patched to the instant path while the mode is active and during the island
+  return; the deferred `MovePosition` path lost the race against island unloads. The arena is built before the island
+  unloads and destroyed only after the island has reloaded.
+- **Spawn clearance.** Players are teleported 1.6 m above the pad and guns are instantiated above the head; overlapping
+  colliders had been flinging players across the map.
+- **Countdown deaths** now end the round, so nobody enters the next round dead.
+- **Scripted verification.** Debug config flags `AutoHostOffline` and `AutoSoloMatch` run a full solo match from the
+  main menu and log every step, which is how all four maps were verified without a second player.
+
+## 15. Out of scope
 
 Attachment upgrades on loadout guns, more than two players, more than one map,
 ranked stats, spectating, custom models/textures, Steam Workshop packaging.
