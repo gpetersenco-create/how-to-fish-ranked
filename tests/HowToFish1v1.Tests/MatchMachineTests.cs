@@ -136,13 +136,24 @@ namespace HowToFish1v1.Tests
         }
 
         [Fact]
-        public void KillDuringCountdownIsIgnored()
+        public void KillDuringCountdownEndsTheRound()
         {
             var m = ReadyLobby();
             m.Start(0);
             m.Kill(1, 1.0);
-            Assert.Equal(MatchPhase.Countdown, m.State.Phase);
-            Assert.Equal(0, m.State.B.Score);
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+            Assert.Equal(1, m.State.B.Score);
+        }
+
+        [Fact]
+        public void KillDuringRoundEndIsIgnored()
+        {
+            var m = LiveRound();
+            m.Kill(1, 5.0);
+            m.Kill(2, 5.5);
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+            Assert.Equal(1, m.State.B.Score);
+            Assert.Equal(0, m.State.A.Score);
         }
 
         [Fact]
@@ -216,6 +227,36 @@ namespace HowToFish1v1.Tests
             m.Start(20);
             Assert.Equal(MatchPhase.Countdown, m.State.Phase);
             Assert.Equal(new[] { EffectKind.ResetPlayers }, m.Effects);
+        }
+
+        [Fact]
+        public void SetMapOnlyInLobbyAndWraps()
+        {
+            var m = ReadyLobby();
+            m.SetMap(2);
+            Assert.Equal(2, m.State.MapIndex);
+            m.SetMap(-1);
+            Assert.Equal(ArenaLayout.MapCount - 1, m.State.MapIndex);
+            m.SetMap(0);
+            m.Start(0);
+            m.SetMap(3);
+            Assert.Equal(0, m.State.MapIndex);
+        }
+
+        [Fact]
+        public void ChangingMapAfterAMatchRebuildsArena()
+        {
+            var m = LiveRound(new MatchRules { RoundsToWin = 1 });
+            m.Kill(2, 5); m.Tick(7); m.Tick(12);
+            Assert.Equal(MatchPhase.Lobby, m.State.Phase);
+            Assert.Equal(0, m.State.BuiltMapIndex);
+            m.SetMap(1);
+            m.SetLoadout(1, m.State.A.Loadout, true);
+            m.SetLoadout(2, m.State.B.Loadout, true);
+            m.Effects.Clear();
+            m.Start(20);
+            Assert.Equal(new[] { EffectKind.BuildArena, EffectKind.ResetPlayers }, m.Effects);
+            Assert.Equal(1, m.State.BuiltMapIndex);
         }
 
         [Fact]

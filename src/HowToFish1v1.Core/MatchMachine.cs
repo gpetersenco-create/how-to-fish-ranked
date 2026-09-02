@@ -60,6 +60,15 @@ namespace HowToFish1v1.Core
             Dirty = true;
         }
 
+        /// <summary>Host picks the map; only allowed in the lobby. Wraps into the valid range.</summary>
+        public void SetMap(int mapIndex)
+        {
+            if (State.Phase != MatchPhase.Lobby) return;
+            int n = ArenaLayout.MapCount;
+            State.MapIndex = ((mapIndex % n) + n) % n;
+            Dirty = true;
+        }
+
         public bool CanStart(out string reason)
         {
             reason = "";
@@ -87,10 +96,11 @@ namespace HowToFish1v1.Core
                 Dirty = true;
                 return;
             }
-            if (!State.ArenaBuilt)
+            if (!State.ArenaBuilt || State.BuiltMapIndex != State.MapIndex)
             {
                 Effects.Add(EffectKind.BuildArena);
                 State.ArenaBuilt = true;
+                State.BuiltMapIndex = State.MapIndex;
             }
             State.Round = 1;
             State.A.Score = 0;
@@ -149,9 +159,10 @@ namespace HowToFish1v1.Core
             }
         }
 
+        /// <summary>A death during Live or Countdown ends the round for the victim, so nobody is left dead when the next round starts.</summary>
         public void Kill(int victimId, double now)
         {
-            if (State.Phase != MatchPhase.Live) return;
+            if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return;
             var victim = State.Slot(victimId);
             if (victim == null || victim.DeadThisRound) return;
             victim.DeadThisRound = true;
@@ -187,6 +198,7 @@ namespace HowToFish1v1.Core
             if (State.Phase == MatchPhase.Inactive) return;
             if (State.ArenaBuilt) Effects.Add(EffectKind.DestroyArena);
             State.ArenaBuilt = false;
+            State.BuiltMapIndex = -1;
             State.Phase = MatchPhase.Inactive;
             State.Round = 0;
             State.A.Clear();

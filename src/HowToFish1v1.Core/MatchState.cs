@@ -12,6 +12,10 @@ namespace HowToFish1v1.Core
         public int MatchWinnerId = -1;
         public string StatusText = "";
         public bool ArenaBuilt;
+        /// <summary>Map chosen by the host for the next match.</summary>
+        public int MapIndex;
+        /// <summary>Map the currently built arena uses, or -1 when no arena exists.</summary>
+        public int BuiltMapIndex = -1;
 
         public int PresentCount => (A.IsPresent ? 1 : 0) + (B.IsPresent ? 1 : 0);
 
