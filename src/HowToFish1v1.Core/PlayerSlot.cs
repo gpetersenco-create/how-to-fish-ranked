@@ -9,15 +9,12 @@ namespace HowToFish1v1.Core
         public byte[] Loadout = Array.Empty<byte>();
         public bool Ready;
         public bool HasMod;
-        public int Score;
+        /// <summary>0 or 1 in team modes; ignored in free-for-all.</summary>
+        public int Team;
+        public int Kills;
         public bool DeadThisRound;
+        public int RankPoints;
 
         public bool IsPresent => Id != -1;
-
-        public void Clear()
-        {
-            Id = -1; Name = ""; Loadout = Array.Empty<byte>();
-            Ready = false; HasMod = false; Score = 0; DeadThisRound = false;
-        }
     }
 }

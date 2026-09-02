@@ -98,6 +98,32 @@ namespace HowToFish1v1.Tests
         }
 
         [Theory, MemberData(nameof(Maps))]
+        public void FfaSpawnsAreSixSpreadPointsInsideTheArenaFacingCenter(int map)
+        {
+            var l = ArenaLayout.Create(map);
+            Assert.Equal(6, l.FfaSpawns.Count);
+            for (int i = 0; i < l.FfaSpawns.Count; i++)
+            {
+                var s = l.FfaSpawns[i];
+                Assert.True(Math.Abs(s.X) < l.HalfWidth - 1 && Math.Abs(s.Z) < l.HalfDepth - 1, $"{l.Name}: FFA spawn {i} outside");
+                for (int j = 0; j < i; j++)
+                {
+                    var o = l.FfaSpawns[j];
+                    float d = (float)Math.Sqrt((s.X - o.X) * (s.X - o.X) + (s.Z - o.Z) * (s.Z - o.Z));
+                    Assert.True(d >= 8f, $"{l.Name}: FFA spawns {i} and {j} too close ({d:0.0} m)");
+                }
+                // Not standing inside a visible box
+                foreach (var b in l.Boxes.Where(b => b.Kind != BoxKind.Invisible && b.Name != "Floor" && !b.Name.StartsWith("SpawnPad")))
+                {
+                    bool inside = Math.Abs(s.X - b.X) < b.SX / 2 && Math.Abs(s.Z - b.Z) < b.SZ / 2 && b.Y - b.SY / 2 < 1.5f && b.Y + b.SY / 2 > 0.2f;
+                    Assert.False(inside, $"{l.Name}: FFA spawn {i} is inside {b.Name}");
+                }
+            }
+            Assert.True(Near(ArenaLayout.YawToCenter(-5f, 0f), 90f), "left of center should face +X (yaw 90)");
+            Assert.True(Near(Math.Abs(ArenaLayout.YawToCenter(0f, 5f)), 180f), "in front of center should face -Z (yaw 180)");
+        }
+
+        [Theory, MemberData(nameof(Maps))]
         public void NoLineOfSightBetweenSpawnPads(int map)
         {
             // From anywhere on one pad at head height to anywhere on the other pad (and crouch height), something must be in the way.

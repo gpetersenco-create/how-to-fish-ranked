@@ -40,8 +40,28 @@ namespace HowToFish1v1.Core
         public IReadOnlyList<ArenaBox> Boxes => _boxes;
         public ArenaSpawn Left { get; private set; }
         public ArenaSpawn Right { get; private set; }
+        /// <summary>Free-for-all spawns: the two pads plus four spread points, all facing the map center.</summary>
+        public IReadOnlyList<ArenaSpawn> FfaSpawns => _ffa;
 
         private readonly List<ArenaBox> _boxes = new List<ArenaBox>();
+        private readonly List<ArenaSpawn> _ffa = new List<ArenaSpawn>();
+
+        /// <summary>Pad position for the index-th of count teammates: spaced 2 m apart along Z on the same pad.</summary>
+        public ArenaSpawn TeamSpawn(Side side, int index, int count)
+        {
+            var pad = side == Side.Left ? Left : Right;
+            float spacing = 2f;
+            float z = pad.Z + (index - (count - 1) / 2f) * spacing;
+            return new ArenaSpawn { X = pad.X, Y = pad.Y, Z = z, Yaw = pad.Yaw };
+        }
+
+        /// <summary>Yaw (degrees) that looks from (x, z) toward the origin.</summary>
+        public static float YawToCenter(float x, float z) => (float)(Math.Atan2(-x, -z) * 180.0 / Math.PI);
+
+        private void FfaPoint(float x, float z)
+        {
+            _ffa.Add(new ArenaSpawn { X = x, Y = 0.4f, Z = z, Yaw = YawToCenter(x, z) });
+        }
 
         /// <summary>Builds the map with the given index (wraps around), so any byte from the network is safe.</summary>
         public static ArenaLayout Create(int mapIndex = 0)
@@ -99,6 +119,7 @@ namespace HowToFish1v1.Core
                     l.Add("Stairs", 14f * sx, 1f, 12.5f * s, 4.47f, 0.3f, 3, BoxKind.Concrete, rotZ: -Ramp2over4 * sx);
             }
             l.Perimeter();
+            l.FfaPoints(13f, 9f);
             return l;
         }
 
@@ -125,6 +146,7 @@ namespace HowToFish1v1.Core
             l.Add("Crate", 4f, 0.5f, -12f, 1, 1, 1, BoxKind.Wood);
             l.Add("Crate", -4f, 0.5f, 12f, 1, 1, 1, BoxKind.Wood);
             l.Perimeter();
+            l.FfaPoints(14f, 9f);
             return l;
         }
 
@@ -190,6 +212,7 @@ namespace HowToFish1v1.Core
             l.Add("Crate", 0, 0.6f, 9f, 1.2f, 1.2f, 1.2f, BoxKind.Wood);
             l.Add("Crate", 0, 0.6f, -9f, 1.2f, 1.2f, 1.2f, BoxKind.Wood);
             l.Perimeter();
+            l.FfaPoints(5f, 9f);
             return l;
         }
 
@@ -217,7 +240,20 @@ namespace HowToFish1v1.Core
             l.Add("Core", 0, 1.5f, 8f, 2, 3, 2, BoxKind.Concrete);
             l.Add("Core", 0, 1.5f, -8f, 2, 3, 2, BoxKind.Concrete);
             l.Perimeter();
+            l.FfaPoints(5f, 9f);
             return l;
+        }
+
+        /// <summary>The two pads plus the four (+/-x, +/-z) quadrant points.</summary>
+        private void FfaPoints(float x, float z)
+        {
+            _ffa.Clear();
+            _ffa.Add(Left);
+            _ffa.Add(Right);
+            FfaPoint(-x, -z);
+            FfaPoint(x, z);
+            FfaPoint(-x, z);
+            FfaPoint(x, -z);
         }
 
         // ------------------------------------------------------------------ shared pieces

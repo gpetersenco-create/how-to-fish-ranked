@@ -6,315 +6,337 @@ namespace HowToFish1v1.Tests
 {
     public class MatchMachineTests
     {
-        private static MatchMachine ReadyLobby(MatchRules rules = null)
+        private static MatchMachine Lobby(MatchMode mode, int players, MatchRules rules = null)
         {
             var m = new MatchMachine(rules ?? new MatchRules());
             m.Open();
-            m.PlayerJoined(1, "Gavin");
-            m.PlayerJoined(2, "Friend");
-            m.PlayerSaidHello(1, true);
-            m.PlayerSaidHello(2, true);
-            m.SetLoadout(1, new byte[] { 10 }, true);
-            m.SetLoadout(2, new byte[] { 11, 12 }, true);
+            m.SetMode(mode);
+            for (int i = 1; i <= players; i++)
+            {
+                m.PlayerJoined(i, "P" + i);
+                m.PlayerSaidHello(i, true);
+                m.SetLoadout(i, new byte[] { (byte)(10 + i) }, true);
+            }
             m.Effects.Clear();
             m.Dirty = false;
             return m;
         }
 
-        private static MatchMachine LiveRound(MatchRules rules = null)
+        private static MatchMachine Live(MatchMode mode, int players, MatchRules rules = null)
         {
-            var m = ReadyLobby(rules);
+            var m = Lobby(mode, players, rules);
             m.Start(0);
             m.Tick(3.0);
             m.Effects.Clear();
             return m;
         }
 
+        private static EffectKind[] Kinds(MatchMachine m) => m.Effects.Select(e => e.Kind).ToArray();
+
+        // ------------------------------------------------------------ lobby
+
         [Fact]
-        public void NewMachineIsInactive()
+        public void NewMachineIsInactive_OpenGoesToLobby()
         {
             var m = new MatchMachine(new MatchRules());
             Assert.Equal(MatchPhase.Inactive, m.State.Phase);
-        }
-
-        [Fact]
-        public void OpenMovesToLobbyAndMarksDirty()
-        {
-            var m = new MatchMachine(new MatchRules());
             m.Open();
             Assert.Equal(MatchPhase.Lobby, m.State.Phase);
             Assert.True(m.Dirty);
         }
 
         [Fact]
-        public void PlayersFillSlotAThenB_ThirdIgnored()
+        public void PlayersAlternateTeamsAndCapAtEight()
         {
             var m = new MatchMachine(new MatchRules());
             m.Open();
-            m.PlayerJoined(5, "A");
-            m.PlayerJoined(6, "B");
-            m.PlayerJoined(7, "C");
-            Assert.Equal(5, m.State.A.Id);
-            Assert.Equal(6, m.State.B.Id);
-            Assert.Equal(2, m.State.PresentCount);
+            for (int i = 1; i <= 10; i++) m.PlayerJoined(i, "P" + i);
+            Assert.Equal(8, m.State.PresentCount);
+            Assert.Equal(4, m.State.TeamCount(0));
+            Assert.Equal(4, m.State.TeamCount(1));
+            Assert.Equal(0, m.State.TeamOf(1));
+            Assert.Equal(1, m.State.TeamOf(2));
         }
 
         [Fact]
-        public void CannotStartUntilBothReadyWithMod()
+        public void CanStartChecksCountsTeamsModAndReady()
         {
             var m = new MatchMachine(new MatchRules());
             m.Open();
-            m.PlayerJoined(1, "A");
+            m.SetMode(MatchMode.TwoVTwo);
+            m.PlayerJoined(1, "A"); m.PlayerJoined(2, "B");
             Assert.False(m.CanStart(out var r1));
-            Assert.Contains("two players", r1);
-            m.PlayerJoined(2, "B");
+            Assert.Contains("needs 4", r1);
+            m.PlayerJoined(3, "C"); m.PlayerJoined(4, "D");
+            m.MoveTeam(3);   // now 3 vs 1
             Assert.False(m.CanStart(out var r2));
-            Assert.Contains("mod", r2);
-            m.PlayerSaidHello(1, true);
-            m.PlayerSaidHello(2, true);
+            Assert.Contains("uneven", r2);
+            m.MoveTeam(3);
             Assert.False(m.CanStart(out var r3));
-            Assert.Contains("ready", r3);
-            m.SetLoadout(1, new byte[0], true);
-            m.SetLoadout(2, new byte[0], true);
+            Assert.Contains("mod", r3);
+            foreach (int i in new[] { 1, 2, 3, 4 }) m.PlayerSaidHello(i, true);
+            Assert.False(m.CanStart(out var r4));
+            Assert.Contains("ready", r4);
+            foreach (int i in new[] { 1, 2, 3, 4 }) m.SetLoadout(i, new byte[0], true);
             Assert.True(m.CanStart(out _));
+        }
+
+        [Fact]
+        public void OneVOneRejectsThirdPlayer_FfaAllowsUpToEight()
+        {
+            var m = Lobby(MatchMode.OneVOne, 3);
+            Assert.False(m.CanStart(out var r));
+            Assert.Contains("at most 2", r);
+            var f = Lobby(MatchMode.FreeForAll, 8);
+            Assert.True(f.CanStart(out _));
+        }
+
+        [Fact]
+        public void SetModeOnlyInLobbyAndRebalances()
+        {
+            var m = Lobby(MatchMode.OneVOne, 2);
+            m.MoveTeam(2);                       // both on team 0
+            m.SetMode(MatchMode.TwoVTwo);        // rebalance
+            Assert.Equal(1, m.State.TeamCount(0));
+            Assert.Equal(1, m.State.TeamCount(1));
+            m.SetMode(MatchMode.OneVOne);
+            m.Start(0);
+            Assert.Equal(MatchPhase.Countdown, m.State.Phase);
+            m.SetMode(MatchMode.FreeForAll);     // locked once started
+            Assert.Equal(MatchMode.OneVOne, m.State.Mode);
         }
 
         [Fact]
         public void SoloDebugAllowsOnePlayer()
         {
-            var m = new MatchMachine(new MatchRules { SoloDebug = true });
-            m.Open();
-            m.PlayerJoined(1, "A");
-            m.PlayerSaidHello(1, true);
-            m.SetLoadout(1, new byte[0], true);
+            var m = Lobby(MatchMode.OneVOne, 1, new MatchRules { SoloDebug = true });
             Assert.True(m.CanStart(out _));
         }
 
         [Fact]
-        public void LoadoutIsTruncatedToMax()
+        public void LoadoutTruncatedAndRankPointsStored()
         {
             var m = new MatchMachine(new MatchRules { MaxLoadoutGuns = 2 });
             m.Open();
             m.PlayerJoined(1, "A");
-            m.SetLoadout(1, new byte[] { 1, 2, 3 }, false);
-            Assert.Equal(new byte[] { 1, 2 }, m.State.A.Loadout);
+            m.SetLoadout(1, new byte[] { 1, 2, 3 }, false, 250);
+            Assert.Equal(new byte[] { 1, 2 }, m.State.Slot(1).Loadout);
+            Assert.Equal(250, m.State.Slot(1).RankPoints);
         }
 
+        // ------------------------------------------------------------ 1v1 / team flow
+
         [Fact]
-        public void StartBuildsArenaResetsPlayersAndCountsDown()
+        public void StartBuildsArenaResetsAndCountsDown()
         {
-            var m = ReadyLobby();
+            var m = Lobby(MatchMode.OneVOne, 2);
             m.Start(10);
             Assert.Equal(MatchPhase.Countdown, m.State.Phase);
             Assert.Equal(1, m.State.Round);
-            Assert.True(m.State.ArenaBuilt);
-            Assert.Equal(new[] { EffectKind.BuildArena, EffectKind.ResetPlayers }, m.Effects);
+            Assert.Equal(1, m.State.MatchNumber);
+            Assert.Equal(new[] { EffectKind.BuildArena, EffectKind.ResetPlayers }, Kinds(m));
             Assert.Equal(13, m.State.PhaseEndsAt);
-            Assert.True(m.State.AIsLeft);
+            Assert.Equal(Side.Left, m.State.SideFor(1));
+            Assert.Equal(Side.Right, m.State.SideFor(2));
         }
 
         [Fact]
-        public void StartWhenNotReadyOnlySetsStatus()
+        public void CountdownGoesLive_KillEndsRoundForOtherTeam()
         {
-            var m = new MatchMachine(new MatchRules());
-            m.Open();
-            m.Start(0);
-            Assert.Equal(MatchPhase.Lobby, m.State.Phase);
-            Assert.False(string.IsNullOrEmpty(m.State.StatusText));
-            Assert.Empty(m.Effects);
-        }
-
-        [Fact]
-        public void CountdownGoesLiveWhenTimeElapses()
-        {
-            var m = ReadyLobby();
-            m.Start(0);
-            m.Tick(2.9);
-            Assert.Equal(MatchPhase.Countdown, m.State.Phase);
-            m.Tick(3.0);
-            Assert.Equal(MatchPhase.Live, m.State.Phase);
-        }
-
-        [Fact]
-        public void KillDuringCountdownEndsTheRound()
-        {
-            var m = ReadyLobby();
-            m.Start(0);
-            m.Kill(1, 1.0);
+            var m = Live(MatchMode.OneVOne, 2);
+            m.Kill(1, 2, 5.0);
             Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
-            Assert.Equal(1, m.State.B.Score);
-        }
-
-        [Fact]
-        public void KillDuringRoundEndIsIgnored()
-        {
-            var m = LiveRound();
-            m.Kill(1, 5.0);
-            m.Kill(2, 5.5);
-            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
-            Assert.Equal(1, m.State.B.Score);
-            Assert.Equal(0, m.State.A.Score);
-        }
-
-        [Fact]
-        public void KillAwardsRoundToOtherPlayer()
-        {
-            var m = LiveRound();
-            m.Kill(1, 5.0);
-            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
-            Assert.Equal(1, m.State.B.Score);
-            Assert.Equal(0, m.State.A.Score);
-            Assert.Equal(2, m.State.LastRoundWinnerId);
+            Assert.Equal(1, m.State.TeamScore[1]);
+            Assert.Equal(0, m.State.TeamScore[0]);
+            Assert.Equal(1, m.State.LastRoundWinnerTeam);
             Assert.Equal(7.0, m.State.PhaseEndsAt);
+            Assert.Equal("P2 wins the round", m.State.StatusText);
         }
 
         [Fact]
-        public void SecondKillInSameRoundIgnored()
+        public void KillDuringCountdownEndsRound_KillDuringRoundEndIgnored()
         {
-            var m = LiveRound();
-            m.Kill(1, 5.0);
-            m.Kill(2, 5.5);
-            Assert.Equal(1, m.State.B.Score);
-            Assert.Equal(0, m.State.A.Score);
+            var m = Lobby(MatchMode.OneVOne, 2);
+            m.Start(0);
+            m.Kill(1, 2, 1.0);
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+            m.Kill(2, 1, 1.5);
+            Assert.Equal(1, m.State.TeamScore[1]);
+            Assert.Equal(0, m.State.TeamScore[0]);
         }
 
         [Fact]
-        public void RoundEndSwapsSidesAndStartsNextRound()
+        public void TeamRoundEndsOnlyWhenWholeTeamIsDead()
         {
-            var m = LiveRound();
-            m.Kill(1, 5.0);
+            var m = Live(MatchMode.TwoVTwo, 4);   // teams: {1,3} vs {2,4}
+            m.Kill(1, 2, 5.0);
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            m.Kill(3, 4, 5.5);
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+            Assert.Equal(1, m.State.TeamScore[1]);
+            Assert.Equal("Team B wins the round", m.State.StatusText);
+        }
+
+        [Fact]
+        public void TeammatesGetSpacedPadSlots()
+        {
+            var m = Live(MatchMode.ThreeVThree, 6);   // team 0: 1,3,5
+            var (i1, c1) = m.State.TeamSlot(1);
+            var (i5, c5) = m.State.TeamSlot(5);
+            Assert.Equal((0, 3), (i1, c1));
+            Assert.Equal((2, 3), (i5, c5));
+            var l = ArenaLayout.Create(0);
+            var s0 = l.TeamSpawn(Side.Left, 0, 3);
+            var s2 = l.TeamSpawn(Side.Left, 2, 3);
+            Assert.Equal(l.Left.X, s0.X);
+            Assert.Equal(4f, s2.Z - s0.Z);
+        }
+
+        [Fact]
+        public void RoundEndSwapsSidesAndResetsDead()
+        {
+            var m = Live(MatchMode.OneVOne, 2);
+            m.Kill(1, 2, 5.0);
             m.Effects.Clear();
             m.Tick(7.0);
             Assert.Equal(MatchPhase.Countdown, m.State.Phase);
             Assert.Equal(2, m.State.Round);
-            Assert.False(m.State.AIsLeft);
+            Assert.False(m.State.TeamAIsLeft);
             Assert.Equal(Side.Right, m.State.SideFor(1));
-            Assert.Equal(Side.Left, m.State.SideFor(2));
-            Assert.Equal(new[] { EffectKind.ResetPlayers }, m.Effects);
-            Assert.False(m.State.A.DeadThisRound);
+            Assert.Equal(new[] { EffectKind.ResetPlayers }, Kinds(m));
+            Assert.False(m.State.Slot(1).DeadThisRound);
         }
 
         [Fact]
-        public void ReachingRoundsToWinEndsMatchThenReturnsToLobby()
+        public void ReachingRoundsToWinEndsMatchThenLobby()
         {
-            var m = LiveRound(new MatchRules { RoundsToWin = 2 });
+            var m = Live(MatchMode.OneVOne, 2, new MatchRules { RoundsToWin = 2 });
             double t = 5;
-            m.Kill(1, t); t += 2; m.Tick(t);         // B 1-0, countdown
-            t += 3; m.Tick(t);                        // live
-            m.Kill(1, t); t += 2; m.Tick(t);          // B 2-0 -> MatchEnd
+            m.Kill(1, 2, t); t += 2; m.Tick(t);
+            t += 3; m.Tick(t);
+            m.Kill(1, 2, t); t += 2; m.Tick(t);
             Assert.Equal(MatchPhase.MatchEnd, m.State.Phase);
-            Assert.Equal(2, m.State.MatchWinnerId);
+            Assert.Equal(1, m.State.MatchWinnerTeam);
             Assert.Equal(t + 5, m.State.PhaseEndsAt);
             m.Tick(t + 5);
             Assert.Equal(MatchPhase.Lobby, m.State.Phase);
-            Assert.Equal(0, m.State.A.Score);
-            Assert.Equal(0, m.State.B.Score);
-            Assert.False(m.State.A.Ready);
-            Assert.False(m.State.B.Ready);
+            Assert.Equal(0, m.State.TeamScore[1]);
+            Assert.All(m.State.Players, p => Assert.False(p.Ready));
             Assert.True(m.State.ArenaBuilt);
-            Assert.Equal(new byte[] { 10 }, m.State.A.Loadout);
+            Assert.Equal(new byte[] { 11 }, m.State.Slot(1).Loadout);
         }
 
         [Fact]
-        public void RematchFromLobbyDoesNotRebuildArena()
+        public void RematchKeepsArena_ChangingMapRebuilds()
         {
-            var m = LiveRound(new MatchRules { RoundsToWin = 1 });
-            m.Kill(2, 5); m.Tick(7); m.Tick(12);
+            var m = Live(MatchMode.OneVOne, 2, new MatchRules { RoundsToWin = 1 });
+            m.Kill(2, 1, 5); m.Tick(7); m.Tick(12);
             Assert.Equal(MatchPhase.Lobby, m.State.Phase);
-            m.SetLoadout(1, m.State.A.Loadout, true);
-            m.SetLoadout(2, m.State.B.Loadout, true);
+            foreach (var p in m.State.Players) m.SetLoadout(p.Id, p.Loadout, true);
             m.Effects.Clear();
             m.Start(20);
-            Assert.Equal(MatchPhase.Countdown, m.State.Phase);
-            Assert.Equal(new[] { EffectKind.ResetPlayers }, m.Effects);
-        }
-
-        [Fact]
-        public void SetMapOnlyInLobbyAndWraps()
-        {
-            var m = ReadyLobby();
+            Assert.Equal(new[] { EffectKind.ResetPlayers }, Kinds(m));
+            Assert.Equal(2, m.State.MatchNumber);
+            m.Kill(2, 1, 25); m.Tick(27); m.Tick(32);
             m.SetMap(2);
-            Assert.Equal(2, m.State.MapIndex);
-            m.SetMap(-1);
-            Assert.Equal(ArenaLayout.MapCount - 1, m.State.MapIndex);
-            m.SetMap(0);
-            m.Start(0);
-            m.SetMap(3);
-            Assert.Equal(0, m.State.MapIndex);
-        }
-
-        [Fact]
-        public void ChangingMapAfterAMatchRebuildsArena()
-        {
-            var m = LiveRound(new MatchRules { RoundsToWin = 1 });
-            m.Kill(2, 5); m.Tick(7); m.Tick(12);
-            Assert.Equal(MatchPhase.Lobby, m.State.Phase);
-            Assert.Equal(0, m.State.BuiltMapIndex);
-            m.SetMap(1);
-            m.SetLoadout(1, m.State.A.Loadout, true);
-            m.SetLoadout(2, m.State.B.Loadout, true);
+            foreach (var p in m.State.Players) m.SetLoadout(p.Id, p.Loadout, true);
             m.Effects.Clear();
-            m.Start(20);
-            Assert.Equal(new[] { EffectKind.BuildArena, EffectKind.ResetPlayers }, m.Effects);
-            Assert.Equal(1, m.State.BuiltMapIndex);
+            m.Start(40);
+            Assert.Equal(new[] { EffectKind.BuildArena, EffectKind.ResetPlayers }, Kinds(m));
+            Assert.Equal(2, m.State.BuiltMapIndex);
         }
 
         [Fact]
-        public void PlayerLeavingMidMatchReturnsToLobby()
+        public void PlayerLeavingMidTeamMatchReturnsToLobby()
         {
-            var m = LiveRound();
+            var m = Live(MatchMode.OneVOne, 2);
             m.PlayerLeft(2);
             Assert.Equal(MatchPhase.Lobby, m.State.Phase);
-            Assert.False(m.State.B.IsPresent);
+            Assert.Equal(1, m.State.PresentCount);
             Assert.Contains("left", m.State.StatusText);
-            Assert.Equal(0, m.State.A.Score);
         }
 
         [Fact]
-        public void PlayerLeavingWhileInactiveDoesNothing()
+        public void QuitDestroysArenaAndClearsPlayers()
         {
-            var m = new MatchMachine(new MatchRules());
-            m.PlayerLeft(1);
-            Assert.Equal(MatchPhase.Inactive, m.State.Phase);
-            Assert.False(m.Dirty);
-        }
-
-        [Fact]
-        public void QuitDestroysArenaAndGoesInactive()
-        {
-            var m = LiveRound();
+            var m = Live(MatchMode.OneVOne, 2);
             m.Effects.Clear();
             m.Quit();
             Assert.Equal(MatchPhase.Inactive, m.State.Phase);
-            Assert.Equal(new[] { EffectKind.DestroyArena }, m.Effects);
-            Assert.False(m.State.ArenaBuilt);
-            Assert.False(m.State.A.IsPresent);
+            Assert.Equal(new[] { EffectKind.DestroyArena }, Kinds(m));
+            Assert.Empty(m.State.Players);
+            var l = new MatchMachine(new MatchRules());
+            l.Open(); l.Quit();
+            Assert.Empty(l.Effects);
+        }
+
+        // ------------------------------------------------------------ free-for-all
+
+        [Fact]
+        public void FfaKillAddsKillAndSchedulesRespawn()
+        {
+            var m = Live(MatchMode.FreeForAll, 3);
+            m.Kill(1, 2, 5.0);
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            Assert.Equal(1, m.State.Slot(2).Kills);
+            Assert.True(m.State.Slot(1).DeadThisRound);
+            Assert.Single(m.Effects);
+            Assert.Equal(EffectKind.RespawnPlayer, m.Effects[0].Kind);
+            Assert.Equal(1, m.Effects[0].PlayerId);
+            m.Kill(1, 3, 5.5);                    // already dead, ignored
+            Assert.Equal(0, m.State.Slot(3).Kills);
+            m.PlayerRespawned(1);
+            Assert.False(m.State.Slot(1).DeadThisRound);
+            m.Kill(1, 3, 6.0);
+            Assert.Equal(1, m.State.Slot(3).Kills);
         }
 
         [Fact]
-        public void QuitFromLobbyWithoutArenaEmitsNoDestroy()
+        public void FfaSuicideCountsNothingButStillRespawns()
         {
-            var m = new MatchMachine(new MatchRules());
-            m.Open();
-            m.Quit();
-            Assert.Equal(MatchPhase.Inactive, m.State.Phase);
-            Assert.Empty(m.Effects);
+            var m = Live(MatchMode.FreeForAll, 2);
+            m.Kill(1, 1, 5.0);
+            Assert.Equal(0, m.State.Slot(1).Kills);
+            Assert.Equal(EffectKind.RespawnPlayer, m.Effects[0].Kind);
+            m.Effects.Clear();
+            m.PlayerRespawned(1);
+            m.Kill(1, -1, 6.0);
+            Assert.Equal(EffectKind.RespawnPlayer, m.Effects[0].Kind);
         }
 
         [Fact]
-        public void SoloKillEndsRoundWithoutScore()
+        public void FfaReachingKillsToWinEndsMatch()
         {
-            var m = new MatchMachine(new MatchRules { SoloDebug = true });
-            m.Open();
-            m.PlayerJoined(1, "A");
-            m.PlayerSaidHello(1, true);
-            m.SetLoadout(1, new byte[0], true);
-            m.Start(0);
-            m.Tick(3);
-            m.Kill(1, 4);
-            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
-            Assert.Equal(-1, m.State.LastRoundWinnerId);
-            Assert.Equal(0, m.State.A.Score);
+            var m = Live(MatchMode.FreeForAll, 2, new MatchRules { KillsToWin = 2 });
+            m.Kill(1, 2, 5.0); m.PlayerRespawned(1);
+            m.Kill(1, 2, 9.0);
+            Assert.Equal(MatchPhase.MatchEnd, m.State.Phase);
+            Assert.Equal(2, m.State.MatchWinnerId);
+            Assert.Equal(-1, m.State.MatchWinnerTeam);
+            Assert.Equal(14.0, m.State.PhaseEndsAt);
+            m.Tick(14.0);
+            Assert.Equal(MatchPhase.Lobby, m.State.Phase);
+            Assert.Equal(0, m.State.Slot(2).Kills);
+        }
+
+        [Fact]
+        public void FfaContinuesWhenSomeoneLeavesWithTwoRemaining()
+        {
+            var m = Live(MatchMode.FreeForAll, 3);
+            m.PlayerLeft(3);
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            m.PlayerLeft(2);
+            Assert.Equal(MatchPhase.Lobby, m.State.Phase);
+        }
+
+        [Fact]
+        public void TeamLabelUsesNameInOneVOne()
+        {
+            var m = Lobby(MatchMode.OneVOne, 2);
+            Assert.Equal("P1", m.TeamLabel(0));
+            var t = Lobby(MatchMode.TwoVTwo, 4);
+            Assert.Equal("Team A", t.TeamLabel(0));
+            Assert.Equal("Team B", t.TeamLabel(1));
         }
     }
 }

@@ -1,17 +1,18 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HowToFish1v1.Core
 {
     /// <summary>
-    /// Host-side 1v1 state machine. Pure C#: time is passed in as seconds.
+    /// Host-side state machine for every mode. Pure C#: time is passed in as seconds.
     /// Every mutating call sets Dirty=true; the caller broadcasts the state and clears Dirty/Effects.
     /// </summary>
     public sealed class MatchMachine
     {
         public MatchState State { get; } = new MatchState();
         public MatchRules Rules { get; }
-        public List<EffectKind> Effects { get; } = new List<EffectKind>();
+        public List<Effect> Effects { get; } = new List<Effect>();
         public bool Dirty;
 
         public MatchMachine(MatchRules rules)
@@ -19,44 +20,21 @@ namespace HowToFish1v1.Core
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
         }
 
+        // ------------------------------------------------------------------ lobby
+
         public void Open()
         {
             if (State.Phase != MatchPhase.Inactive) return;
             State.Phase = MatchPhase.Lobby;
-            State.StatusText = "Waiting for two players";
+            State.StatusText = "Waiting for players";
             Dirty = true;
         }
 
-        public void PlayerJoined(int id, string name)
+        public void SetMode(MatchMode mode)
         {
-            if (State.Phase == MatchPhase.Inactive) return;
-            if (State.Slot(id) != null) return;
-            PlayerSlot slot = !State.A.IsPresent ? State.A : (!State.B.IsPresent ? State.B : null);
-            if (slot == null) return;
-            slot.Clear();
-            slot.Id = id;
-            slot.Name = name ?? "";
-            Dirty = true;
-        }
-
-        public void PlayerSaidHello(int id, bool hasMod)
-        {
-            var slot = State.Slot(id);
-            if (slot == null) return;
-            slot.HasMod = hasMod;
-            Dirty = true;
-        }
-
-        public void SetLoadout(int id, byte[] itemIds, bool ready)
-        {
-            var slot = State.Slot(id);
-            if (slot == null) return;
-            itemIds = itemIds ?? Array.Empty<byte>();
-            int n = Math.Min(itemIds.Length, Rules.MaxLoadoutGuns);
-            var copy = new byte[n];
-            Array.Copy(itemIds, copy, n);
-            slot.Loadout = copy;
-            slot.Ready = ready;
+            if (State.Phase != MatchPhase.Lobby) return;
+            State.Mode = mode;
+            RebalanceTeams();
             Dirty = true;
         }
 
@@ -69,24 +47,72 @@ namespace HowToFish1v1.Core
             Dirty = true;
         }
 
+        public void PlayerJoined(int id, string name)
+        {
+            if (State.Phase == MatchPhase.Inactive) return;
+            if (State.Slot(id) != null) return;
+            if (State.Players.Count >= MatchState.MaxPlayers) return;
+            var slot = new PlayerSlot { Id = id, Name = name ?? "" };
+            slot.Team = State.TeamCount(0) <= State.TeamCount(1) ? 0 : 1;
+            State.Players.Add(slot);
+            Dirty = true;
+        }
+
+        public void PlayerSaidHello(int id, bool hasMod)
+        {
+            var slot = State.Slot(id);
+            if (slot == null) return;
+            slot.HasMod = hasMod;
+            Dirty = true;
+        }
+
+        public void SetLoadout(int id, byte[] itemIds, bool ready, int rankPoints = -1)
+        {
+            var slot = State.Slot(id);
+            if (slot == null) return;
+            itemIds = itemIds ?? Array.Empty<byte>();
+            int n = Math.Min(itemIds.Length, Rules.MaxLoadoutGuns);
+            var copy = new byte[n];
+            Array.Copy(itemIds, copy, n);
+            slot.Loadout = copy;
+            slot.Ready = ready;
+            if (rankPoints >= 0) slot.RankPoints = rankPoints;
+            Dirty = true;
+        }
+
+        /// <summary>Host moves a player to the other team. Lobby only, team modes only.</summary>
+        public void MoveTeam(int id)
+        {
+            if (State.Phase != MatchPhase.Lobby || State.IsFfa) return;
+            var slot = State.Slot(id);
+            if (slot == null) return;
+            slot.Team = 1 - slot.Team;
+            Dirty = true;
+        }
+
+        private void RebalanceTeams()
+        {
+            for (int i = 0; i < State.Players.Count; i++) State.Players[i].Team = i % 2;
+        }
+
         public bool CanStart(out string reason)
         {
             reason = "";
             if (State.Phase != MatchPhase.Lobby) { reason = "Not in lobby"; return false; }
-            int need = Rules.SoloDebug ? 1 : 2;
-            if (State.PresentCount < need) { reason = "Need two players in the game"; return false; }
-            foreach (var s in new[] { State.A, State.B })
-            {
-                if (!s.IsPresent) continue;
+            int count = State.PresentCount;
+            int min = Rules.SoloDebug ? 1 : MatchModes.MinPlayers(State.Mode);
+            int max = MatchModes.MaxPlayers(State.Mode);
+            if (count < min) { reason = $"{MatchModes.Name(State.Mode)} needs {min} players ({count} here)"; return false; }
+            if (count > max) { reason = $"{MatchModes.Name(State.Mode)} allows at most {max} players ({count} here)"; return false; }
+            if (!State.IsFfa && !Rules.SoloDebug && State.TeamCount(0) != State.TeamCount(1)) { reason = "Teams are uneven"; return false; }
+            foreach (var s in State.Players)
                 if (!s.HasMod) { reason = s.Name + " does not have the mod"; return false; }
-            }
-            foreach (var s in new[] { State.A, State.B })
-            {
-                if (!s.IsPresent) continue;
+            foreach (var s in State.Players)
                 if (!s.Ready) { reason = s.Name + " is not ready"; return false; }
-            }
             return true;
         }
+
+        // ------------------------------------------------------------------ match flow
 
         public void Start(double now)
         {
@@ -98,27 +124,29 @@ namespace HowToFish1v1.Core
             }
             if (!State.ArenaBuilt || State.BuiltMapIndex != State.MapIndex)
             {
-                Effects.Add(EffectKind.BuildArena);
+                Effects.Add(new Effect(EffectKind.BuildArena));
                 State.ArenaBuilt = true;
                 State.BuiltMapIndex = State.MapIndex;
             }
+            State.MatchNumber++;
             State.Round = 1;
-            State.A.Score = 0;
-            State.B.Score = 0;
-            State.AIsLeft = true;
+            State.TeamScore[0] = 0;
+            State.TeamScore[1] = 0;
+            foreach (var p in State.Players) p.Kills = 0;
+            State.TeamAIsLeft = true;
+            State.MatchWinnerTeam = -1;
             State.MatchWinnerId = -1;
-            State.LastRoundWinnerId = -1;
+            State.LastRoundWinnerTeam = -1;
             BeginRound(now);
         }
 
         private void BeginRound(double now)
         {
-            State.A.DeadThisRound = false;
-            State.B.DeadThisRound = false;
-            Effects.Add(EffectKind.ResetPlayers);
+            foreach (var p in State.Players) p.DeadThisRound = false;
+            Effects.Add(new Effect(EffectKind.ResetPlayers));
             State.Phase = MatchPhase.Countdown;
             State.PhaseEndsAt = now + Rules.CountdownSeconds;
-            State.StatusText = "Round " + State.Round;
+            State.StatusText = State.IsFfa ? $"First to {Rules.KillsToWin} kills" : "Round " + State.Round;
             Dirty = true;
         }
 
@@ -136,18 +164,18 @@ namespace HowToFish1v1.Core
                 case MatchPhase.RoundEnd:
                     if (now >= State.PhaseEndsAt)
                     {
-                        var winner = State.Slot(State.LastRoundWinnerId);
-                        if (winner != null && winner.Score >= Rules.RoundsToWin)
+                        int w = State.LastRoundWinnerTeam;
+                        if (w >= 0 && State.TeamScore[w] >= Rules.RoundsToWin)
                         {
                             State.Phase = MatchPhase.MatchEnd;
-                            State.MatchWinnerId = winner.Id;
+                            State.MatchWinnerTeam = w;
                             State.PhaseEndsAt = now + Rules.MatchEndSeconds;
-                            State.StatusText = winner.Name + " wins the match";
+                            State.StatusText = TeamLabel(w) + " wins the match";
                             Dirty = true;
                         }
                         else
                         {
-                            State.AIsLeft = !State.AIsLeft;
+                            State.TeamAIsLeft = !State.TeamAIsLeft;
                             State.Round++;
                             BeginRound(now);
                         }
@@ -159,27 +187,67 @@ namespace HowToFish1v1.Core
             }
         }
 
-        /// <summary>A death during Live or Countdown ends the round for the victim, so nobody is left dead when the next round starts.</summary>
-        public void Kill(int victimId, double now)
+        /// <summary>
+        /// A death during Live or Countdown. Team modes: when a whole team is dead the other team takes the round.
+        /// Free-for-all: the killer gains a kill (suicides count nothing), the victim respawns after a delay.
+        /// </summary>
+        public void Kill(int victimId, int killerId, double now)
         {
             if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return;
             var victim = State.Slot(victimId);
             if (victim == null || victim.DeadThisRound) return;
             victim.DeadThisRound = true;
-            var winner = State.Other(victimId);
-            if (winner != null)
+            Dirty = true;
+
+            if (State.IsFfa)
             {
-                winner.Score++;
-                State.LastRoundWinnerId = winner.Id;
-                State.StatusText = winner.Name + " wins the round";
+                var killer = State.Slot(killerId);
+                if (killer != null && killerId != victimId)
+                {
+                    killer.Kills++;
+                    State.StatusText = killer.Name + " killed " + victim.Name;
+                    if (killer.Kills >= Rules.KillsToWin)
+                    {
+                        State.Phase = MatchPhase.MatchEnd;
+                        State.MatchWinnerId = killer.Id;
+                        State.PhaseEndsAt = now + Rules.MatchEndSeconds;
+                        State.StatusText = killer.Name + " wins the match";
+                        return;
+                    }
+                }
+                else
+                {
+                    State.StatusText = victim.Name + " died";
+                }
+                Effects.Add(new Effect(EffectKind.RespawnPlayer, victimId));
+                return;
+            }
+
+            int team = victim.Team;
+            bool teamWiped = State.TeamMembers(team).All(p => p.DeadThisRound);
+            if (!teamWiped) return;
+            int winner = State.TeamCount(1 - team) > 0 ? 1 - team : -1;
+            if (winner >= 0)
+            {
+                State.TeamScore[winner]++;
+                State.LastRoundWinnerTeam = winner;
+                State.StatusText = TeamLabel(winner) + " wins the round";
             }
             else
             {
-                State.LastRoundWinnerId = -1;
+                State.LastRoundWinnerTeam = -1;
                 State.StatusText = "Round over";
             }
             State.Phase = MatchPhase.RoundEnd;
             State.PhaseEndsAt = now + Rules.RoundEndSeconds;
+        }
+
+        /// <summary>Free-for-all: the host reports that the respawn effect was carried out.</summary>
+        public void PlayerRespawned(int id)
+        {
+            var slot = State.Slot(id);
+            if (slot == null) return;
+            slot.DeadThisRound = false;
             Dirty = true;
         }
 
@@ -187,24 +255,30 @@ namespace HowToFish1v1.Core
         {
             var slot = State.Slot(id);
             if (slot == null) return;
-            string name = slot.Name;
-            slot.Clear();
-            if (State.IsRoundPhase) ReturnToLobby(name + " left the match");
+            State.Players.Remove(slot);
             Dirty = true;
+            if (!State.IsRoundPhase) return;
+            if (State.IsFfa && State.PresentCount >= 2)
+            {
+                State.StatusText = slot.Name + " left";
+                return;
+            }
+            ReturnToLobby(slot.Name + " left the match");
         }
 
         public void Quit()
         {
             if (State.Phase == MatchPhase.Inactive) return;
-            if (State.ArenaBuilt) Effects.Add(EffectKind.DestroyArena);
+            if (State.ArenaBuilt) Effects.Add(new Effect(EffectKind.DestroyArena));
             State.ArenaBuilt = false;
             State.BuiltMapIndex = -1;
             State.Phase = MatchPhase.Inactive;
             State.Round = 0;
-            State.A.Clear();
-            State.B.Clear();
-            State.AIsLeft = true;
-            State.LastRoundWinnerId = -1;
+            State.Players.Clear();
+            State.TeamScore[0] = 0; State.TeamScore[1] = 0;
+            State.TeamAIsLeft = true;
+            State.LastRoundWinnerTeam = -1;
+            State.MatchWinnerTeam = -1;
             State.MatchWinnerId = -1;
             State.StatusText = "";
             Dirty = true;
@@ -214,12 +288,20 @@ namespace HowToFish1v1.Core
         {
             State.Phase = MatchPhase.Lobby;
             State.Round = 0;
-            State.A.Score = 0; State.B.Score = 0;
-            State.A.Ready = false; State.B.Ready = false;
-            State.A.DeadThisRound = false; State.B.DeadThisRound = false;
-            State.LastRoundWinnerId = -1;
+            State.TeamScore[0] = 0; State.TeamScore[1] = 0;
+            foreach (var p in State.Players) { p.Ready = false; p.DeadThisRound = false; p.Kills = 0; }
+            State.LastRoundWinnerTeam = -1;
             State.StatusText = status;
             Dirty = true;
+        }
+
+        /// <summary>"Gavin" in 1v1, "Team A" / "Team B" otherwise.</summary>
+        public string TeamLabel(int team)
+        {
+            if (team < 0) return "Nobody";
+            var members = State.TeamMembers(team).ToList();
+            if (members.Count == 1) return members[0].Name;
+            return team == 0 ? "Team A" : "Team B";
         }
     }
 }
