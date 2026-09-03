@@ -116,16 +116,21 @@ namespace HowToFish1v1.Match
             root.layer = rends.Length > 0 ? rends[0].gameObject.layer : item.gameObject.layer;
             var t = item.transform;
             Vector3 anchor;
-            if (rends.Length > 0)
+            // Only parts that actually sit on the gun count; some renderers report bounds far away (unposed skinned parts).
+            var near = rends.Where(r => Vector3.Distance(r.bounds.center, t.position) < 1.5f && r.bounds.extents.magnitude < 1.5f).ToArray();
+            string dbg = $"root {t.position} rends {rends.Length} near {near.Length}";
+            if (near.Length > 0)
             {
+                rends = near;
                 var b = rends[0].bounds;
                 foreach (var r in rends) b.Encapsulate(r.bounds);
+                dbg += $" bounds {b.center} ext {b.extents}";
                 float w = Mathf.Abs(b.extents.x * t.right.x) + Mathf.Abs(b.extents.y * t.right.y) + Mathf.Abs(b.extents.z * t.right.z);
                 float h = Mathf.Abs(b.extents.x * t.up.x) + Mathf.Abs(b.extents.y * t.up.y) + Mathf.Abs(b.extents.z * t.up.z);
                 float l = Mathf.Abs(b.extents.x * t.forward.x) + Mathf.Abs(b.extents.y * t.forward.y) + Mathf.Abs(b.extents.z * t.forward.z);
                 anchor = b.center - t.right * (w * 0.55f + 0.004f) - t.up * (h * 0.15f) - t.forward * (l * 0.25f);   // left side
             }
-            else anchor = t.position - t.right * 0.03f;
+            else anchor = t.position - t.right * 0.05f - t.up * 0.03f + t.forward * 0.12f;
             c.AnchorLocal = t.InverseTransformPoint(anchor);
             // Gun roots are scaled (models exported in centimetres); the charm must keep real-world size, so cancel that scale.
             var ls = t.lossyScale;
@@ -141,7 +146,7 @@ namespace HowToFish1v1.Match
             float cw = dev ? 0.06f : 0.046f, ch = dev ? 0.036f : 0.052f;
             Prep(card, "HTF1v1_CharmCard", root, new Vector3(0f, -Length - ch * 0.5f, 0f), new Vector3(cw, ch, 0.004f), dev ? _devMat : TierMaterial(tier));
             c.Card = card.transform;
-            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} gun scale {t.lossyScale} anchor {anchor}");
+            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} {dbg} anchor {anchor}");
             return c;
         }
 
