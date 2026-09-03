@@ -19,11 +19,46 @@ namespace HowToFish1v1.UI
         private const int FeedMax = 5;
         private static readonly System.Collections.Generic.List<(string text, float at)> _feedLines = new System.Collections.Generic.List<(string, float)>();
 
+        // CoD-style score popups: "+100" rises and fades next to the crosshair on your own kills.
+        private static TextMeshProUGUI _popup;
+        private static readonly System.Collections.Generic.Queue<string> _popupQueue = new System.Collections.Generic.Queue<string>();
+        private static string _popupText = "";
+        private static float _popupAt = -10f;
+        private const float PopupSeconds = 1.1f;
+
+        private static void EnqueuePopup(string text)
+        {
+            _popupQueue.Enqueue(text);
+        }
+
+        private static void UpdatePopup()
+        {
+            float age = Time.unscaledTime - _popupAt;
+            if ((age > PopupSeconds * 0.55f || string.IsNullOrEmpty(_popupText)) && _popupQueue.Count > 0)
+            {
+                _popupText = _popupQueue.Dequeue();
+                _popupAt = Time.unscaledTime;
+                age = 0f;
+            }
+            if (!_popup) return;
+            if (string.IsNullOrEmpty(_popupText) || age > PopupSeconds) { _popup.text = ""; return; }
+            float t = age / PopupSeconds;
+            _popup.text = _popupText;
+            _popup.rectTransform.anchoredPosition = new Vector2(140f, -20f + 70f * t);
+            _popup.color = new Color(1f, 0.85f, 0.3f, 1f - Mathf.SmoothStep(0f, 1f, Mathf.Max(0f, (t - 0.45f) / 0.55f)));
+            _popup.fontSize = 44f + 10f * Mathf.Clamp01(1f - t * 4f);
+        }
+
         /// <summary>Called once; listens for host kill announcements.</summary>
         public static void Init()
         {
             Net.ModNet.KillFeedReceived += k =>
             {
+                if (!k.Suicide && k.KillerId == ModState.LocalOwnerId && k.KillerId != k.VictimId)
+                {
+                    EnqueuePopup("+100");
+                    EnqueuePopup(ClientMatchView.IsFfa ? "KILL" : "ELIMINATED");
+                }
                 string me = Player.LocalPlayer ? Player.LocalPlayer.SteamName : null;
                 string killer = k.Killer == me ? "<color=#F5C740>YOU</color>" : k.Killer;
                 string victim = k.Victim == me ? "<color=#F5C740>YOU</color>" : k.Victim;
@@ -41,6 +76,7 @@ namespace HowToFish1v1.UI
                 if (_score) _score.gameObject.SetActive(false);
                 if (_banner) _banner.gameObject.SetActive(false);
                 if (_feed) _feed.gameObject.SetActive(false);
+                if (_popup) _popup.gameObject.SetActive(false);
                 return;
             }
             if (!EnsureCreated()) return;
@@ -49,6 +85,8 @@ namespace HowToFish1v1.UI
             _feed.gameObject.SetActive(true);
             _feedLines.RemoveAll(l => Time.unscaledTime - l.at > FeedSeconds);
             _feed.text = string.Join("\n", _feedLines.Select(l => l.text));
+            if (_popup) _popup.gameObject.SetActive(true);
+            UpdatePopup();
 
             var s = ClientMatchView.Latest;
             var me = ClientMatchView.Me;
@@ -111,7 +149,7 @@ namespace HowToFish1v1.UI
 
         private static bool EnsureCreated()
         {
-            if (_score && _banner && _feed) return true;
+            if (_score && _banner && _feed && _popup) return true;
             var prefab = PlayerUI.CanvasTextPrefab;
             var parent = PlayerUI.FXCanvasTrans;
             if (!prefab || !parent) return false;
@@ -123,6 +161,11 @@ namespace HowToFish1v1.UI
             _feed.rectTransform.pivot = new Vector2(0f, 1f);
             _feed.rectTransform.sizeDelta = new Vector2(700f, 260f);
             _feed.richText = true;
+            _popup = Make(prefab, parent, "HTF1v1_ScorePopup", new Vector2(0.5f, 0.5f), new Vector2(140f, -20f), 48f);
+            _popup.alignment = TextAlignmentOptions.Left;
+            _popup.rectTransform.pivot = new Vector2(0f, 0.5f);
+            _popup.rectTransform.sizeDelta = new Vector2(400f, 80f);
+            _popup.fontStyle = FontStyles.Bold;
             return true;
         }
 

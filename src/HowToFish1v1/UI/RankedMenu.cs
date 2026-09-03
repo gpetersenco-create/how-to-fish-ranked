@@ -4,35 +4,36 @@ using HowToFish1v1.Net;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using S = HowToFish1v1.UI.RankedStyles;
 
 namespace HowToFish1v1.UI
 {
     /// <summary>
     /// "Ranked" button on the main menu (cloned from the game's Host button so it looks native) and the full-screen page it
     /// opens, laid out like a shooter's ranked screen: tab bar, stats column, previous / current / next rank emblems with a
-    /// rank-points bar, match history column, and a Matchmake button. Drawn on a 1920x1080 design canvas scaled to the screen.
+    /// rank-points bar, match history column, leaderboard, and a Matchmake button. Drawn on a 1920x1080 design canvas.
     /// </summary>
     public static class RankedMenu
     {
         private const string MenuButtonsPath = "CanvasHolder/MainMenuCanvas/MainMenuButtons (To toggle)";
         private const string HostButtonPath = MenuButtonsPath + "/MainMenuLayout/HostButton";
         private const string CharacterButtonPath = MenuButtonsPath + "/MainMenuLayout/CharacterButton";
-        private const float DesignW = 1920f, DesignH = 1080f;
+        private const string PageKey = "ranked-page";
+        private const string TabKey = "ranked-tab";
 
-        private enum Tab { Overview, MyRank, RankRewards, Gameplay, MatchFormat, Maps }
-        private static readonly string[] TabNames = { "OVERVIEW", "MY RANK", "RANK REWARDS", "GAMEPLAY", "MATCH FORMAT", "MAPS" };
+        private enum Tab { Overview, MyRank, Leaderboard, RankRewards, Gameplay, MatchFormat, Maps }
+        private static readonly string[] TabNames = { "OVERVIEW", "MY RANK", "LEADERBOARD", "RANK REWARDS", "GAMEPLAY", "MATCH FORMAT", "MAPS" };
+        private const float TabW = 190f;
 
         private static GameObject _button;
         private static GameObject _menuButtons;
         private static bool _pageOpen;
         private static bool _drawLogged;
         private static Tab _tab = Tab.MyRank;
+        private static float _underlineX = -1f;
         private static MatchMode _mode = MatchMode.OneVOne;
         private static int _map;
         private static string _status = "";
-
-        private static Texture2D _bg, _panel, _panelLight, _gold, _bar, _barBg, _white;
-        private static GUIStyle _tab_, _tabOn, _title, _h1, _h2, _body, _small, _stat, _statLabel, _bigButton, _button_, _gold_;
 
         // Set when hosting from this menu; consumed by Plugin.Update once the local player exists.
         public static bool PendingHostSetup;
@@ -63,7 +64,6 @@ namespace HowToFish1v1.UI
             var tmp = _button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (tmp)
             {
-                // Strip any localization component that would overwrite the label with "Host Game".
                 foreach (var comp in tmp.GetComponents<Component>())
                     if (comp && comp.GetType().Name.IndexOf("Locali", System.StringComparison.OrdinalIgnoreCase) >= 0) Object.Destroy(comp);
                 tmp.text = "Ranked";
@@ -71,7 +71,7 @@ namespace HowToFish1v1.UI
             var btn = _button.GetComponent<Button>();
             if (btn)
             {
-                btn.onClick = new Button.ButtonClickedEvent(); // drop the inspector-wired Host handler
+                btn.onClick = new Button.ButtonClickedEvent();
                 btn.onClick.AddListener(OpenPage);
             }
             Plugin.Log.LogInfo("Ranked button added to the main menu");
@@ -83,6 +83,9 @@ namespace HowToFish1v1.UI
             _pageOpen = true;
             _status = "";
             _tab = Tab.MyRank;
+            _underlineX = -1f;
+            S.MarkOpen(PageKey);
+            S.MarkOpen(TabKey);
             if (_menuButtons) _menuButtons.SetActive(false);
         }
 
@@ -92,31 +95,46 @@ namespace HowToFish1v1.UI
             if (_menuButtons && MainMenuManager.IsInMenu) _menuButtons.SetActive(true);
         }
 
+        private static void SetTab(Tab t)
+        {
+            if (_tab == t) return;
+            _tab = t;
+            S.MarkOpen(TabKey);
+        }
+
         // ------------------------------------------------------------------ drawing
 
         public static void Draw()
         {
             if (!IsOpen) return;
-            EnsureStyles();
-            var saved = GUI.matrix;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(Screen.width / DesignW, Screen.height / DesignH, 1f));
-            GUI.DrawTexture(new Rect(0, 0, DesignW, DesignH), _bg);
-            // Subtle diagonal light band like the reference art
+            float open = S.Ease(PageKey, 0.35f);
+            var saved = S.BeginCanvas();
+            GUI.DrawTexture(new Rect(0, 0, S.DesignW, S.DesignH), S.Bg);
             GUI.color = new Color(1f, 1f, 1f, 0.05f);
-            GUI.DrawTexture(new Rect(1100, -200, 500, 1600), _white);
-            GUI.color = Color.white;
+            GUI.DrawTexture(new Rect(1100 + (1f - open) * 300f, -200, 500, 1600), S.White);
+            GUI.color = new Color(1f, 1f, 1f, open);
 
             DrawTabBar();
+            // Tab content slides up and fades in on every tab change.
+            float tabEase = S.Ease(TabKey, 0.28f);
+            GUI.color = new Color(1f, 1f, 1f, open * tabEase);
+            GUI.matrix = saved;
+            S.BeginCanvas((1f - tabEase) * 24f);
             switch (_tab)
             {
                 case Tab.Overview: DrawOverview(); break;
                 case Tab.MyRank: DrawMyRank(); break;
+                case Tab.Leaderboard: DrawLeaderboard(); break;
                 case Tab.RankRewards: DrawRankRewards(); break;
                 case Tab.Gameplay: DrawGameplay(); break;
                 case Tab.MatchFormat: DrawMatchFormat(); break;
                 case Tab.Maps: DrawMaps(); break;
             }
+            GUI.color = new Color(1f, 1f, 1f, open);
+            GUI.matrix = saved;
+            S.BeginCanvas();
             DrawFooter();
+            GUI.color = Color.white;
             GUI.matrix = saved;
 
             if (!_drawLogged && Event.current.type == EventType.Repaint)
@@ -128,27 +146,32 @@ namespace HowToFish1v1.UI
 
         private static void DrawTabBar()
         {
-            GUI.DrawTexture(new Rect(0, 0, DesignW, 92), _panel);
-            if (GUI.Button(new Rect(24, 22, 60, 48), "<", _button_)) ClosePage();
+            S.Box(new Rect(0, -20, S.DesignW, 112), S.PanelColor, 18f);
+            if (S.Btn(new Rect(24, 22, 60, 48), "<", S.Button)) ClosePage();
             float x = 120;
+            float targetX = -1f;
             for (int i = 0; i < TabNames.Length; i++)
             {
                 bool on = (int)_tab == i;
-                var r = new Rect(x, 0, 200, 92);
-                if (GUI.Button(r, TabNames[i], on ? _tabOn : _tab_)) _tab = (Tab)i;
-                if (on) GUI.DrawTexture(new Rect(x + 30, 86, 140, 4), _gold);
-                x += 200;
+                var r = new Rect(x, 0, TabW, 92);
+                if (GUI.Button(r, TabNames[i], on ? S.TabOn : S.Tab)) SetTab((Tab)i);
+                if (on) targetX = x + 25;
+                x += TabW;
             }
-            GUI.Label(new Rect(DesignW - 420, 26, 400, 40), "HOW TO FISH  |  RANKED", _small);
+            // Gold underline glides to the active tab.
+            if (_underlineX < 0f) _underlineX = targetX;
+            if (Event.current.type == EventType.Repaint) _underlineX = Mathf.Lerp(_underlineX, targetX, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+            S.Box(new Rect(_underlineX, 86, TabW - 50, 4), S.GoldColor, 2f);
+            GUI.Label(new Rect(S.DesignW - 420, 26, 400, 40), "HOW TO FISH  |  RANKED", S.Small);
         }
 
         private static void DrawFooter()
         {
-            GUI.Label(new Rect(40, DesignH - 60, 900, 30), "Host Ranked opens an invite-only Steam lobby. Invite friends from the Steam overlay; they need this mod too.", _small);
-            if (!string.IsNullOrEmpty(_status)) GUI.Label(new Rect(40, DesignH - 95, 900, 30), _status, _body);
-            if (GUI.Button(new Rect(DesignW - 420, DesignH - 110, 380, 70), "MATCHMAKE", _bigButton)) Host(steam: true);
-            if (GUI.Button(new Rect(DesignW - 700, DesignH - 110, 260, 70), "SOLO PRACTICE", _button_)) Host(steam: false);
-            GUI.Label(new Rect(DesignW - 700, DesignH - 150, 660, 30), $"{MatchModes.Name(_mode)}  on  {ArenaLayout.MapNames[_map]}", _small);
+            GUI.Label(new Rect(40, S.DesignH - 60, 900, 30), "Matchmake opens an invite-only Steam lobby. Invite friends from the lobby screen; they need this mod too.", S.Small);
+            if (!string.IsNullOrEmpty(_status)) GUI.Label(new Rect(40, S.DesignH - 95, 900, 30), _status, S.Body);
+            if (S.Btn(new Rect(S.DesignW - 420, S.DesignH - 110, 380, 70), "MATCHMAKE", S.BigButton, 14f)) Host(steam: true);
+            if (S.Btn(new Rect(S.DesignW - 700, S.DesignH - 110, 260, 70), "SOLO PRACTICE", S.Button, 14f)) Host(steam: false);
+            GUI.Label(new Rect(S.DesignW - 700, S.DesignH - 150, 660, 30), $"{MatchModes.Name(_mode)}  on  {ArenaLayout.MapNames[_map]}", S.Small);
         }
 
         // ---------------------------------------------------------------- MY RANK
@@ -158,83 +181,117 @@ namespace HowToFish1v1.UI
             var ladder = RankService.Ladder;
             int pts = RankService.Points;
             int tier = ladder.TierIndex(pts);
+            float e = S.Ease(TabKey, 0.9f);
 
-            // Left: season + stats
+            // Left: season + stats in a rounded card
             float lx = 60, ly = 130;
-            GUI.Label(new Rect(lx, ly, 520, 44), "SEASON 1: MASTER BAIT", _h1);
-            GUI.Label(new Rect(lx, ly + 48, 520, 60), "Play ranked matches to improve your rank and unlock the next tier. Ranks are stored on this PC per Steam account.", _small);
+            S.Box(new Rect(lx - 20, ly - 20, 520, 640), S.PanelColor, 18f);
+            GUI.Label(new Rect(lx, ly, 480, 44), "SEASON 1: MASTER BAIT", S.H1);
+            GUI.Label(new Rect(lx, ly + 48, 480, 60), "Play ranked matches to improve your rank and unlock the next tier. Ranks are stored on this PC per Steam account.", S.Small);
             float sy = ly + 130;
-            Stat(lx, sy, "Wins", RankService.Wins.ToString());
-            Stat(lx + 200, sy, "K/D Ratio", RankService.KdRatio.ToString("0.0"));
-            Stat(lx, sy + 110, "Losses", RankService.Losses.ToString());
-            Stat(lx + 200, sy + 110, "Kills", RankService.Kills.ToString());
-            Stat(lx, sy + 220, "Win Rate", (RankService.WinRate * 100f).ToString("0") + "%");
-            Stat(lx + 200, sy + 220, "Matches Played", RankService.MatchesPlayed.ToString());
-            GUI.Label(new Rect(lx, sy + 330, 400, 34), "Peak Rank", _statLabel);
-            GUI.Label(new Rect(lx, sy + 360, 400, 44), ladder.TierName(RankService.Peak).ToUpperInvariant(), _h1);
+            Stat(lx, sy, "Wins", Mathf.RoundToInt(RankService.Wins * e).ToString());
+            Stat(lx + 220, sy, "K/D Ratio", (RankService.KdRatio * e).ToString("0.0"));
+            Stat(lx, sy + 110, "Losses", Mathf.RoundToInt(RankService.Losses * e).ToString());
+            Stat(lx + 220, sy + 110, "Kills", Mathf.RoundToInt(RankService.Kills * e).ToString());
+            Stat(lx, sy + 220, "Win Rate", (RankService.WinRate * 100f * e).ToString("0") + "%");
+            Stat(lx + 220, sy + 220, "Matches Played", Mathf.RoundToInt(RankService.MatchesPlayed * e).ToString());
+            GUI.Label(new Rect(lx, sy + 330, 400, 34), "Peak Rank", S.StatLabel);
+            GUI.Label(new Rect(lx, sy + 360, 440, 44), ladder.TierName(RankService.Peak).ToUpperInvariant(), S.H1);
 
             // Center: previous / current / next emblems
             float cx = 960;
             int prevTier = Mathf.Max(0, tier - 1), nextTier = Mathf.Min(ladder.Names.Length - 1, tier + 1);
-            Emblem(cx - 330, 300, 150, prevTier, tier > 0 ? ladder.Names[prevTier] : "-", "Previous Rank", dim: true);
-            Emblem(cx, 250, 260, tier, ladder.Names[tier], "Current Rank", dim: false, glow: true);
-            Emblem(cx + 330, 300, 150, nextTier, tier < ladder.Names.Length - 1 ? ladder.Names[nextTier] : "-", "Next Rank", dim: true);
+            S.Emblem(cx - 330, 300, 150, prevTier, tier > 0 ? ladder.Names[prevTier] : "-", "Previous Rank", dim: true);
+            S.Emblem(cx, 250, 260, tier, ladder.Names[tier], "Current Rank", dim: false, glow: true);
+            S.Emblem(cx + 330, 300, 150, nextTier, tier < ladder.Names.Length - 1 ? ladder.Names[nextTier] : "-", "Next Rank", dim: true);
 
-            // Rank points bar
+            // Rank points bar fills up on open
             float bx = cx - 420, by = 640, bw = 840;
             int inTier = pts - tier * ladder.PointsPerTier;
             float frac = tier >= ladder.Names.Length - 1 ? 1f : Mathf.Clamp01(inTier / (float)ladder.PointsPerTier);
-            GUI.Label(new Rect(bx, by - 34, 200, 30), "0", _small);
-            GUI.Label(new Rect(bx + bw - 200, by - 34, 200, 30), ladder.PointsPerTier.ToString(), _smallRight);
-            GUI.DrawTexture(new Rect(bx, by, bw, 14), _barBg);
-            GUI.DrawTexture(new Rect(bx, by, bw * frac, 14), _bar);
-            GUI.DrawTexture(new Rect(bx + bw * frac - 3, by - 6, 6, 26), _gold);
-            GUI.Label(new Rect(bx, by + 22, bw, 30), $"{inTier} RP", _body);
+            frac *= e;
+            GUI.Label(new Rect(bx, by - 34, 200, 30), "0", S.Small);
+            GUI.Label(new Rect(bx + bw - 200, by - 34, 200, 30), ladder.PointsPerTier.ToString(), S.SmallRight);
+            S.Box(new Rect(bx, by, bw, 14), _texBar, 7f);
+            if (frac > 0.01f) S.Box(new Rect(bx, by, bw * frac, 14), S.GoldColor, 7f);
+            S.Box(new Rect(bx + bw * frac - 3, by - 6, 6, 26), S.GoldColor, 3f);
+            GUI.Label(new Rect(bx, by + 22, bw, 30), $"{Mathf.RoundToInt(inTier * e)} RP", S.Body);
             GUI.Label(new Rect(bx - 100, by + 60, bw + 200, 60),
-                $"RANK POINTS: earn Rank Points (RP) by winning ranked matches (+{ladder.WinPoints}) and rank up every {ladder.PointsPerTier} RP. Losses cost {ladder.LossPoints} RP.", _gold_);
+                $"RANK POINTS: earn Rank Points (RP) by winning ranked matches (+{ladder.WinPoints}) and rank up every {ladder.PointsPerTier} RP. Losses cost {ladder.LossPoints} RP.", S.GoldText);
 
-            // Right: match history
+            // Right: match history cards slide in one after another
             float rx = 1520, ry = 130;
-            GUI.Label(new Rect(rx, ry, 360, 44), "MATCH HISTORY", _h1);
+            GUI.Label(new Rect(rx, ry, 360, 44), "MATCH HISTORY", S.H1);
             float hy = ry + 60;
             if (RankService.History.Count == 0)
             {
-                GUI.DrawTexture(new Rect(rx, hy, 360, 90), _panelLight);
-                GUI.Label(new Rect(rx + 20, hy + 28, 320, 34), "NO MATCHES YET", _body);
+                S.Box(new Rect(rx, hy, 360, 90), S.PanelLightColor, 14f);
+                GUI.Label(new Rect(rx + 20, hy + 28, 320, 34), "NO MATCHES YET", S.Body);
             }
+            int idx = 0;
             foreach (var h in RankService.History)
             {
-                if (hy > DesignH - 260) break;
-                GUI.DrawTexture(new Rect(rx, hy, 360, 96), _panelLight);
-                GUI.Label(new Rect(rx + 16, hy + 8, 330, 28), $"{h.When}   {h.Mode} on {h.Map}", _small);
-                GUI.Label(new Rect(rx + 16, hy + 40, 330, 40), $"{(h.Won ? "WIN" : "LOSS")}   {(h.Delta >= 0 ? "+" : "")}{h.Delta} RP   {h.Kills}K / {h.Deaths}D", h.Won ? _gold_ : _body);
+                if (hy > S.DesignH - 260) break;
+                float ce = S.Ease(TabKey, 0.35f, 0.06f * idx++);
+                float ox = (1f - ce) * 60f;
+                var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
+                S.Box(new Rect(rx + ox, hy, 360, 96), S.PanelLightColor, 14f);
+                S.Box(new Rect(rx + ox, hy, 6, 96), h.Won ? S.GreenColor : S.RedColor, 3f);
+                GUI.Label(new Rect(rx + ox + 16, hy + 8, 330, 28), $"{h.When}   {h.Mode} on {h.Map}", S.Small);
+                GUI.Label(new Rect(rx + ox + 16, hy + 40, 330, 40), $"{(h.Won ? "WIN" : "LOSS")}   {(h.Delta >= 0 ? "+" : "")}{h.Delta} RP   {h.Kills}K / {h.Deaths}D", h.Won ? S.GoldText : S.Body);
+                GUI.color = saved;
                 hy += 106;
             }
         }
 
+        private static readonly Color _texBar = new Color(0.22f, 0.26f, 0.32f);
+
         private static void Stat(float x, float y, string label, string value)
         {
-            GUI.Label(new Rect(x, y, 190, 34), label, _statLabel);
-            GUI.Label(new Rect(x, y + 30, 190, 60), value, _stat);
+            GUI.Label(new Rect(x, y, 200, 34), label, S.StatLabel);
+            GUI.Label(new Rect(x, y + 30, 200, 60), value, S.Stat);
         }
 
-        private static void Emblem(float centerX, float top, float size, int tier, string name, string caption, bool dim, bool glow = false)
+        // ---------------------------------------------------------------- LEADERBOARD
+
+        private static void DrawLeaderboard()
         {
-            var tex = RankEmblems.Get(tier);
-            var r = new Rect(centerX - size / 2, top, size, size);
-            if (glow)
+            var ladder = RankService.Ladder;
+            var top = Leaderboard.Top(25);
+            GUI.Label(new Rect(60, 130, 900, 50), "LEADERBOARD  <size=55%>top 25</size>", S.Title);
+            if (Leaderboard.IsGlobal)
+                GUI.Label(new Rect(60, 180, 1200, 40), "Global standings of everyone running the mod. Your own rank is reported after each match." + (string.IsNullOrEmpty(CloudRanks.Status) ? "" : "   " + CloudRanks.Status), S.Small);
+            else
+                GUI.Label(new Rect(60, 180, 1300, 40), (CloudRanks.Enabled ? (string.IsNullOrEmpty(CloudRanks.Status) ? "Global leaderboard loading..." : CloudRanks.Status) + "   Showing players you have met meanwhile." : "Global leaderboard is off in the config. Showing everyone you have played ranked with."), S.Small);
+            if (CloudRanks.Enabled && Event.current.type == EventType.Repaint) Plugin.Instance.StartCoroutine(CloudRanks.Refresh());
+            float w = 1400, x = (S.DesignW - w) / 2f, y = 240;
+            S.Box(new Rect(x, y, w, 40), S.PanelColor, 10f);
+            GUI.Label(new Rect(x + 20, y + 5, 60, 30), "#", S.Small);
+            GUI.Label(new Rect(x + 90, y + 5, 90, 30), "RANK", S.Small);
+            GUI.Label(new Rect(x + 200, y + 5, 600, 30), "PLAYER", S.Small);
+            GUI.Label(new Rect(x + 900, y + 5, 240, 30), "TIER", S.Small);
+            GUI.Label(new Rect(x + 1150, y + 5, 120, 30), "RP", S.SmallRight);
+            GUI.Label(new Rect(x + 1280, y + 5, 100, 30), "SEEN", S.SmallRight);
+            float ry = y + 48;
+            for (int i = 0; i < top.Count; i++)
             {
-                GUI.color = new Color(1f, 0.9f, 0.5f, 0.18f);
-                GUI.DrawTexture(new Rect(centerX - size * 0.62f, top - size * 0.12f, size * 1.24f, size * 1.24f), tex);
+                var p = top[i];
+                if (ry > S.DesignH - 220) { GUI.Label(new Rect(x, ry, w, 30), $"... and {top.Count - i} more", S.SmallCenter); break; }
+                bool me = p.SteamId == RankService.LocalId;
+                float ce = S.Ease(TabKey, 0.3f, 0.03f * i);
+                var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
+                float ox = (1f - ce) * 40f;
+                S.Box(new Rect(x + ox, ry, w, 42), me ? S.PanelLightColor : S.PanelColor, 10f);
+                if (i < 3) S.Box(new Rect(x + ox, ry, 6, 42), i == 0 ? S.GoldColor : (i == 1 ? new Color(0.75f, 0.75f, 0.78f) : new Color(0.8f, 0.5f, 0.25f)), 3f);
+                GUI.Label(new Rect(x + ox + 20, ry + 4, 60, 34), (i + 1).ToString(), S.Body);
+                S.Emblem(x + ox + 130, ry + 3, 36, ladder.TierIndex(p.Points));
+                GUI.Label(new Rect(x + ox + 200, ry + 4, 680, 34), p.Name + (me ? "  (you)" : ""), me ? S.GoldText : S.Body);
+                GUI.Label(new Rect(x + ox + 900, ry + 4, 240, 34), ladder.TierName(p.Points), S.Small);
+                GUI.Label(new Rect(x + ox + 1150, ry + 4, 120, 34), p.Points.ToString(), S.Body);
+                GUI.Label(new Rect(x + ox + 1280, ry + 4, 100, 34), p.LastSeen ?? "", S.SmallRight);
+                GUI.color = saved;
+                ry += 48;
             }
-            GUI.color = dim ? new Color(1f, 1f, 1f, 0.55f) : Color.white;
-            GUI.DrawTexture(r, tex);
-            var numeral = new GUIStyle(_h1) { fontSize = Mathf.RoundToInt(size * 0.28f), alignment = TextAnchor.MiddleCenter };
-            numeral.normal.textColor = new Color(1f, 0.95f, 0.8f);
-            GUI.Label(new Rect(r.x, r.y + size * 0.30f, size, size * 0.3f), RankEmblems.Numeral(tier), numeral);
-            GUI.color = Color.white;
-            GUI.Label(new Rect(centerX - 220, top + size + 8, 440, 30), caption, _smallCenter);
-            GUI.Label(new Rect(centerX - 220, top + size + 36, 440, 40), name.ToUpperInvariant(), dim ? _bodyCenter : _h1Center);
         }
 
         // ---------------------------------------------------------------- other tabs
@@ -242,95 +299,108 @@ namespace HowToFish1v1.UI
         private static void DrawOverview()
         {
             var ladder = RankService.Ladder;
-            GUI.Label(new Rect(60, 130, 900, 50), "RANKED PLAY", _title);
+            GUI.Label(new Rect(60, 130, 900, 50), "RANKED PLAY", S.Title);
             GUI.Label(new Rect(60, 200, 820, 200),
                 "Fight friends in round-based 1v1, 2v2 and 3v3 or a free-for-all on small arenas built for duels. " +
-                "Every match moves your Rank Points; climb from Master Baiter to Poseidon. Pick a mode in GAMEPLAY, a map in MAPS, then hit MATCHMAKE.", _body);
-            Emblem(1350, 180, 300, ladder.TierIndex(RankService.Points), RankService.RankName, "Your Rank", dim: false, glow: true);
+                "Every match moves your Rank Points; climb from Master Baiter to Poseidon. Pick a mode in GAMEPLAY, a map in MAPS, then hit MATCHMAKE.", S.Body);
+            S.Emblem(1350, 180, 300, ladder.TierIndex(RankService.Points), RankService.RankName, "Your Rank", dim: false, glow: true);
             Stat(60, 460, "Wins", RankService.Wins.ToString());
-            Stat(260, 460, "Losses", RankService.Losses.ToString());
-            Stat(460, 460, "K/D Ratio", RankService.KdRatio.ToString("0.0"));
-            Stat(660, 460, "Rank Points", RankService.Points.ToString());
+            Stat(280, 460, "Losses", RankService.Losses.ToString());
+            Stat(500, 460, "K/D Ratio", RankService.KdRatio.ToString("0.0"));
+            Stat(720, 460, "Rank Points", RankService.Points.ToString());
         }
 
         private static void DrawRankRewards()
         {
             var ladder = RankService.Ladder;
             int cur = ladder.TierIndex(RankService.Points);
-            GUI.Label(new Rect(60, 130, 900, 50), "RANK LADDER", _title);
+            GUI.Label(new Rect(60, 130, 900, 50), "RANK LADDER", S.Title);
             int n = ladder.Names.Length;
-            float slot = Mathf.Min(180f, (DesignW - 120f) / n);
+            float slot = Mathf.Min(180f, (S.DesignW - 120f) / n);
             for (int i = 0; i < n; i++)
             {
+                float ce = S.Ease(TabKey, 0.3f, 0.04f * i);
                 float cx = 60 + slot * i + slot / 2;
-                Emblem(cx, i == cur ? 300 : 330, i == cur ? 170 : 130, i, ladder.Names[i], i == cur ? "CURRENT" : $"{i * ladder.PointsPerTier} RP", dim: i != cur, glow: i == cur);
+                var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
+                S.Emblem(cx, (i == cur ? 300 : 330) + (1f - ce) * 30f, i == cur ? 170 : 130, i, ladder.Names[i], i == cur ? "CURRENT" : $"{i * ladder.PointsPerTier} RP", dim: i != cur, glow: i == cur);
+                GUI.color = saved;
             }
-            GUI.Label(new Rect(60, 620, DesignW - 120, 40), $"Win +{ladder.WinPoints} RP, loss -{ladder.LossPoints} RP (free-for-all loss -{ladder.FfaLossPoints}). Rank Points never drop below 0.", _body);
+            GUI.Label(new Rect(60, 620, S.DesignW - 120, 40), $"Win +{ladder.WinPoints} RP, loss -{ladder.LossPoints} RP (free-for-all loss -{ladder.FfaLossPoints}). Rank Points never drop below 0.", S.Body);
         }
 
         private static void DrawGameplay()
         {
-            GUI.Label(new Rect(60, 130, 900, 50), "GAMEPLAY", _title);
+            GUI.Label(new Rect(60, 130, 900, 50), "GAMEPLAY", S.Title);
             string[] blurbs =
             {
                 "One kill wins the round.\nFirst to 6 rounds.",
-                "A round ends when a whole team is down.\nFirst to 6 rounds.",
-                "A round ends when a whole team is down.\nFirst to 6 rounds.",
-                "2 to 8 players. First to 10 kills.\nRespawn after 3 seconds."
+                "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 4 players.",
+                "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 6 players.",
+                "2 to 8 players. First to 10 kills.\nRespawn after a short killcam."
             };
             for (int i = 0; i < MatchModes.All.Length; i++)
             {
                 var m = MatchModes.All[i];
-                var r = new Rect(60 + i * 450, 220, 420, 300);
+                float ce = S.Ease(TabKey, 0.3f, 0.06f * i);
+                var r = new Rect(60 + i * 450, 220 + (1f - ce) * 40f, 420, 300);
                 bool on = m == _mode;
-                GUI.DrawTexture(r, on ? _panelLight : _panel);
-                if (on) GUI.DrawTexture(new Rect(r.x, r.y, r.width, 6), _gold);
-                GUI.Label(new Rect(r.x + 20, r.y + 30, r.width - 40, 60), MatchModes.Name(m).ToUpperInvariant(), _h1);
-                GUI.Label(new Rect(r.x + 20, r.y + 110, r.width - 40, 100), blurbs[i], _body);
-                if (GUI.Button(new Rect(r.x + 20, r.y + 220, r.width - 40, 56), on ? "SELECTED" : "SELECT", on ? _bigButton : _button_)) _mode = m;
+                var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
+                S.Box(r, on ? S.PanelLightColor : S.PanelColor, 16f);
+                if (on) S.Outline(r, S.GoldColor, 2f, 16f);
+                GUI.Label(new Rect(r.x + 20, r.y + 30, r.width - 40, 60), MatchModes.Name(m).ToUpperInvariant(), S.H1);
+                GUI.Label(new Rect(r.x + 20, r.y + 110, r.width - 40, 100), blurbs[i], S.Body);
+                if (S.Btn(new Rect(r.x + 20, r.y + 220, r.width - 40, 56), on ? "SELECTED" : "SELECT", on ? S.BigButton : S.Button)) _mode = m;
+                GUI.color = saved;
             }
         }
 
         private static void DrawMatchFormat()
         {
             var c = Plugin.Cfg;
-            GUI.Label(new Rect(60, 130, 900, 50), "MATCH FORMAT", _title);
+            GUI.Label(new Rect(60, 130, 900, 50), "MATCH FORMAT", S.Title);
             string[][] rows =
             {
                 new[] { "Rounds to win (1v1, 2v2, 3v3)", c.RoundsToWin.Value.ToString() },
                 new[] { "Kills to win (free-for-all)", c.KillsToWin.Value.ToString() },
                 new[] { "Countdown before each round", c.CountdownSeconds.Value + " s" },
-                new[] { "Free-for-all respawn delay", c.FfaRespawnSeconds.Value + " s" },
+                new[] { "Round end / killcam", c.RoundEndSeconds.Value + " s" },
+                new[] { "Free-for-all respawn / killcam", c.FfaRespawnSeconds.Value + " s" },
                 new[] { "Damage multiplier", c.DamageMultiplier.Value.ToString("0.0") + "x" },
                 new[] { "Guns per loadout", c.MaxLoadoutGuns.Value.ToString() },
                 new[] { "Sides", "swap every round" },
                 new[] { "Saving", "disabled during ranked; your save is never touched" },
             };
             float y = 220;
+            int i = 0;
             foreach (var row in rows)
             {
-                GUI.DrawTexture(new Rect(60, y, 1000, 56), _panelLight);
-                GUI.Label(new Rect(80, y + 12, 600, 34), row[0], _body);
-                GUI.Label(new Rect(680, y + 12, 360, 34), row[1], _gold_);
+                float ce = S.Ease(TabKey, 0.3f, 0.03f * i++);
+                float ox = (1f - ce) * 40f;
+                S.Box(new Rect(60 + ox, y, 1000, 56), S.PanelLightColor, 10f);
+                GUI.Label(new Rect(80 + ox, y + 12, 600, 34), row[0], S.Body);
+                GUI.Label(new Rect(680 + ox, y + 12, 360, 34), row[1], S.GoldText);
                 y += 66;
             }
-            GUI.Label(new Rect(60, y + 20, 1000, 40), "Change these in BepInEx\\config\\com.gavin.howtofish1v1.cfg", _small);
+            GUI.Label(new Rect(60, y + 20, 1000, 40), "Change these in BepInEx\\config\\com.gavin.howtofish1v1.cfg", S.Small);
         }
 
         private static void DrawMaps()
         {
-            GUI.Label(new Rect(60, 130, 900, 50), "MAPS", _title);
+            GUI.Label(new Rect(60, 130, 900, 50), "MAPS", S.Title);
             for (int i = 0; i < ArenaLayout.MapCount; i++)
             {
-                var r = new Rect(60 + i * 450, 220, 420, 380);
+                float ce = S.Ease(TabKey, 0.3f, 0.06f * i);
+                var r = new Rect(60 + i * 450, 220 + (1f - ce) * 40f, 420, 380);
                 bool on = i == _map;
-                GUI.DrawTexture(r, on ? _panelLight : _panel);
-                if (on) GUI.DrawTexture(new Rect(r.x, r.y, r.width, 6), _gold);
-                GUI.DrawTexture(new Rect(r.x + 18, r.y + 20, 384, 256), MapPreview.Get(i));
-                GUI.Label(new Rect(r.x + 20, r.y + 284, r.width - 40, 44), ArenaLayout.MapNames[i].ToUpperInvariant(), _h1);
-                if (GUI.Button(new Rect(r.x + 20, r.y + 326, r.width - 40, 44), on ? "SELECTED" : "SELECT", on ? _bigButton : _button_)) _map = i;
+                var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
+                S.Box(r, on ? S.PanelLightColor : S.PanelColor, 16f);
+                if (on) S.Outline(r, S.GoldColor, 2f, 16f);
+                GUI.DrawTexture(new Rect(r.x + 18, r.y + 20, 384, 256), MapPreview.Get(i), ScaleMode.StretchToFill, true, 0f, GUI.color, 0f, 10f);
+                GUI.Label(new Rect(r.x + 20, r.y + 284, r.width - 40, 44), ArenaLayout.MapNames[i].ToUpperInvariant(), S.H1);
+                if (S.Btn(new Rect(r.x + 20, r.y + 326, r.width - 40, 44), on ? "SELECTED" : "SELECT", on ? S.BigButton : S.Button)) _map = i;
+                GUI.color = saved;
             }
-            GUI.Label(new Rect(60, 620, DesignW - 120, 40), "Blue and orange squares are the team pads; green dots are free-for-all spawns.", _small);
+            GUI.Label(new Rect(60, 620, S.DesignW - 120, 40), "Blue and orange squares are the team pads; green dots are free-for-all spawns.", S.Small);
         }
 
         // ---------------------------------------------------------------- hosting
@@ -358,30 +428,6 @@ namespace HowToFish1v1.UI
             Plugin.Host.SetMode(PendingMode);
             Plugin.Host.SetMap(PendingMap);
             LobbyPanel.Open();
-        }
-
-        // ---------------------------------------------------------------- styles
-
-        private static GUIStyle _smallRight, _smallCenter, _bodyCenter, _h1Center;
-
-        private static void EnsureStyles()
-        {
-            if (_title != null) return;
-            RankedStyles.Ensure();
-            _bg = RankedStyles.Bg; _panel = RankedStyles.Panel; _panelLight = RankedStyles.PanelLight; _gold = RankedStyles.Gold;
-            _bar = RankedStyles.Gold; _barBg = RankedStyles.BarBg; _white = RankedStyles.White;
-            _tab_ = RankedStyles.Tab; _tabOn = RankedStyles.TabOn; _title = RankedStyles.Title; _h1 = RankedStyles.H1; _h2 = RankedStyles.H2;
-            _body = RankedStyles.Body; _small = RankedStyles.Small; _smallRight = RankedStyles.SmallRight; _smallCenter = RankedStyles.SmallCenter;
-            _bodyCenter = RankedStyles.BodyCenter; _h1Center = RankedStyles.H1Center; _stat = RankedStyles.Stat; _statLabel = RankedStyles.StatLabel;
-            _gold_ = RankedStyles.GoldText; _bigButton = RankedStyles.BigButton; _button_ = RankedStyles.Button;
-        }
-
-        private static Texture2D Solid(Color c)
-        {
-            var t = new Texture2D(1, 1);
-            t.SetPixel(0, 0, c);
-            t.Apply();
-            return t;
         }
     }
 }

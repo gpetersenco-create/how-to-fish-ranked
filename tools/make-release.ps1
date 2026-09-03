@@ -52,6 +52,11 @@ PLAY
 - Everyone else: accept the Steam invite. The lobby screen opens by itself.
 - Pick your guns, attachments and skin, press Ready Up. The host presses Start Match.
 
+LEADERBOARD / PRIVACY
+The mod reports your Steam id, Steam name and ranked stats (rank points, wins, losses,
+kills, deaths) to the mod's online leaderboard so everyone can see the global top 25.
+To opt out, set ShareRank = false in BepInEx\config\com.gavin.howtofish1v1.cfg.
+
 NOTES
 - Everyone needs the same mod version; the lobby shows "NO MOD / OLD VER" otherwise.
 - Your normal saves are never touched while ranked is running.

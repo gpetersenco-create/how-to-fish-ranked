@@ -29,6 +29,7 @@ namespace HowToFish1v1.UI
         {
             if (!Player.LocalPlayer) { Plugin.Log.LogInfo("Join or host a game before opening the lobby"); return; }
             ModState.PanelOpen = true;
+            S.MarkOpen("lobby");
             PlayerCamera.ToggleMouse(true);
             if (ModNet.IsHost && !Plugin.Host.IsOpen) Plugin.Host.Open();
         }
@@ -42,16 +43,18 @@ namespace HowToFish1v1.UI
         public static void Draw()
         {
             if (!IsOpen) return;
-            var saved = S.BeginCanvas();
-            GUI.DrawTexture(new Rect(0, 0, S.DesignW, S.DesignH), S.Bg);
+            float open = S.Ease("lobby", 0.35f);
+            var saved = S.BeginCanvas((1f - open) * 24f);
+            GUI.DrawTexture(new Rect(0, -40, S.DesignW, S.DesignH + 80), S.Bg);
             GUI.color = new Color(1f, 1f, 1f, 0.05f);
-            GUI.DrawTexture(new Rect(1100, -200, 500, 1600), S.White);
-            GUI.color = Color.white;
+            GUI.DrawTexture(new Rect(1100 + (1f - open) * 300f, -200, 500, 1600), S.White);
+            GUI.color = new Color(1f, 1f, 1f, open);
 
             bool host = ModNet.IsHost;
             var s = ClientMatchView.Latest;
             bool has = ClientMatchView.HasState && ModState.IsActive;
 
+            _cardIndex = 0;
             DrawHeader(host, has, s);
             if (!has)
             {
@@ -67,6 +70,7 @@ namespace HowToFish1v1.UI
                 DrawLoadout(inLobby);
                 DrawFooter(host, inLobby, s);
             }
+            GUI.color = Color.white;
             GUI.matrix = saved;
         }
 
@@ -74,7 +78,7 @@ namespace HowToFish1v1.UI
 
         private static void DrawHeader(bool host, bool has, MatchStateBroadcast s)
         {
-            GUI.DrawTexture(new Rect(0, 0, S.DesignW, 92), S.Panel);
+            S.Box(new Rect(0, 0, S.DesignW, 92), S.Panel);
             GUI.Label(new Rect(40, 20, 500, 52), "RANKED LOBBY", S.Title);
             if (has)
             {
@@ -84,9 +88,9 @@ namespace HowToFish1v1.UI
             }
             bool steam = ConnectionManager.IsUsingSteam;
             GUI.enabled = steam;
-            if (GUI.Button(new Rect(S.DesignW - 560, 18, 260, 56), steam ? "INVITE FRIENDS" : "OFFLINE SESSION", S.Button)) Invite();
+            if (S.Btn(new Rect(S.DesignW - 560, 18, 260, 56), steam ? "INVITE FRIENDS" : "OFFLINE SESSION", S.Button)) Invite();
             GUI.enabled = true;
-            if (GUI.Button(new Rect(S.DesignW - 280, 18, 240, 56), host ? "END RANKED" : "HIDE (F5)", S.Button))
+            if (S.Btn(new Rect(S.DesignW - 280, 18, 240, 56), host ? "END RANKED" : "HIDE (F5)", S.Button))
             {
                 if (host) { Plugin.Host.Quit(); _ready = false; }
                 else Close();
@@ -104,7 +108,7 @@ namespace HowToFish1v1.UI
             {
                 float x = xs[team];
                 int score = team == 0 ? s.TeamScoreA : s.TeamScoreB;
-                GUI.DrawTexture(new Rect(x, top, colW, 56), S.Panel);
+                S.Box(new Rect(x, top, colW, 56), S.Panel);
                 GUI.DrawTexture(new Rect(x, top, 6, 56), team == 0 ? S.Gold : S.PanelHover);
                 GUI.Label(new Rect(x + 20, top + 10, 300, 36), team == 0 ? "TEAM A" : "TEAM B", S.H1);
                 GUI.Label(new Rect(x + colW - 120, top + 10, 100, 36), score.ToString(), S.H1Center);
@@ -123,7 +127,7 @@ namespace HowToFish1v1.UI
         {
             var players = ClientMatchView.Players.OrderByDescending(p => p.Kills).ToList();
             float top = 120, colW = 560;
-            GUI.DrawTexture(new Rect(60, top, colW * 2 + 40, 56), S.Panel);
+            S.Box(new Rect(60, top, colW * 2 + 40, 56), S.Panel);
             GUI.DrawTexture(new Rect(60, top, 6, 56), S.Gold);
             GUI.Label(new Rect(80, top + 10, 600, 36), $"FREE-FOR-ALL   first to {s.KillsToWin} kills", S.H1);
             int max = MatchModes.MaxPlayers(MatchMode.FreeForAll);
@@ -136,8 +140,13 @@ namespace HowToFish1v1.UI
             }
         }
 
+        private static int _cardIndex;
+
         private static void DrawCard(float x, float y, float w, PlayerEntry p, bool canMove, bool showKills)
         {
+            // Cards slide in one after another when the lobby opens.
+            float ce = S.Ease("lobby", 0.3f, 0.05f * (_cardIndex++ % 8));
+            x += (1f - ce) * 40f;
             bool me = p.Id == ModState.LocalOwnerId;
             GUI.DrawTexture(new Rect(x, y, w, 118), me ? S.PanelLight : S.Panel);
             if (p.Ready) GUI.DrawTexture(new Rect(x, y, 6, 118), S.Green);
@@ -149,12 +158,12 @@ namespace HowToFish1v1.UI
             string badge = !p.HasMod ? "NO MOD / OLD VER" : (p.Ready ? "READY" : "NOT READY");
             GUI.DrawTexture(new Rect(x + w - 130, y + 14, 116, 34), !p.HasMod ? S.Red : (p.Ready ? S.Green : S.BarBg));
             GUI.Label(new Rect(x + w - 130, y + 14, 116, 34), badge, S.SmallCenter);
-            if (canMove && GUI.Button(new Rect(x + w - 130, y + 62, 116, 40), "MOVE", S.ToggleButton)) Plugin.Host.MoveTeam(p.Id);
+            if (canMove && S.Btn(new Rect(x + w - 130, y + 62, 116, 40), "MOVE", S.ToggleButton)) Plugin.Host.MoveTeam(p.Id);
         }
 
         private static void DrawEmptyCard(float x, float y, float w)
         {
-            GUI.DrawTexture(new Rect(x, y, w, 118), S.Panel);
+            S.Box(new Rect(x, y, w, 118), S.Panel);
             GUI.color = new Color(1f, 1f, 1f, 0.5f);
             GUI.Label(new Rect(x, y, w, 118), "WAITING FOR PLAYER...", S.BodyCenter);
             GUI.color = Color.white;
@@ -163,7 +172,7 @@ namespace HowToFish1v1.UI
         private static void DrawLoadout(bool inLobby)
         {
             float x = 1300, y = 120, w = 580;
-            GUI.DrawTexture(new Rect(x, y, w, 56), S.Panel);
+            S.Box(new Rect(x, y, w, 56), S.Panel);
             GUI.DrawTexture(new Rect(x, y, 6, 56), S.Gold);
             int max = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value);
             GUI.Label(new Rect(x + 20, y + 10, 540, 36), $"YOUR LOADOUT   (pick up to {max})", S.H1);
@@ -179,7 +188,7 @@ namespace HowToFish1v1.UI
             {
                 int idx = _guns.FindIndex(g => g.ItemId == item.ID);
                 bool on = idx >= 0;
-                if (GUI.Button(new Rect(0, gy, w, 40), (on ? "  [x]  " : "  [ ]  ") + LoadoutService.DisplayName(item).ToUpperInvariant(), on ? S.ToggleButtonOn : S.ToggleButton))
+                if (S.Btn(new Rect(0, gy, w, 40), (on ? "  [x]  " : "  [ ]  ") + LoadoutService.DisplayName(item).ToUpperInvariant(), on ? S.ToggleButtonOn : S.ToggleButton))
                 {
                     if (on) { _guns.RemoveAt(idx); SendLoadout(false); }
                     else if (_guns.Count < max) { _guns.Add(new LoadoutGun(item.ID)); SendLoadout(false); }
@@ -196,7 +205,7 @@ namespace HowToFish1v1.UI
             if (!string.IsNullOrEmpty(_hint)) GUI.Label(new Rect(0, gy, w, 30), _hint, S.Small);
             GUI.EndScrollView();
 
-            if (GUI.Button(new Rect(x, S.DesignH - 130 - 80, w, 70), _ready ? "READY  (click to unready)" : "READY UP", _ready ? S.BigButton : S.Button))
+            if (S.Btn(new Rect(x, S.DesignH - 130 - 80, w, 70), _ready ? "READY  (click to unready)" : "READY UP", _ready ? S.BigButton : S.Button))
             {
                 _ready = !_ready;
                 _hint = "";
@@ -210,7 +219,7 @@ namespace HowToFish1v1.UI
         {
             var g = _guns[gunIndex];
             var o = LoadoutService.Options(g.ItemId);
-            GUI.DrawTexture(new Rect(x, y, w, 266), S.Panel);
+            S.Box(new Rect(x, y, w, 266), S.Panel);
             GUI.DrawTexture(new Rect(x, y, 6, 266), S.GoldDim);
             GUI.Label(new Rect(x + 16, y + 8, w - 32, 30), $"{o.Name.ToUpperInvariant()}  ATTACHMENTS & SKIN", S.H2);
             bool changed = false;
@@ -221,10 +230,10 @@ namespace HowToFish1v1.UI
             changed |= Cycle(x + 16, ry, w - 32, "Skin", _skinNames, ref g.Skin); ry += 42;
             float half = (w - 40) / 2f;
             GUI.enabled = GUI.enabled && o.HasExtendedMag;
-            if (GUI.Button(new Rect(x + 16, ry, half, 38), o.HasExtendedMag ? (g.ExtendedMag ? "[x] Extended mag" : "[ ] Extended mag") : "No extended mag", g.ExtendedMag ? S.ToggleButtonOn : S.ToggleButton))
+            if (S.Btn(new Rect(x + 16, ry, half, 38), o.HasExtendedMag ? (g.ExtendedMag ? "[x] Extended mag" : "[ ] Extended mag") : "No extended mag", g.ExtendedMag ? S.ToggleButtonOn : S.ToggleButton))
             { g.ExtendedMag = !g.ExtendedMag; changed = true; }
             GUI.enabled = ModState.Phase == MatchPhase.Lobby && o.HasLaser;
-            if (GUI.Button(new Rect(x + 24 + half, ry, half, 38), o.HasLaser ? (g.Laser ? "[x] Laser sight" : "[ ] Laser sight") : "No laser", g.Laser ? S.ToggleButtonOn : S.ToggleButton))
+            if (S.Btn(new Rect(x + 24 + half, ry, half, 38), o.HasLaser ? (g.Laser ? "[x] Laser sight" : "[ ] Laser sight") : "No laser", g.Laser ? S.ToggleButtonOn : S.ToggleButton))
             { g.Laser = !g.Laser; changed = true; }
             GUI.enabled = ModState.Phase == MatchPhase.Lobby;
             if (changed) { _guns[gunIndex] = g; SendLoadout(false); }
@@ -240,16 +249,16 @@ namespace HowToFish1v1.UI
             index = (byte)Mathf.Clamp(index, 0, n - 1);
             GUI.Label(new Rect(x, y, 90, 38), label, S.Small);
             GUI.enabled = GUI.enabled && n > 1;
-            if (GUI.Button(new Rect(x + 96, y, 42, 38), "<", S.ToggleButton)) { index = (byte)((index + n - 1) % n); changed = true; }
+            if (S.Btn(new Rect(x + 96, y, 42, 38), "<", S.ToggleButton)) { index = (byte)((index + n - 1) % n); changed = true; }
             GUI.Label(new Rect(x + 144, y, w - 240, 38), options[index], S.BodyCenter);
-            if (GUI.Button(new Rect(x + w - 42, y, 42, 38), ">", S.ToggleButton)) { index = (byte)((index + 1) % n); changed = true; }
+            if (S.Btn(new Rect(x + w - 42, y, 42, 38), ">", S.ToggleButton)) { index = (byte)((index + 1) % n); changed = true; }
             GUI.enabled = ModState.Phase == MatchPhase.Lobby;
             return changed;
         }
 
         private static void DrawFooter(bool host, bool inLobby, MatchStateBroadcast s)
         {
-            GUI.DrawTexture(new Rect(0, S.DesignH - 130, S.DesignW, 130), S.Panel);
+            S.Box(new Rect(0, S.DesignH - 130, S.DesignW, 130), S.Panel);
             var mode = (MatchMode)s.Mode;
             if (host)
             {
@@ -259,15 +268,15 @@ namespace HowToFish1v1.UI
                 foreach (var m in MatchModes.All)
                 {
                     bool on = m == mode;
-                    if (GUI.Button(new Rect(x, S.DesignH - 84, 150, 54), MatchModes.Name(m), on ? S.ToggleButtonOn : S.ToggleButton) && !on) Plugin.Host.SetMode(m);
+                    if (S.Btn(new Rect(x, S.DesignH - 84, 150, 54), MatchModes.Name(m), on ? S.ToggleButtonOn : S.ToggleButton) && !on) Plugin.Host.SetMode(m);
                     x += 158;
                 }
                 x += 30;
                 string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
                 GUI.Label(new Rect(x, S.DesignH - 118, 300, 40), "MAP", S.Small);
-                if (GUI.Button(new Rect(x, S.DesignH - 84, 54, 54), "<", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex - 1);
+                if (S.Btn(new Rect(x, S.DesignH - 84, 54, 54), "<", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex - 1);
                 GUI.Label(new Rect(x + 60, S.DesignH - 84, 200, 54), map.ToUpperInvariant(), S.H1Center);
-                if (GUI.Button(new Rect(x + 266, S.DesignH - 84, 54, 54), ">", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex + 1);
+                if (S.Btn(new Rect(x + 266, S.DesignH - 84, 54, 54), ">", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex + 1);
                 GUI.enabled = true;
 
                 string why = "";
@@ -276,7 +285,7 @@ namespace HowToFish1v1.UI
                 else if (Plugin.Host.Machine != null) canStart = Plugin.Host.Machine.CanStart(out why);
                 GUI.Label(new Rect(S.DesignW - 760, S.DesignH - 118, 720, 30), canStart ? "Everyone is ready." : why, S.SmallRight);
                 GUI.enabled = canStart;
-                if (GUI.Button(new Rect(S.DesignW - 420, S.DesignH - 84, 380, 60), "START MATCH", S.BigButton)) Plugin.Host.Start();
+                if (S.Btn(new Rect(S.DesignW - 420, S.DesignH - 84, 380, 60), "START MATCH", S.BigButton)) Plugin.Host.Start();
                 GUI.enabled = true;
             }
             else

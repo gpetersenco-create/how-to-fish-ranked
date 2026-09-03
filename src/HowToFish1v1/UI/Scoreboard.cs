@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using HowToFish1v1.Core;
 using HowToFish1v1.Match;
 using UnityEngine;
@@ -20,7 +20,7 @@ namespace HowToFish1v1.UI
             float w = 1100, x = (S.DesignW - w) / 2f, y = 120;
             int rows = ClientMatchView.Players.Length + (ffa ? 1 : 2);
             float h = 110 + rows * 52 + 40;
-            GUI.DrawTexture(new Rect(x, y, w, h), S.Bg);
+            S.Box(new Rect(x, y, w, h), S.Bg);
             GUI.DrawTexture(new Rect(x, y, w, 6), S.Gold);
 
             string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
@@ -38,7 +38,7 @@ namespace HowToFish1v1.UI
             {
                 foreach (int team in new[] { 0, 1 })
                 {
-                    GUI.DrawTexture(new Rect(x + 20, ry, w - 40, 44), S.Panel);
+                    S.Box(new Rect(x + 20, ry, w - 40, 44), S.Panel);
                     GUI.DrawTexture(new Rect(x + 20, ry, 6, 44), team == 0 ? S.Gold : S.PanelHover);
                     GUI.Label(new Rect(x + 40, ry + 4, 400, 36), ClientMatchView.TeamLabel(team).ToUpperInvariant(), S.H2);
                     GUI.Label(new Rect(x + w - 160, ry + 4, 120, 36), (team == 0 ? s.TeamScoreA : s.TeamScoreB).ToString(), S.H1Center);

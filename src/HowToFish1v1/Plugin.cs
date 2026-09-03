@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.9";
+        public const string Version = "0.2.10";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -42,6 +42,8 @@ namespace HowToFish1v1
         private void Start()
         {
             StartCoroutine(Updater.Run());
+            StartCoroutine(CloudRanks.Report());
+            StartCoroutine(CloudRanks.Refresh(force: true));
             ModNet.HelloReceived += (conn, msg) => Log.LogInfo($"Hello from client {conn.ClientId}: mod {msg.ModVersion}{(msg.ModVersion == Version ? "" : " (MISMATCH, ours is " + Version + ")")}");
             ModNet.LoadoutReceived += (conn, msg) => Log.LogInfo($"Loadout from client {conn.ClientId}: ready={msg.Ready} mod {msg.ModVersion}");
         }
@@ -56,6 +58,7 @@ namespace HowToFish1v1
             Host.Update();
             Recorder.Update();
             WeaponSkins.Update();
+            Leaderboard.Update();
             Hud.Update();
             AutoHostForTesting();
             DebugAutoTest.Update();

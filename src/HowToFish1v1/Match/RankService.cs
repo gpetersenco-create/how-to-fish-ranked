@@ -21,7 +21,25 @@ namespace HowToFish1v1.Match
             public List<HistoryEntry> History = new List<HistoryEntry>();
         }
 
-        [Serializable] private class RankFile { public List<RankEntry> Entries = new List<RankEntry>(); }
+        [Serializable] private class RankFile { public List<RankEntry> Entries = new List<RankEntry>(); public List<Leaderboard.Entry> Known = new List<Leaderboard.Entry>(); }
+
+        public static IReadOnlyList<Leaderboard.Entry> KnownPlayers => _file.Known ?? (_file.Known = new List<Leaderboard.Entry>());
+        public static string LocalId => LocalSteamId();
+
+        /// <summary>Remembers another player's reported rank points; returns true if anything changed.</summary>
+        public static bool RecordSeen(string steamId, string name, int points)
+        {
+            if (string.IsNullOrEmpty(steamId) || steamId == LocalSteamId()) return false;
+            if (_file.Known == null) _file.Known = new List<Leaderboard.Entry>();
+            var e = _file.Known.Find(k => k.SteamId == steamId);
+            string when = DateTime.Now.ToString("MMM d");
+            if (e == null) { _file.Known.Add(new Leaderboard.Entry { SteamId = steamId, Name = name ?? "", Points = points, LastSeen = when }); return true; }
+            bool changed = e.Points != points || e.Name != (name ?? "") || e.LastSeen != when;
+            e.Points = points; e.Name = name ?? ""; e.LastSeen = when;
+            return changed;
+        }
+
+        public static void SaveNow() => Save();
 
         private static RankFile _file;
         private static RankEntry _me;

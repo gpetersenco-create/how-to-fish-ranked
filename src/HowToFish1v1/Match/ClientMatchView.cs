@@ -134,6 +134,7 @@ namespace HowToFish1v1.Match
             bool won = ffa ? s.MatchWinnerId == me.Value.Id : s.MatchWinnerTeam == me.Value.Team;
             string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
             RankService.ApplyResult(won, ffa, me.Value.Kills, me.Value.Deaths, MatchModes.Name((MatchMode)s.Mode), map);
+            _runner.StartCoroutine(CloudRanks.Report());
             // Tell the host our new points so the panel shows the fresh rank next round.
             LobbyPanel.ResendLoadout();
         }
