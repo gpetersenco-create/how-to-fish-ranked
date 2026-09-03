@@ -253,6 +253,7 @@ namespace HowToFish1v1.Core
                 killer.DeathsSinceKill = 0;
                 if (kind == KillKind.Ricochet) detail.Medals.Add(Streaks.Firehorn);
                 if (kind == KillKind.Knife) detail.Medals.Add(Streaks.Shank);
+                if (kind == KillKind.Other) detail.Medals.Add(Streaks.Fragged);
                 if (killerAirborne) detail.Medals.Add(Streaks.Airborne);
                 if (now - killer.LastKillAt <= Streaks.MultiKillWindow) killer.MultiKill++; else killer.MultiKill = 1;
                 killer.LastKillAt = now;

@@ -170,7 +170,7 @@ namespace HowToFish1v1.UI
             S.Box(new Rect(cx, 14, 420, 64), S.PanelLightColor, 32f);
             S.Emblem(cx + 34, 18, 56, tier);
             GUI.Label(new Rect(cx + 72, 18, 330, 30), me, S.H2);
-            GUI.Label(new Rect(cx + 72, 46, 330, 26), $"{ladder.TierName(RankService.Points).ToUpperInvariant()}   {RankService.Points} RP", S.GoldText);
+            GUI.Label(new Rect(cx + 72, 46, 330, 26), $"{ladder.TierName(RankService.Points).ToUpperInvariant()}   {RankService.Points} RP   <size=80%>S{Seasons.Current}</size>", S.GoldText);
         }
 
         private static string SteamManagerName()
@@ -178,8 +178,20 @@ namespace HowToFish1v1.UI
             try { return Steamworks.SteamFriends.GetPersonaName(); } catch (System.Exception) { return "You"; }
         }
 
+        private static string _joinCode = "";
+
         private static void DrawFooter()
         {
+            // Join a friend's party by code.
+            GUI.Label(new Rect(40, S.DesignH - 200, 300, 30), "JOIN WITH PARTY CODE", S.Small);
+            GUI.SetNextControlName("joincode");
+            _joinCode = GUI.TextField(new Rect(40, S.DesignH - 170, 220, 44), _joinCode, 12, new GUIStyle(GUI.skin.textField) { fontSize = 24, alignment = TextAnchor.MiddleCenter }).ToUpperInvariant();
+            if (S.Btn(new Rect(270, S.DesignH - 172, 140, 48), "JOIN", S.Button))
+            {
+                string why;
+                if (PartyCode.Join(_joinCode, out why)) { _status = "Joining party " + _joinCode + "..."; ModState.RankedSession = true; ClosePage(); }
+                else _status = why;
+            }
             GUI.Label(new Rect(40, S.DesignH - 60, 900, 30), "Matchmake opens an invite-only Steam lobby. Invite friends from the lobby screen; they need this mod too.", S.Small);
             if (!string.IsNullOrEmpty(_status)) GUI.Label(new Rect(40, S.DesignH - 95, 900, 30), _status, S.Body);
             if (S.Btn(new Rect(S.DesignW - 420, S.DesignH - 110, 380, 70), "MATCHMAKE", S.BigButton, 14f)) Host(steam: true);
@@ -199,8 +211,8 @@ namespace HowToFish1v1.UI
             // Left: season + stats in a rounded card
             float lx = 60, ly = 130;
             S.Box(new Rect(lx - 20, ly - 20, 520, 640), S.PanelColor, 18f);
-            GUI.Label(new Rect(lx, ly, 480, 44), "SEASON 1: MASTER BAIT", S.H1);
-            GUI.Label(new Rect(lx, ly + 48, 480, 60), "Play ranked matches to improve your rank and unlock the next tier. Ranks are stored on this PC per Steam account.", S.Small);
+            GUI.Label(new Rect(lx, ly, 480, 44), $"SEASON {Seasons.Current}", S.H1);
+            GUI.Label(new Rect(lx, ly + 48, 480, 60), $"{Seasons.TimeLeftText}. Rank points reset every {Seasons.LengthDays} days; wins, losses and kills are for life." + (RankService.LastSeasonText.Length > 0 ? "  " + RankService.LastSeasonText : ""), S.Small);
             float sy = ly + 130;
             Stat(lx, sy, "Wins", Mathf.RoundToInt(RankService.Wins * e).ToString());
             Stat(lx + 220, sy, "K/D Ratio", (RankService.KdRatio * e).ToString("0.0"));
@@ -276,7 +288,21 @@ namespace HowToFish1v1.UI
                 GUI.Label(new Rect(60, 180, 1200, 40), "Global standings of everyone running the mod. Your own rank is reported after each match." + (string.IsNullOrEmpty(CloudRanks.Status) ? "" : "   " + CloudRanks.Status), S.Small);
             else
                 GUI.Label(new Rect(60, 180, 1300, 40), (CloudRanks.Enabled ? (string.IsNullOrEmpty(CloudRanks.Status) ? "Global leaderboard loading..." : CloudRanks.Status) + "   Showing players you have met meanwhile." : "Global leaderboard is off in the config. Showing everyone you have played ranked with."), S.Small);
-            if (CloudRanks.Enabled && Event.current.type == EventType.Repaint) Plugin.Instance.StartCoroutine(CloudRanks.Refresh());
+            if (CloudRanks.Enabled && Event.current.type == EventType.Repaint) { Plugin.Instance.StartCoroutine(CloudRanks.Refresh()); Plugin.Instance.StartCoroutine(CloudRanks.RefreshHallOfFame()); }
+            // Hall of fame: last season's podium, top right.
+            if (Seasons.Current > 1)
+            {
+                var hall = CloudRanks.HallOfFame;
+                float hx = S.DesignW - 460, hy = 130;
+                S.Box(new Rect(hx, hy, 420, 100), S.PanelColor, 14f);
+                GUI.Label(new Rect(hx + 16, hy + 6, 390, 30), $"HALL OF FAME   <size=70%>season {Seasons.Current - 1}</size>", S.H2);
+                if (hall.Count == 0) GUI.Label(new Rect(hx + 16, hy + 40, 390, 30), CloudRanks.Enabled ? "Loading..." : "Leaderboard off", S.Small);
+                for (int i = 0; i < hall.Count && i < 3; i++)
+                {
+                    string medal = i == 0 ? "1st" : i == 1 ? "2nd" : "3rd";
+                    GUI.Label(new Rect(hx + 16 + i * 130, hy + 40, 130, 50), $"<size=70%>{medal}</size>\n{hall[i].Name}  <size=70%>{hall[i].Points} RP</size>", new GUIStyle(S.GoldText) { richText = true });
+                }
+            }
             float w = 1400, x = (S.DesignW - w) / 2f, y = 240;
             S.Box(new Rect(x, y, w, 40), S.PanelColor, 10f);
             GUI.Label(new Rect(x + 20, y + 5, 60, 30), "#", S.Small);

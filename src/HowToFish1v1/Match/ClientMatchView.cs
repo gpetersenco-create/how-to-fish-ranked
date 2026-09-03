@@ -31,6 +31,7 @@ namespace HowToFish1v1.Match
             ModNet.AimStateReceived += a => { if (a.OwnerId != ModState.LocalOwnerId) Recorder.RecordAim(a.OwnerId, a.Ads); };
             ModNet.KnifeStateReceived += k => { if (k.OwnerId != ModState.LocalOwnerId) Recorder.RecordKnife(k.OwnerId, k.Skin); };
             ModNet.BounceStateReceived += b => { if (b.OwnerId != ModState.LocalOwnerId) Ricochet.OnRemoteBounce(b.OwnerId, b.From, b.To); };
+            ModNet.GrenadeStateReceived += g => { if (!ModNet.IsHost) Grenades.OnRemote(g.OwnerId, g.Kind, g.Pos, g.Vel, g.Fuse); };
             ModNet.CheatReceived += c =>
             {
                 bool me = c.OwnerId == ModState.LocalOwnerId;

@@ -24,7 +24,7 @@ namespace HowToFish1v1.UI
         private static Vector2 _loadoutScroll;
         private static int _previewIndex;
         private const float PreviewH = 330f;
-        private const float AttachH = 266f;
+        private const float AttachH = 350f;
 
         public static void Toggle() { if (IsOpen) Close(); else Open(); }
 
@@ -93,6 +93,14 @@ namespace HowToFish1v1.UI
             GUI.enabled = steam;
             if (S.Btn(new Rect(S.DesignW - 560, 18, 260, 56), steam ? "INVITE FRIENDS" : "OFFLINE SESSION", S.Button)) Invite();
             GUI.enabled = true;
+            // Party code: friends type it into the ranked menu instead of waiting for a Steam invite.
+            string code = PartyCode.Current;
+            if (code.Length > 0)
+            {
+                S.Box(new Rect(S.DesignW - 900, 18, 320, 56), S.PanelLightColor, 28f);
+                GUI.Label(new Rect(S.DesignW - 884, 18, 200, 56), $"<size=60%>PARTY CODE</size>\n<b>{code}</b>", new GUIStyle(S.Body) { richText = true });
+                if (S.Btn(new Rect(S.DesignW - 690, 26, 100, 40), "COPY", S.ToggleButton)) GUIUtility.systemCopyBuffer = code;
+            }
             if (S.Btn(new Rect(S.DesignW - 280, 18, 240, 56), host ? "END RANKED" : "HIDE (F5)", S.Button))
             {
                 if (host) { Plugin.Host.Quit(); _ready = false; }
@@ -345,6 +353,12 @@ namespace HowToFish1v1.UI
             GUI.enabled = ModState.Phase == MatchPhase.Lobby && o.HasSwitch;
             if (S.Btn(new Rect(x + 24 + half, ry, half, 38), o.HasSwitch ? (g.Switch ? "[x] The Switch (full auto)" : "[ ] The Switch (full auto)") : "No switch", g.Switch ? S.ToggleButtonOn : S.ToggleButton))
             { g.Switch = !g.Switch; changed = true; }
+            ry += 42;
+            GUI.enabled = ModState.Phase == MatchPhase.Lobby;
+            float third = (w - 48) / 3f;
+            if (S.Btn(new Rect(x + 16, ry, third, 38), g.Grip ? "[x] Grip" : "[ ] Grip", g.Grip ? S.ToggleButtonOn : S.ToggleButton)) { g.Grip = !g.Grip; changed = true; }
+            if (S.Btn(new Rect(x + 24 + third, ry, third, 38), g.FastMag ? "[x] Fast mag" : "[ ] Fast mag", g.FastMag ? S.ToggleButtonOn : S.ToggleButton)) { g.FastMag = !g.FastMag; changed = true; }
+            if (S.Btn(new Rect(x + 32 + third * 2, ry, third, 38), g.Flashlight ? "[x] Flashlight" : "[ ] Flashlight", g.Flashlight ? S.ToggleButtonOn : S.ToggleButton)) { g.Flashlight = !g.Flashlight; changed = true; }
             GUI.enabled = ModState.Phase == MatchPhase.Lobby;
             if (!WeaponSkins.CanPick(g.Skin)) { g.Skin = 0; changed = true; }   // locked skins are skipped
             if (changed) { _guns[gunIndex] = g; _previewIndex = gunIndex; SendLoadout(false); }

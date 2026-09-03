@@ -188,6 +188,27 @@ namespace HowToFish1v1.UI
             GUI.matrix = saved;
         }
 
+        /// <summary>Grenade counts bottom-right, the cook bar while holding one, and the flashbang whiteout.</summary>
+        public static void DrawGrenadeHud()
+        {
+            var me = Player.LocalPlayer;
+            if (!ModState.IsActive || !me || ModState.PanelOpen || Results.Visible) return;
+            var saved = RankedStyles.BeginCanvas();
+            float flash = Grenades.FlashAmount;
+            if (flash > 0f) { GUI.color = new Color(1f, 1f, 1f, flash); GUI.DrawTexture(new Rect(0, 0, RankedStyles.DesignW, RankedStyles.DesignH), RankedStyles.White); GUI.color = Color.white; }
+            if (!me.Dying.IsDead && !KillCam.Active && ModState.Phase == MatchPhase.Live)
+            {
+                float x = RankedStyles.DesignW - 300, y = RankedStyles.DesignH - 110;
+                GUI.Label(new Rect(x, y, 260, 28), $"FRAG [{Plugin.Cfg.FragKey.Value}]  x{Grenades.FragsLeft}      FLASH [{Plugin.Cfg.FlashKey.Value}]  x{Grenades.FlashesLeft}", RankedStyles.SmallRight);
+                if (Grenades.Cooking)
+                {
+                    RankedStyles.Bar(new Rect(RankedStyles.DesignW / 2f - 120, RankedStyles.DesignH / 2f + 90, 240, 12), Grenades.CookFraction, new Color(1f, 0.45f, 0.2f));
+                    GUI.Label(new Rect(0, RankedStyles.DesignH / 2f + 106, RankedStyles.DesignW, 26), "COOKING   release to throw", RankedStyles.SmallCenter);
+                }
+            }
+            GUI.matrix = saved;
+        }
+
         /// <summary>UAV killstreak: a radar bottom-left with every enemy as a blip, relative to where you look.</summary>
         public static void DrawRadar()
         {

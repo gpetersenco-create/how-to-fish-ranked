@@ -47,6 +47,12 @@ namespace HowToFish1v1.Net.Proto2
     /// <summary>Client to host: I am holding the plant/defuse key at the site (or released it).</summary>
     public struct BombBroadcast : IBroadcast { public bool Holding; }
 
+    /// <summary>Client to host: I threw a grenade.</summary>
+    public struct GrenadeBroadcast : IBroadcast { public byte Kind; public Vector3 Pos; public Vector3 Vel; public float Fuse; }
+
+    /// <summary>Host to everyone: a grenade is in the air.</summary>
+    public struct GrenadeStateBroadcast : IBroadcast { public int OwnerId; public byte Kind; public Vector3 Pos; public Vector3 Vel; public float Fuse; }
+
     public struct AimStateBroadcast : IBroadcast
     {
         public int OwnerId;

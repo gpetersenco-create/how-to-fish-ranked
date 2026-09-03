@@ -26,6 +26,7 @@ namespace HowToFish1v1.Core
         public const string Comeback = "COMEBACK";
         public const string Firehorn = "FIREHORN";     // ricochet kill
         public const string Shank = "SHANK";           // knife kill
+        public const string Fragged = "FRAGGED";       // grenade kill
         public const string Airborne = "AIRBORNE";     // killer was in the air
         public const string DoubleKill = "DOUBLE KILL";
         public const string TripleKill = "TRIPLE KILL";

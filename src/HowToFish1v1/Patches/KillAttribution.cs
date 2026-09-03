@@ -12,6 +12,8 @@ namespace HowToFish1v1.Patches
     internal static class KillAttribution
     {
         private static readonly Dictionary<int, int> _lastAttacker = new Dictionary<int, int>();
+        /// <summary>Set by the host around its own grenade hits: the damage is already authoritative.</summary>
+        public static bool ExplosionDamage;
         private static readonly Dictionary<int, (HowToFish1v1.Core.KillKind kind, bool airborne)> _lastHit = new Dictionary<int, (HowToFish1v1.Core.KillKind, bool)>();
 
         // RpcLogic___HitPlayer___2449261505(Player victim, int damage, Vector3 force, Vector3 pos, byte type, Player attacker)
@@ -22,6 +24,11 @@ namespace HowToFish1v1.Patches
             if (!ModState.IsActive || !__0 || !__5 || __1 <= 0) return;
             _lastAttacker[__0.OwnerId] = __5.OwnerId;
             int reported = __1;
+            if (ExplosionDamage)
+            {
+                _lastHit[__0.OwnerId] = (HowToFish1v1.Core.KillKind.Other, false);
+                return;
+            }
             // The host decides the damage: fixed per gun, knife and ricochet values recognised, anything else replaced.
             var kind = HowToFish1v1.Core.KillKind.Bullet;
             bool airborne = false;

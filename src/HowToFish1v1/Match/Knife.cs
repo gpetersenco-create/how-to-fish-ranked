@@ -388,8 +388,50 @@ namespace HowToFish1v1.Match
             Object.Destroy(go, 0.3f);
         }
 
+        private static AudioClip _throwClip, _popClip, _ringClip;
+
+        public static void PlayThrow()
+        {
+            Ensure();
+            if (!_throwClip)
+            {
+                int n = (int)(Rate * 0.12f); var d = new float[n]; var rng = new System.Random(3); float lp = 0f;
+                for (int i = 0; i < n; i++) { float t = (float)i / Rate; lp += ((float)(rng.NextDouble() * 2 - 1) - lp) * 0.25f; d[i] = lp * Mathf.Sin(t / 0.12f * Mathf.PI) * 1.2f; }
+                _throwClip = AudioClip.Create("HTF1v1_Throw", n, 1, Rate, false); _throwClip.SetData(d, 0);
+            }
+            _source.PlayOneShot(_throwClip, 0.5f);
+        }
+
+        public static void PlayFlashPop(Vector3 at)
+        {
+            Ensure();
+            if (!_popClip)
+            {
+                int n = (int)(Rate * 0.25f); var d = new float[n]; var rng = new System.Random(9);
+                for (int i = 0; i < n; i++) { float t = (float)i / Rate; d[i] = Mathf.Clamp((float)(rng.NextDouble() * 2 - 1) * Mathf.Exp(-t * 25f) * 1.5f, -1f, 1f); }
+                _popClip = AudioClip.Create("HTF1v1_FlashPop", n, 1, Rate, false); _popClip.SetData(d, 0);
+            }
+            var go = new GameObject("HTF1v1_PopSound"); go.transform.position = at;
+            var src = go.AddComponent<AudioSource>(); src.clip = _popClip; src.spatialBlend = 0.7f; src.rolloffMode = AudioRolloffMode.Linear; src.minDistance = 5f; src.maxDistance = 80f; src.volume = 0.9f;
+            if (_source) src.outputAudioMixerGroup = _source.outputAudioMixerGroup;
+            src.Play(); Object.Destroy(go, 0.6f);
+        }
+
+        /// <summary>The flashbang's ringing in your ears.</summary>
+        public static void PlayRing(float strength)
+        {
+            Ensure();
+            if (!_ringClip)
+            {
+                int n = (int)(Rate * 2.5f); var d = new float[n];
+                for (int i = 0; i < n; i++) { float t = (float)i / Rate; d[i] = Mathf.Sin(2f * Mathf.PI * 3800f * t) * Mathf.Exp(-t * 1.6f) * 0.35f; }
+                _ringClip = AudioClip.Create("HTF1v1_Ring", n, 1, Rate, false); _ringClip.SetData(d, 0);
+            }
+            _source.PlayOneShot(_ringClip, Mathf.Clamp01(strength));
+        }
+
         /// <summary>The bomb going off: a deep boom with a long rumble, heard across the map.</summary>
-        public static void PlayExplosion(Vector3 at)
+        public static void PlayExplosion(Vector3 at, float volume = 1f)
         {
             Ensure();
             if (!_boom)
@@ -411,7 +453,7 @@ namespace HowToFish1v1.Match
             var go = new GameObject("HTF1v1_BoomSound");
             go.transform.position = at;
             var src = go.AddComponent<AudioSource>();
-            src.clip = _boom; src.spatialBlend = 0.6f; src.rolloffMode = AudioRolloffMode.Linear; src.minDistance = 10f; src.maxDistance = 200f; src.volume = 1f;
+            src.clip = _boom; src.spatialBlend = 0.6f; src.rolloffMode = AudioRolloffMode.Linear; src.minDistance = 10f; src.maxDistance = 200f; src.volume = volume;
             if (_source) src.outputAudioMixerGroup = _source.outputAudioMixerGroup;
             src.Play();
             Object.Destroy(go, 2f);

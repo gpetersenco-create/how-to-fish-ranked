@@ -18,6 +18,9 @@ namespace HowToFish1v1
         public ConfigEntry<int> KnifeSkin;
         public ConfigEntry<float> HitmarkerVolume;
         public ConfigEntry<bool> AntiCheat;
+        public ConfigEntry<KeyCode> FragKey;
+        public ConfigEntry<KeyCode> FlashKey;
+        public ConfigEntry<int> SeasonLengthDays;
         public ConfigEntry<KeyCode> PlantKey;
         public ConfigEntry<float> RoundSeconds;
         public ConfigEntry<float> PlantSeconds;
@@ -72,6 +75,9 @@ namespace HowToFish1v1
             PlantSeconds = file.Bind("Rules", "PlantSeconds", 4f, "Search and Destroy: seconds to plant.");
             DefuseSeconds = file.Bind("Rules", "DefuseSeconds", 6f, "Search and Destroy: seconds to defuse.");
             BombSeconds = file.Bind("Rules", "BombSeconds", 40f, "Search and Destroy: seconds until the planted bomb explodes.");
+            FragKey = file.Bind("General", "FragKey", KeyCode.G, "Hold to cook a frag grenade, release to throw.");
+            FlashKey = file.Bind("General", "FlashKey", KeyCode.H, "Hold to cook a flashbang, release to throw.");
+            SeasonLengthDays = file.Bind("Ranks", "SeasonLengthDays", 28, "Days per ranked season (rank points reset at the start of each).");
             AntiCheat = file.Bind("General", "AntiCheat", true, "Host only: detect silent aim, aimbot snaps, rapid fire, damage and speed hacks; announce and kick the cheater.");
             HitmarkerVolume = file.Bind("General", "HitmarkerVolume", 1f, "Volume of the mod's hitmarker sound (0-2).");
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");

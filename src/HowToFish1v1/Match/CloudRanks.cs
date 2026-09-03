@@ -17,7 +17,11 @@ namespace HowToFish1v1.Match
     /// </summary>
     public static class CloudRanks
     {
-        [Serializable] private class Record { public string steamId; public string name; public int points; public int wins; public int losses; public int kills; public int deaths; public string updated; public string version; }
+        [Serializable] private class Record { public string steamId; public string name; public int points; public int wins; public int losses; public int kills; public int deaths; public string updated; public string version; public int season; }
+        [Serializable] private class SeasonRecord { public string steamId; public string name; public int points; public string tier; }
+        public static List<Leaderboard.Entry> HallOfFame { get; private set; } = new List<Leaderboard.Entry>();
+        private static float _nextHall;
+        private static bool _hallBusy;
         [Serializable] private class AuthFile { public string uid; public string refreshToken; }
         [Serializable] private class SignUpResponse { public string idToken; public string refreshToken; public string localId; public string expiresIn; }
         [Serializable] private class RefreshResponse { public string id_token; public string refresh_token; public string user_id; public string expires_in; }
@@ -131,7 +135,8 @@ namespace HowToFish1v1.Match
             var rec = new Record
             {
                 steamId = steamId, name = name, points = RankService.Points, wins = RankService.Wins, losses = RankService.Losses,
-                kills = RankService.Kills, deaths = RankService.Deaths, updated = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"), version = Plugin.Version
+                kills = RankService.Kills, deaths = RankService.Deaths, updated = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"), version = Plugin.Version,
+                season = Seasons.Current
             };
             var body = Encoding.UTF8.GetBytes(JsonUtility.ToJson(rec));
             using (var req = new UnityWebRequest($"{BaseUrl}/players/{_uid}.json?auth={_idToken}", "PUT"))
@@ -144,6 +149,46 @@ namespace HowToFish1v1.Match
                 if (req.result != UnityWebRequest.Result.Success) Plugin.Log.LogInfo("Leaderboard report failed: " + req.error + " " + req.downloadHandler.text);
                 else Plugin.Log.LogInfo("Leaderboard: reported " + RankService.Points + " RP");
             }
+        }
+
+        /// <summary>Archives a finished season's final standing for this player at /seasons/{n}/{uid}.</summary>
+        public static IEnumerator ReportSeason(int season, int points, string tier)
+        {
+            if (!Enabled) yield break;
+            string steamId = RankService.LocalId;
+            if (string.IsNullOrEmpty(steamId) || steamId == "local") yield break;
+            yield return EnsureAuth();
+            if (string.IsNullOrEmpty(_idToken) || string.IsNullOrEmpty(_uid)) yield break;
+            string name = "";
+            try { name = Steamworks.SteamFriends.GetPersonaName(); } catch (Exception) { }
+            var body = Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SeasonRecord { steamId = steamId, name = name, points = points, tier = tier }));
+            using (var req = new UnityWebRequest($"{BaseUrl}/seasons/{season}/{_uid}.json?auth={_idToken}", "PUT"))
+            {
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = 15;
+                yield return req.SendWebRequest();
+                Plugin.Log.LogInfo(req.result == UnityWebRequest.Result.Success ? $"Season {season} archived: {points} RP" : "Season archive failed: " + req.error);
+            }
+        }
+
+        /// <summary>Last season's top players.</summary>
+        public static IEnumerator RefreshHallOfFame()
+        {
+            if (!Enabled || _hallBusy || Time.unscaledTime < _nextHall || Seasons.Current <= 1) yield break;
+            _hallBusy = true;
+            _nextHall = Time.unscaledTime + 300f;
+            using (var req = UnityWebRequest.Get($"{BaseUrl}/seasons/{Seasons.Current - 1}.json?orderBy=%22points%22&limitToLast=10"))
+            {
+                req.timeout = 15;
+                yield return req.SendWebRequest();
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    try { HallOfFame = Parse(req.downloadHandler.text); } catch (Exception e) { Plugin.Log.LogDebug("Hall of fame: " + e.Message); }
+                }
+            }
+            _hallBusy = false;
         }
 
         /// <summary>Fetches the top entries by points. Firebase returns a JSON object keyed by uid; the Steam id is a field.</summary>

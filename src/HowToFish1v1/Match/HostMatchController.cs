@@ -37,6 +37,7 @@ namespace HowToFish1v1.Match
             ModNet.AimReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastAimState(conn.ClientId, msg.Ads); };
             ModNet.KnifeReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastKnifeState(conn.ClientId, msg.Skin); };
             ModNet.BounceReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastBounce(conn.ClientId, msg.From, msg.To); };
+            ModNet.GrenadeReceived += (conn, msg) => { if (IsOpen) { ModNet.BroadcastGrenade(conn.ClientId, msg); Grenades.OnRemote(conn.ClientId, msg.Kind, msg.Pos, msg.Vel, msg.Fuse); } };
             ModNet.BombReceived += (conn, msg) => { _bombHolding[conn.ClientId] = msg.Holding; if (!msg.Holding) _bombProgress.Remove(conn.ClientId); };
             ModState.KillDetected += OnKill;
         }

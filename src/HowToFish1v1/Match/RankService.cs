@@ -13,12 +13,15 @@ namespace HowToFish1v1.Match
     {
         [Serializable]
         public class HistoryEntry { public string Mode; public string Map; public bool Won; public int Delta; public int Kills; public int Deaths; public string When; }
+        [Serializable] public class SeasonEntry { public int Season; public int Points; public string Tier; public int Wins; public int Losses; }
 
         [Serializable]
         private class RankEntry
         {
             public string SteamId; public int Points; public int Wins; public int Losses; public int Kills; public int Deaths; public int Peak;
             public List<HistoryEntry> History = new List<HistoryEntry>();
+            public int Season = 0;
+            public List<SeasonEntry> Seasons = new List<SeasonEntry>();
         }
 
         [Serializable] private class RankFile { public List<RankEntry> Entries = new List<RankEntry>(); public List<Leaderboard.Entry> Known = new List<Leaderboard.Entry>(); }
@@ -58,12 +61,34 @@ namespace HowToFish1v1.Match
         public static IReadOnlyList<HistoryEntry> History => Me.History;
         public static string RankName => Ladder.TierName(Points);
         public static string LastResultText { get; private set; } = "";
+        public static string LastSeasonText { get; private set; } = "";
+        public static IReadOnlyList<SeasonEntry> SeasonHistory => Me.Seasons ?? (Me.Seasons = new List<SeasonEntry>());
+
+        /// <summary>A new season has started: archive the old standing, reset the points, tell the leaderboard.</summary>
+        public static void RollSeason()
+        {
+            int now = Seasons.Current;
+            if (Me.Season == now) return;
+            if (Me.Season > 0 && (Me.Points > 0 || Me.Wins + Me.Losses > 0))
+            {
+                if (Me.Seasons == null) Me.Seasons = new List<SeasonEntry>();
+                var entry = new SeasonEntry { Season = Me.Season, Points = Me.Points, Tier = Ladder.TierName(Me.Points), Wins = Me.Wins, Losses = Me.Losses };
+                Me.Seasons.Insert(0, entry);
+                LastSeasonText = $"Season {entry.Season} ended at {entry.Tier} ({entry.Points} RP).";
+                Plugin.Instance.StartCoroutine(CloudRanks.ReportSeason(entry.Season, entry.Points, entry.Tier));
+                Plugin.Log.LogInfo(LastSeasonText);
+            }
+            Me.Points = 0;
+            Me.Season = now;
+            Save();
+        }
 
         public static void Init()
         {
             Ladder = new RankLadder(Plugin.Cfg.RankNames.Value, Plugin.Cfg.RankPointsPerTier.Value);
             _path = Path.Combine(Paths.ConfigPath, "HowToFish1v1.ranks.json");
             Load();
+            RollSeason();
         }
 
         private static RankEntry Me

@@ -4,20 +4,72 @@
     ".write": false,
     "players": {
       ".read": true,
-      ".indexOn": ["points"],
+      ".indexOn": [
+        "points"
+      ],
       "$uid": {
         ".write": "auth != null && auth.uid == $uid",
         ".validate": "newData.hasChildren(['steamId', 'name', 'points'])",
-        "steamId": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{5,20}$/)" },
-        "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
-        "points": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
-        "wins": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "losses": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "kills": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "deaths": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "updated": { ".validate": "newData.isString() && newData.val().length <= 32" },
-        "version": { ".validate": "newData.isString() && newData.val().length <= 16" },
-        "$other": { ".validate": false }
+        "steamId": {
+          ".validate": "newData.isString() && newData.val().matches(/^[0-9]{5,20}$/)"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "points": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "wins": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "losses": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "kills": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "deaths": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "updated": {
+          ".validate": "newData.isString() && newData.val().length <= 32"
+        },
+        "version": {
+          ".validate": "newData.isString() && newData.val().length <= 16"
+        },
+        "$other": {
+          ".validate": false
+        },
+        "season": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        }
+      }
+    },
+    "seasons": {
+      "$season": {
+        ".read": true,
+        ".indexOn": [
+          "points"
+        ],
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.hasChildren(['steamId', 'name', 'points'])",
+          "steamId": {
+            ".validate": "newData.isString() && newData.val().matches(/^[0-9]{5,20}$/)"
+          },
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "points": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "tier": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
       }
     }
   }

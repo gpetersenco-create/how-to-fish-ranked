@@ -22,6 +22,8 @@ namespace HowToFish1v1.Net
         public static event Action<BounceStateBroadcast> BounceStateReceived;
         public static event Action<CheatBroadcast> CheatReceived;
         public static event Action<NetworkConnection, BombBroadcast> BombReceived;
+        public static event Action<NetworkConnection, GrenadeBroadcast> GrenadeReceived;
+        public static event Action<GrenadeStateBroadcast> GrenadeStateReceived;
         public static event Action<NetworkConnection, KnifeBroadcast> KnifeReceived;
         public static event Action<KnifeStateBroadcast> KnifeStateReceived;
         public static event Action ClientStopped;
@@ -70,6 +72,8 @@ namespace HowToFish1v1.Net
             nm.ClientManager.RegisterBroadcast<BounceStateBroadcast>((msg, ch) => BounceStateReceived?.Invoke(msg));
             nm.ClientManager.RegisterBroadcast<CheatBroadcast>((msg, ch) => CheatReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<BombBroadcast>((conn, msg, ch) => BombReceived?.Invoke(conn, msg));
+            nm.ServerManager.RegisterBroadcast<GrenadeBroadcast>((conn, msg, ch) => GrenadeReceived?.Invoke(conn, msg));
+            nm.ClientManager.RegisterBroadcast<GrenadeStateBroadcast>((msg, ch) => GrenadeStateReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<KnifeBroadcast>((conn, msg, ch) => KnifeReceived?.Invoke(conn, msg));
             nm.ClientManager.RegisterBroadcast<KnifeStateBroadcast>((msg, ch) => KnifeStateReceived?.Invoke(msg));
             nm.ClientManager.OnAuthenticated += SendHello;
@@ -124,6 +128,18 @@ namespace HowToFish1v1.Net
         {
             if (!IsHost) return;
             InstanceFinder.ServerManager.Broadcast(new KnifeStateBroadcast { OwnerId = ownerId, Skin = skin });
+        }
+
+        public static void SendGrenade(byte kind, UnityEngine.Vector3 pos, UnityEngine.Vector3 vel, float fuse)
+        {
+            if (!ClientAuthenticated) return;
+            InstanceFinder.ClientManager.Broadcast(new GrenadeBroadcast { Kind = kind, Pos = pos, Vel = vel, Fuse = fuse }, Channel.Reliable);
+        }
+
+        public static void BroadcastGrenade(int ownerId, GrenadeBroadcast g)
+        {
+            if (!IsHost) return;
+            InstanceFinder.ServerManager.Broadcast(new GrenadeStateBroadcast { OwnerId = ownerId, Kind = g.Kind, Pos = g.Pos, Vel = g.Vel, Fuse = g.Fuse });
         }
 
         public static void SendBomb(bool holding)

@@ -56,6 +56,10 @@ namespace HowToFish1v1.Net
             GenericReader<BounceStateBroadcast>.SetRead(r => Open(r, b => new BounceStateBroadcast { OwnerId = b.ReadInt32(), From = b.ReadVector3(), To = b.ReadVector3() }));
             GenericWriter<BombBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteBoolean(v.Holding)));
             GenericReader<BombBroadcast>.SetRead(r => Open(r, b => new BombBroadcast { Holding = b.ReadBoolean() }));
+            GenericWriter<GrenadeBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteUInt8Unpacked(v.Kind); b.WriteVector3(v.Pos); b.WriteVector3(v.Vel); b.WriteSingle(v.Fuse); }));
+            GenericReader<GrenadeBroadcast>.SetRead(r => Open(r, b => new GrenadeBroadcast { Kind = b.ReadUInt8Unpacked(), Pos = b.ReadVector3(), Vel = b.ReadVector3(), Fuse = b.ReadSingle() }));
+            GenericWriter<GrenadeStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteUInt8Unpacked(v.Kind); b.WriteVector3(v.Pos); b.WriteVector3(v.Vel); b.WriteSingle(v.Fuse); }));
+            GenericReader<GrenadeStateBroadcast>.SetRead(r => Open(r, b => new GrenadeStateBroadcast { OwnerId = b.ReadInt32(), Kind = b.ReadUInt8Unpacked(), Pos = b.ReadVector3(), Vel = b.ReadVector3(), Fuse = b.ReadSingle() }));
             GenericWriter<AimStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteBoolean(v.Ads); }));
             GenericReader<AimStateBroadcast>.SetRead(r => Open(r, b => new AimStateBroadcast { OwnerId = b.ReadInt32(), Ads = b.ReadBoolean() }));
 
