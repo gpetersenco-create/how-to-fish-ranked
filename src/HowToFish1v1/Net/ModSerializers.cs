@@ -103,6 +103,7 @@ namespace HowToFish1v1.Net
                     b.WriteBoolean(p.HasMod);
                     b.WriteInt32(p.RankPoints);
                     b.WriteUInt8ArrayAndSize(p.Loadout ?? Array.Empty<byte>());
+                    b.WriteString(p.ModVersion ?? "");
                 }
             }));
             GenericReader<MatchStateBroadcast>.SetRead(r => Open(r, b =>
@@ -139,7 +140,8 @@ namespace HowToFish1v1.Net
                         Ready = b.ReadBoolean(),
                         HasMod = b.ReadBoolean(),
                         RankPoints = b.ReadInt32(),
-                        Loadout = b.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>()
+                        Loadout = b.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
+                        ModVersion = b.ReadStringAllocated() ?? ""
                     };
                 }
                 return s;

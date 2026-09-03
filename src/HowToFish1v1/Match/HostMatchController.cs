@@ -260,14 +260,14 @@ namespace HowToFish1v1.Match
             player.Vitals._syncedPoison.Value = 0;
         }
 
-        private static MatchStateBroadcast ToBroadcast(MatchState s, MatchRules rules)
+        private MatchStateBroadcast ToBroadcast(MatchState s, MatchRules rules)
         {
             var tm = InstanceFinder.TimeManager;
             uint endTick = tm.TickDelta > 0 ? (uint)System.Math.Max(0, System.Math.Round(s.PhaseEndsAt / tm.TickDelta)) : 0u;
             var entries = s.Players.Select(p => new PlayerEntry
             {
                 Id = p.Id, Name = p.Name ?? "", Team = (byte)p.Team, Kills = p.Kills, Deaths = p.Deaths, Ready = p.Ready, HasMod = p.HasMod,
-                RankPoints = p.RankPoints, Loadout = p.Loadout
+                RankPoints = p.RankPoints, Loadout = p.Loadout, ModVersion = _helloVersions.TryGetValue(p.Id, out var v) ? v : ""
             }).ToArray();
             return new MatchStateBroadcast
             {

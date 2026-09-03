@@ -18,6 +18,7 @@ namespace HowToFish1v1
         public ConfigEntry<int> RankPointsPerTier;
         public ConfigEntry<bool> ShareRank;
         public ConfigEntry<string> LeaderboardUrl;
+        public ConfigEntry<string> FirebaseApiKey;
         public ConfigEntry<bool> AutoUpdate;
         public ConfigEntry<string> UpdateManifestUrl;
         public ConfigEntry<bool> SoloDebug;
@@ -41,6 +42,7 @@ namespace HowToFish1v1
             RankPointsPerTier = file.Bind("Ranks", "PointsPerTier", 100, "Points per rank tier. Win +20, loss -10 (free-for-all loss -5).");
             ShareRank = file.Bind("Leaderboard", "ShareRank", true, "Report your Steam id, name and rank stats to the global leaderboard, and show it in the Ranked menu.");
             LeaderboardUrl = file.Bind("Leaderboard", "DatabaseUrl", "https://how-to-fish-ranked-default-rtdb.firebaseio.com", "Global leaderboard database URL.");
+            FirebaseApiKey = file.Bind("Leaderboard", "ApiKey", "AIzaSyCcuPdw8uJwab1ReuI5ZmBmQlzfabb69dw", "Public web API key used for the anonymous leaderboard sign-in.");
             AutoUpdate = file.Bind("Updates", "AutoUpdate", true, "Check for a newer mod version at startup and install it for the next launch.");
             UpdateManifestUrl = file.Bind("Updates", "ManifestUrl", "https://raw.githubusercontent.com/gpetersenco-create/how-to-fish-ranked/main/updates/manifest.json", "Where the updater looks for the latest version.");
             SoloDebug = file.Bind("Debug", "SoloDebug", false, "Allow starting a match with only one player, for testing.");

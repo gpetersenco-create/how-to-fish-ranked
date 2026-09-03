@@ -100,6 +100,7 @@ namespace HowToFish1v1.Match
             _final = final;
             _startedAt = Time.unscaledTime;
             _replayT = killTime - ReplayLead;
+            _havePrevEye = false; _sway = Quaternion.identity; _recoil = 0f;
             // Slow down just before the shot that did it (the last shot the killer fired before the death), not a fixed window.
             float lastShot = Recorder.LastShotBefore(killerId, killTime);
             _slowStart = lastShot > 0f && killTime - lastShot < 3f ? lastShot - SlowLeadBeforeShot : killTime - SlowFallback;
@@ -161,11 +162,10 @@ namespace HowToFish1v1.Match
                 _flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _flash.name = "HTF1v1_MuzzleFlash";
                 Object.Destroy(_flash.GetComponent<Collider>());
-                _flash.transform.localScale = Vector3.one * 0.12f;
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default"));
-                var c = new Color(1f, 0.85f, 0.35f, 1f);
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
-                mat.color = c;
+                _flash.transform.localScale = Vector3.one * 0.14f;
+                var mat = new Material(Arena.ArenaMaterials.For(Core.BoxKind.Yellow));
+                mat.EnableKeyword("_EMISSION");
+                if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.35f) * 4f);
                 _flash.GetComponent<MeshRenderer>().sharedMaterial = mat;
                 _flash.transform.SetPositionAndRotation(fp ? fp.position : head.position + head.forward * 0.8f, head.rotation);
                 _flash.transform.SetParent(_viewGun.transform, true);
@@ -173,9 +173,49 @@ namespace HowToFish1v1.Match
             }
         }
 
+        private static Vector3 _prevEyePos;
+        private static Quaternion _prevEyeRot = Quaternion.identity;
+        private static bool _havePrevEye;
+        private static float _bobPhase;
+        private static Vector3 _swayVel;
+        private static Quaternion _sway = Quaternion.identity;
+        private static float _recoil;
+
+        /// <summary>
+        /// Places the gun copy on the replayed eye pose with first-person motion: walk bob from the killer's speed, sway that
+        /// lags behind turns, and a kick on each shot. Without this the gun looks glued to the screen.
+        /// </summary>
         private static void PlaceViewGun(Vector3 eyePos, Quaternion eyeRot)
         {
-            if (_viewGun) _viewGun.transform.SetPositionAndRotation(eyePos, eyeRot);
+            if (!_viewGun) return;
+            float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
+            float speed = 0f;
+            Vector3 angVel = Vector3.zero;
+            if (_havePrevEye)
+            {
+                speed = Vector3.ProjectOnPlane(eyePos - _prevEyePos, Vector3.up).magnitude / dt;
+                var delta = Quaternion.Inverse(_prevEyeRot) * eyeRot;
+                delta.ToAngleAxis(out float ang, out Vector3 axis);
+                if (ang > 180f) ang -= 360f;
+                angVel = axis * (ang / dt);
+            }
+            _prevEyePos = eyePos; _prevEyeRot = eyeRot; _havePrevEye = true;
+
+            // Walk bob: faster steps when moving faster, none when still.
+            float walk = Mathf.Clamp01(speed / 4f);
+            _bobPhase += dt * Mathf.Lerp(0f, 11f, walk);
+            Vector3 bob = new Vector3(Mathf.Sin(_bobPhase) * 0.012f, Mathf.Abs(Mathf.Cos(_bobPhase)) * 0.010f - 0.005f, 0f) * walk;
+
+            // Sway: the gun lags a little behind the turn, then settles.
+            Quaternion swayTarget = Quaternion.Euler(Mathf.Clamp(-angVel.x * 0.02f, -6f, 6f), Mathf.Clamp(-angVel.y * 0.02f, -8f, 8f), Mathf.Clamp(-angVel.y * 0.01f, -4f, 4f));
+            _sway = Quaternion.Slerp(_sway, swayTarget, 1f - Mathf.Exp(-dt * 8f));
+
+            // Recoil: set by ReplayShots, decays.
+            _recoil = Mathf.Lerp(_recoil, 0f, 1f - Mathf.Exp(-dt * 12f));
+            Vector3 kick = new Vector3(0f, _recoil * 0.02f, -_recoil * 0.06f);
+            Quaternion kickRot = Quaternion.Euler(-_recoil * 4f, 0f, 0f);
+
+            _viewGun.transform.SetPositionAndRotation(eyePos + eyeRot * (bob + kick), eyeRot * _sway * kickRot);
         }
 
         /// <summary>Replays any shot the killer fired since the last frame of replay time: flash plus the gun's own sound.</summary>
@@ -184,6 +224,7 @@ namespace HowToFish1v1.Match
             if (Recorder.FiredBetween(_killerId, _lastShotCheck, _replayT))
             {
                 _flashUntil = Time.unscaledTime + 0.07f;
+                _recoil = 1f;
                 if (_flash) _flash.SetActive(true);
                 if (!string.IsNullOrEmpty(_fireSound))
                 {
@@ -315,14 +356,18 @@ namespace HowToFish1v1.Match
                 _ghost.name = "HTF1v1_KillcamGhost";
                 Object.Destroy(_ghost.GetComponent<Collider>());
                 _ghost.transform.localScale = new Vector3(0.7f, 0.9f, 0.7f);
-                var mr = _ghost.GetComponent<MeshRenderer>();
-                var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
-                var mat = new Material(shader);
-                var c = new Color(1f, 0.82f, 0.3f, 0.55f);
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
-                mat.color = c;
-                if (mat.HasProperty("_Surface")) { mat.SetFloat("_Surface", 1f); mat.SetOverrideTag("RenderType", "Transparent"); mat.renderQueue = 3000; mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha); mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); mat.SetInt("_ZWrite", 0); }
-                mr.sharedMaterial = mat;
+                // Same proven material path as the arena (URP Lit), bright gold with emission so it reads at any distance.
+                var mat = new Material(Arena.ArenaMaterials.For(Core.BoxKind.Yellow));
+                mat.EnableKeyword("_EMISSION");
+                if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(1f, 0.75f, 0.2f) * 1.5f);
+                _ghost.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                // A slim beam above the ghost so the victim is findable even behind cover.
+                var beam = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                Object.Destroy(beam.GetComponent<Collider>());
+                beam.transform.SetParent(_ghost.transform, false);
+                beam.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+                beam.transform.localScale = new Vector3(0.08f, 0.9f, 0.08f);
+                beam.GetComponent<MeshRenderer>().sharedMaterial = mat;
             }
             _ghost.SetActive(true);
             // Head pose recorded; the capsule center sits about 0.75 m below the eyes.

@@ -58,6 +58,8 @@ namespace HowToFish1v1.Net.Proto2
         public bool HasMod;
         public int RankPoints;
         public byte[] Loadout;
+        /// <summary>Mod version this player reported ("" if none), so the lobby can say who needs to update.</summary>
+        public string ModVersion;
     }
 
     public struct MatchStateBroadcast : IBroadcast

@@ -155,9 +155,11 @@ namespace HowToFish1v1.UI
             GUI.Label(new Rect(x + 120, y + 12, w - 260, 36), p.Name + (me ? "  (you)" : ""), S.H1);
             GUI.Label(new Rect(x + 120, y + 48, w - 260, 28), RankService.Ladder.TierName(p.RankPoints).ToUpperInvariant() + $"   {p.RankPoints} RP", S.GoldText);
             GUI.Label(new Rect(x + 120, y + 78, w - 260, 28), (showKills ? $"{p.Kills} kills   " : "") + LoadoutService.Summary(p.Loadout), S.Small);
-            string badge = !p.HasMod ? "NO MOD / OLD VER" : (p.Ready ? "READY" : "NOT READY");
-            GUI.DrawTexture(new Rect(x + w - 130, y + 14, 116, 34), !p.HasMod ? S.Red : (p.Ready ? S.Green : S.BarBg));
-            GUI.Label(new Rect(x + w - 130, y + 14, 116, 34), badge, S.SmallCenter);
+            string badge = !p.HasMod
+                ? (string.IsNullOrEmpty(p.ModVersion) ? "NO MOD" : $"v{p.ModVersion}\nneeds {Plugin.Version}")
+                : (p.Ready ? "READY" : "NOT READY");
+            S.Box(new Rect(x + w - 150, y + 14, 136, 40), !p.HasMod ? S.RedColor : (p.Ready ? S.GreenColor : new Color(0.22f, 0.26f, 0.32f)), 8f);
+            GUI.Label(new Rect(x + w - 150, y + 14, 136, 40), badge, S.SmallCenter);
             if (canMove && S.Btn(new Rect(x + w - 130, y + 62, 116, 40), "MOVE", S.ToggleButton)) Plugin.Host.MoveTeam(p.Id);
         }
 

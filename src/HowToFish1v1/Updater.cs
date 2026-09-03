@@ -154,10 +154,13 @@ namespace HowToFish1v1
             if (!MainMenuManager.IsInMenu || string.IsNullOrEmpty(Status)) return;
             var saved = UI.RankedStyles.BeginCanvas();
             float w = UI.RankedStyles.DesignW;
-            UnityEngine.GUI.DrawTexture(new Rect(0, w > 0 ? 0 : 0, w, 44), UpdateInstalled ? UI.RankedStyles.Gold : UI.RankedStyles.PanelLight);
+            float h = UpdateInstalled ? 64f : 44f;
+            UnityEngine.GUI.DrawTexture(new Rect(0, 0, w, h), UpdateInstalled ? UI.RankedStyles.Gold : UI.RankedStyles.PanelLight);
             var style = UpdateInstalled ? new GUIStyle(UI.RankedStyles.H2) { alignment = TextAnchor.MiddleCenter } : UI.RankedStyles.SmallCenter;
             if (UpdateInstalled) style.normal.textColor = new Color(0.08f, 0.08f, 0.1f);
-            UnityEngine.GUI.Label(new Rect(0, 0, w, 44), Status, style);
+            UnityEngine.GUI.Label(new Rect(0, 0, w - (UpdateInstalled ? 260f : 0f), h), Status, style);
+            if (UpdateInstalled && UI.RankedStyles.Btn(new Rect(w - 250f, 10f, 220f, 44f), "QUIT GAME TO APPLY", UI.RankedStyles.Button))
+                Application.Quit();
             UnityEngine.GUI.matrix = saved;
         }
     }
