@@ -97,6 +97,9 @@ namespace HowToFish1v1.Match
                 if (n.sqrMagnitude < 1e-4f) n = Vector3.ProjectOnPlane(root.forward, down);
                 var rot = Quaternion.LookRotation(n.normalized, -down);
                 c.Root.transform.SetPositionAndRotation(anchor, rot);
+                var ls = root.lossyScale;
+                var want = new Vector3(1f / Mathf.Max(1e-4f, Mathf.Abs(ls.x)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ls.y)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ls.z)));
+                if ((c.Root.transform.localScale - want).sqrMagnitude > 1e-6f) c.Root.transform.localScale = want;
             }
         }
 
@@ -124,6 +127,9 @@ namespace HowToFish1v1.Match
             }
             else anchor = t.position - t.right * 0.03f;
             c.AnchorLocal = t.InverseTransformPoint(anchor);
+            // Gun roots are scaled (models exported in centimetres); the charm must keep real-world size, so cancel that scale.
+            var ls = t.lossyScale;
+            root.transform.localScale = new Vector3(1f / Mathf.Max(1e-4f, Mathf.Abs(ls.x)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ls.y)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ls.z)));
 
             EnsureMaterials();
             var ring = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -135,7 +141,7 @@ namespace HowToFish1v1.Match
             float cw = dev ? 0.06f : 0.046f, ch = dev ? 0.036f : 0.052f;
             Prep(card, "HTF1v1_CharmCard", root, new Vector3(0f, -Length - ch * 0.5f, 0f), new Vector3(cw, ch, 0.004f), dev ? _devMat : TierMaterial(tier));
             c.Card = card.transform;
-            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} anchor {c.AnchorLocal}");
+            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} gun scale {t.lossyScale} anchor {anchor}");
             return c;
         }
 
