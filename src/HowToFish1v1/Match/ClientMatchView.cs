@@ -29,6 +29,7 @@ namespace HowToFish1v1.Match
             ModNet.ClientStopped += OnStopped;
             // Our own aim state is recorded the moment it changes (below); the relayed copy would arrive a round trip late.
             ModNet.AimStateReceived += a => { if (a.OwnerId != ModState.LocalOwnerId) Recorder.RecordAim(a.OwnerId, a.Ads); };
+            ModNet.KnifeStateReceived += k => { if (k.OwnerId != ModState.LocalOwnerId) Recorder.RecordKnife(k.OwnerId, k.Skin); };
         }
 
         private static bool _lastAds;

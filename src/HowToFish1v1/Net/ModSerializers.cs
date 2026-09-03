@@ -40,6 +40,10 @@ namespace HowToFish1v1.Net
 
             GenericWriter<AimBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteBoolean(v.Ads)));
             GenericReader<AimBroadcast>.SetRead(r => Open(r, b => new AimBroadcast { Ads = b.ReadBoolean() }));
+            GenericWriter<KnifeBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteUInt8Unpacked(v.Skin)));
+            GenericReader<KnifeBroadcast>.SetRead(r => Open(r, b => new KnifeBroadcast { Skin = b.ReadUInt8Unpacked() }));
+            GenericWriter<KnifeStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteUInt8Unpacked(v.Skin); }));
+            GenericReader<KnifeStateBroadcast>.SetRead(r => Open(r, b => new KnifeStateBroadcast { OwnerId = b.ReadInt32(), Skin = b.ReadUInt8Unpacked() }));
             GenericWriter<AimStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteBoolean(v.Ads); }));
             GenericReader<AimStateBroadcast>.SetRead(r => Open(r, b => new AimStateBroadcast { OwnerId = b.ReadInt32(), Ads = b.ReadBoolean() }));
 

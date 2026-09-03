@@ -154,6 +154,8 @@ namespace HowToFish1v1.Tests
             Assert.True(l.Bots.Count >= 6);
             Assert.Contains(l.Bots, b => b.Moving);
             Assert.Contains(l.Bots, b => !b.Moving);
+            Assert.Contains(l.Bots, b => b.Y > 3f);
+            Assert.True(l.Birds.Count >= 3);
             Assert.True(l.Ceiling > l.Left.Y + 5f, "ceiling above the perch");
         }
 

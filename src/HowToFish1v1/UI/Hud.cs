@@ -12,6 +12,7 @@ namespace HowToFish1v1.UI
         private static TextMeshProUGUI _score;
         private static TextMeshProUGUI _banner;
         private static TextMeshProUGUI _feed;
+        private static TextMeshProUGUI _corner;
         private static float _liveAt = -10f;
         private static MatchPhase _lastPhase;
 
@@ -80,6 +81,7 @@ namespace HowToFish1v1.UI
                 if (_banner) _banner.gameObject.SetActive(false);
                 if (_feed) _feed.gameObject.SetActive(false);
                 if (_popup) _popup.gameObject.SetActive(false);
+                if (_corner) _corner.gameObject.SetActive(false);
                 return;
             }
             if (!EnsureCreated()) return;
@@ -90,6 +92,12 @@ namespace HowToFish1v1.UI
             _feed.text = string.Join("\n", _feedLines.Select(l => l.text));
             if (_popup) _popup.gameObject.SetActive(true);
             UpdatePopup();
+            if (_corner)
+            {
+                bool tsLive = Trickshot.IsMode && ModState.Phase == MatchPhase.Live && !KillCam.Active;
+                _corner.gameObject.SetActive(tsLive);
+                if (tsLive) _corner.text = Trickshot.Status;
+            }
 
             var s = ClientMatchView.Latest;
             var me = ClientMatchView.Me;
@@ -126,7 +134,7 @@ namespace HowToFish1v1.UI
                     _banner.text = n <= 0 ? "FIGHT" : (ClientMatchView.IsFfa ? $"{n}" : $"Round {s.Round}\n{n}");
                     break;
                 case MatchPhase.Live:
-                    if (Trickshot.IsMode) _banner.text = (Time.unscaledTime - _liveAt < 2f) ? "JUMP AND HIT A BOT" : Trickshot.Status;
+                    if (Trickshot.IsMode) _banner.text = (Time.unscaledTime - _liveAt < 2f) ? "JUMP AND HIT A BOT" : "";
                     else _banner.text = (Time.unscaledTime - _liveAt < 1f) ? "FIGHT" : (ClientMatchView.IsFfa && me != null && DeadNow() ? "Respawning..." : "");
                     break;
                 case MatchPhase.RoundEnd:
@@ -193,7 +201,7 @@ namespace HowToFish1v1.UI
 
         private static bool EnsureCreated()
         {
-            if (_score && _banner && _feed && _popup) return true;
+            if (_score && _banner && _feed && _popup && _corner) return true;
             var prefab = PlayerUI.CanvasTextPrefab;
             var parent = PlayerUI.FXCanvasTrans;
             if (!prefab || !parent) return false;
@@ -205,6 +213,11 @@ namespace HowToFish1v1.UI
             _feed.rectTransform.pivot = new Vector2(0f, 1f);
             _feed.rectTransform.sizeDelta = new Vector2(700f, 260f);
             _feed.richText = true;
+            _corner = Make(prefab, parent, "HTF1v1_Corner", new Vector2(1f, 0f), new Vector2(-30f, 30f), 24f);
+            _corner.alignment = TextAlignmentOptions.BottomRight;
+            _corner.rectTransform.pivot = new Vector2(1f, 0f);
+            _corner.rectTransform.sizeDelta = new Vector2(500f, 40f);
+            _corner.color = new Color(1f, 1f, 1f, 0.85f);
             _popup = Make(prefab, parent, "HTF1v1_ScorePopup", new Vector2(0.5f, 0.5f), new Vector2(140f, -20f), 48f);
             _popup.alignment = TextAlignmentOptions.Left;
             _popup.rectTransform.pivot = new Vector2(0f, 0.5f);

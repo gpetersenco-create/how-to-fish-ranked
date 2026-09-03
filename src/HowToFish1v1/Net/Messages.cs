@@ -25,6 +25,12 @@ namespace HowToFish1v1.Net.Proto2
     }
 
     /// <summary>Host to all: a player's aim-down-sights state (for killcam replays).</summary>
+    /// <summary>Client to host: I swung the knife (skin index for the replay copy).</summary>
+    public struct KnifeBroadcast : IBroadcast { public byte Skin; }
+
+    /// <summary>Host to everyone: this player swung the knife.</summary>
+    public struct KnifeStateBroadcast : IBroadcast { public int OwnerId; public byte Skin; }
+
     public struct AimStateBroadcast : IBroadcast
     {
         public int OwnerId;

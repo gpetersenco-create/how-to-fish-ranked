@@ -17,8 +17,14 @@ namespace HowToFish1v1.Core
     /// <summary>A practice target on the trickshot map; moving bots patrol between the two points.</summary>
     public struct ArenaBot
     {
-        public float X, Z, X2, Z2;
+        public float X, Y, Z, X2, Y2, Z2;   // Y above the floor: hovering targets float
         public bool Moving;
+    }
+
+    /// <summary>A bird circling above the trickshot map.</summary>
+    public struct ArenaBird
+    {
+        public float X, Z, Radius, Height, Speed, Phase;
     }
 
     public struct ArenaSpawn
@@ -53,12 +59,14 @@ namespace HowToFish1v1.Core
         /// <summary>Free-for-all spawns: the two pads plus four spread points, all facing the map center.</summary>
         public IReadOnlyList<ArenaSpawn> FfaSpawns => _ffa;
         public IReadOnlyList<ArenaBot> Bots => _bots;
+        public IReadOnlyList<ArenaBird> Birds => _birds;
         /// <summary>Height of the invisible ceiling (higher on the trickshot map).</summary>
         public float Ceiling { get; private set; } = CeilingY;
 
         private readonly List<ArenaBox> _boxes = new List<ArenaBox>();
         private readonly List<ArenaSpawn> _ffa = new List<ArenaSpawn>();
         private readonly List<ArenaBot> _bots = new List<ArenaBot>();
+        private readonly List<ArenaBird> _birds = new List<ArenaBird>();
 
         /// <summary>Pad position for the index-th of count teammates: spaced 2 m apart along Z on the same pad.</summary>
         public ArenaSpawn TeamSpawn(Side side, int index, int count)
@@ -343,6 +351,18 @@ namespace HowToFish1v1.Core
             l._bots.Add(new ArenaBot { X = 20, Z = -4, X2 = 20, Z2 = 30, Moving = true });
             l._bots.Add(new ArenaBot { X = -30, Z = 10, X2 = -8, Z2 = 32, Moving = true });
             l._bots.Add(new ArenaBot { X = 30, Z = 14, X2 = 12, Z2 = -8, Moving = true });
+            // Hovering targets at different heights, one of them drifting up and down across the field.
+            l._bots.Add(new ArenaBot { X = 10, Y = 7, Z = 12 });
+            l._bots.Add(new ArenaBot { X = -18, Y = 11, Z = 6 });
+            l._bots.Add(new ArenaBot { X = 20, Y = 15, Z = 24 });
+            l._bots.Add(new ArenaBot { X = -6, Y = 9, Z = 30 });
+            l._bots.Add(new ArenaBot { X = -14, Y = 4, Z = 10, X2 = -14, Y2 = 16, Z2 = 26, Moving = true });
+            l._bots.Add(new ArenaBot { X = 26, Y = 12, Z = 0, X2 = 4, Y2 = 6, Z2 = 8, Moving = true });
+            // Birds circling overhead.
+            l._birds.Add(new ArenaBird { X = 0, Z = 8, Radius = 14, Height = 12, Speed = 7, Phase = 0f });
+            l._birds.Add(new ArenaBird { X = -10, Z = 20, Radius = 9, Height = 17, Speed = 6, Phase = 2.1f });
+            l._birds.Add(new ArenaBird { X = 14, Z = 14, Radius = 11, Height = 8, Speed = 8, Phase = 4.0f });
+            l._birds.Add(new ArenaBird { X = 6, Z = 2, Radius = 20, Height = 20, Speed = 9, Phase = 1.0f });
             return l;
         }
 

@@ -18,6 +18,8 @@ namespace HowToFish1v1.Net
         public static event Action<KillFeedBroadcast> KillFeedReceived;
         public static event Action<NetworkConnection, AimBroadcast> AimReceived;
         public static event Action<AimStateBroadcast> AimStateReceived;
+        public static event Action<NetworkConnection, KnifeBroadcast> KnifeReceived;
+        public static event Action<KnifeStateBroadcast> KnifeStateReceived;
         public static event Action ClientStopped;
         /// <summary>Host side: a remote connection dropped (its client id may be reused later).</summary>
         public static event Action<int> RemoteDisconnected;
@@ -60,6 +62,8 @@ namespace HowToFish1v1.Net
             nm.ClientManager.RegisterBroadcast<KillFeedBroadcast>((msg, ch) => KillFeedReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<AimBroadcast>((conn, msg, ch) => AimReceived?.Invoke(conn, msg));
             nm.ClientManager.RegisterBroadcast<AimStateBroadcast>((msg, ch) => AimStateReceived?.Invoke(msg));
+            nm.ServerManager.RegisterBroadcast<KnifeBroadcast>((conn, msg, ch) => KnifeReceived?.Invoke(conn, msg));
+            nm.ClientManager.RegisterBroadcast<KnifeStateBroadcast>((msg, ch) => KnifeStateReceived?.Invoke(msg));
             nm.ClientManager.OnAuthenticated += SendHello;
             nm.ClientManager.OnClientConnectionState += args =>
             {
@@ -100,6 +104,18 @@ namespace HowToFish1v1.Net
         {
             if (!ClientAuthenticated) return;
             InstanceFinder.ClientManager.Broadcast(new AimBroadcast { Ads = ads }, Channel.Reliable);
+        }
+
+        public static void SendKnife(byte skin)
+        {
+            if (!ClientAuthenticated) return;
+            InstanceFinder.ClientManager.Broadcast(new KnifeBroadcast { Skin = skin }, Channel.Reliable);
+        }
+
+        public static void BroadcastKnifeState(int ownerId, byte skin)
+        {
+            if (!IsHost) return;
+            InstanceFinder.ServerManager.Broadcast(new KnifeStateBroadcast { OwnerId = ownerId, Skin = skin });
         }
 
         public static void BroadcastAimState(int ownerId, bool ads)

@@ -30,6 +30,7 @@ namespace HowToFish1v1.Match
             ModNet.LoadoutReceived += OnLoadout;
             ModNet.RemoteDisconnected += id => _helloVersions.Remove(id);
             ModNet.AimReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastAimState(conn.ClientId, msg.Ads); };
+            ModNet.KnifeReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastKnifeState(conn.ClientId, msg.Skin); };
             ModState.KillDetected += OnKill;
         }
 

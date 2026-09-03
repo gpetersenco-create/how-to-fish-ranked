@@ -87,6 +87,12 @@ namespace HowToFish1v1.Match
         private static Vector3 _previewGhostPos;
         private static Quaternion _previewGhostRot;
 
+        // The killer's knife swing, replayed with the same viewmodel and motion.
+        private static GameObject _knifeCopy;
+        private static byte _knifeCopySkin = 255;
+        private static readonly List<Object> _knifeCreated = new List<Object>();
+        private static float _knifeSoundedAt = -1f;
+
         // Bullet tracers: a bright streak flying from the muzzle to where the shot landed, in replay time.
         private sealed class Tracer { public GameObject Go; public Vector3 From, To; public float T0, Dur; }
         private static readonly List<Tracer> _tracers = new List<Tracer>();
@@ -465,6 +471,7 @@ namespace HowToFish1v1.Match
             Vector3 fix = _remoteKiller ? -Vector3.forward * _tpOffset : Vector3.zero;   // undo the third-person push
             bool hideGun = _sniperSight && _aimPercent > _sniperPct;
             if (!_gun.Pose(gs.Rig, fix, hideGun)) return;
+            ReplayKnife(eyePos, eyeRot, t);
             if (_flash)
             {
                 // The muzzle is recorded directly (head space), so scaling on the gun root cannot push the flash sideways.
@@ -480,6 +487,31 @@ namespace HowToFish1v1.Match
                 }
                 if (_flash.activeSelf && Time.unscaledTime > _flashUntil) _flash.SetActive(false);
             }
+        }
+
+        /// <summary>A knife swing at this replay moment takes the gun's place, exactly as it looked to the killer.</summary>
+        private static void ReplayKnife(Vector3 eyePos, Quaternion eyeRot, float t)
+        {
+            if (!Recorder.KnifeAt(_killerId, t, Knife.SwingSeconds, out var swing))
+            {
+                if (_knifeCopy && _knifeCopy.activeSelf) { _knifeCopy.SetActive(false); _gun?.SetActive(true); }
+                return;
+            }
+            if (!_knifeCopy || _knifeCopySkin != swing.Skin)
+            {
+                if (_knifeCopy) Object.Destroy(_knifeCopy);
+                foreach (var o in _knifeCreated) if (o) Object.Destroy(o);
+                _knifeCreated.Clear();
+                Vector3 tone = new Vector3(0.85f, 0.65f, 0.5f);
+                try { var k = FindPlayer(_killerId); if (k && k.Skin) tone = k.Skin.SkinColor; } catch (System.Exception) { }
+                _knifeCopy = Knife.BuildModel(swing.Skin, _knifeCreated, true, tone);
+                _knifeCopySkin = swing.Skin;
+            }
+            if (!_knifeCopy.activeSelf) _knifeCopy.SetActive(true);
+            _gun?.SetActive(false);
+            Knife.SwingPose(Mathf.Clamp01((t - swing.T) / Knife.SwingSeconds), out var pos, out var rot);
+            _knifeCopy.transform.SetPositionAndRotation(eyePos + eyeRot * pos, eyeRot * rot);
+            if (Mathf.Abs(_knifeSoundedAt - swing.T) > 0.01f && _mode == Mode.Replay) { _knifeSoundedAt = swing.T; HitSounds.PlaySwoosh(); }
         }
 
         /// <summary>Replays any shot the killer fired since the last frame of replay time: flash, tracer and the gun's own sound.</summary>
@@ -919,6 +951,10 @@ namespace HowToFish1v1.Match
             foreach (var go in _actorCopies.Values) if (go) Object.Destroy(go);
             _actorCopies.Clear();
             ClearTracers();
+            if (_knifeCopy) Object.Destroy(_knifeCopy);
+            _knifeCopy = null; _knifeCopySkin = 255; _knifeSoundedAt = -1f;
+            foreach (var o in _knifeCreated) if (o) Object.Destroy(o);
+            _knifeCreated.Clear();
             foreach (var c in _bodyCopies.Values) c.Destroy();
             _bodyCopies.Clear(); _bodyCopyParts.Clear();
             foreach (var c in _otherGunCopies.Values) c.Destroy();
@@ -1112,6 +1148,7 @@ namespace HowToFish1v1.Match
             UpdateActors(false, 0f);
             UpdateGhost(false, 0f);
             _gun?.SetActive(false);
+            if (_knifeCopy) _knifeCopy.SetActive(false);
             ClearTracers();
             ShowLiveWorld();
         }

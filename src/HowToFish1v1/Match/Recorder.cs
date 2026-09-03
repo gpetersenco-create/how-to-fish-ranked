@@ -70,6 +70,25 @@ namespace HowToFish1v1.Match
         private static readonly Dictionary<int, RigParts> _bodyParts = new Dictionary<int, RigParts>();
         private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
         public struct Shot { public float T; public Vector3 Hit; public bool HasHit; }
+        public struct KnifeSwing { public float T; public byte Skin; }
+        private static readonly Dictionary<int, List<KnifeSwing>> _knives = new Dictionary<int, List<KnifeSwing>>();
+
+        public static void RecordKnife(int ownerId, byte skin)
+        {
+            if (!ModState.IsActive) return;
+            if (!_knives.TryGetValue(ownerId, out var list)) { list = new List<KnifeSwing>(); _knives[ownerId] = list; }
+            list.Add(new KnifeSwing { T = Time.unscaledTime, Skin = skin });
+            while (list.Count > 0 && Time.unscaledTime - list[0].T > KeepSeconds) list.RemoveAt(0);
+        }
+
+        /// <summary>The knife swing in progress at time t, if any.</summary>
+        public static bool KnifeAt(int ownerId, float t, float swingSeconds, out KnifeSwing swing)
+        {
+            swing = default;
+            if (!_knives.TryGetValue(ownerId, out var list)) return false;
+            foreach (var s in list) if (t >= s.T && t <= s.T + swingSeconds) { swing = s; return true; }
+            return false;
+        }
         private static readonly Dictionary<int, List<Shot>> _shotHits = new Dictionary<int, List<Shot>>();
         private static readonly Dictionary<int, List<(float t, bool ads)>> _aim = new Dictionary<int, List<(float, bool)>>();
         private static readonly Dictionary<Component, RigParts> _rigCache = new Dictionary<Component, RigParts>();
@@ -224,7 +243,7 @@ namespace HowToFish1v1.Match
         {
             if (!ModState.IsActive)
             {
-                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _shotHits.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
+                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _shotHits.Clear(); _knives.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
                 if (_actors.Count > 0) { foreach (var tr in _actors.Values) DestroyParts(tr); _actors.Clear(); _creatures = Array.Empty<Creature>(); }
                 return;
             }
