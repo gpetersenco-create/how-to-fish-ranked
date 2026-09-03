@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.2.30",
-    "notes":  "Killcam: guns no longer vanish at the start of a replay or right after a weapon swap. The gun copy is now rebuilt from the exact part list each moment was recorded with (the charm adds parts shortly after a gun appears), and mismatches pose what fits instead of hiding the gun.",
+    "version":  "0.2.31",
+    "notes":  "Charm: drawn on the gun\u0027s own mesh layer so the first-person weapon camera renders it (it was being clipped by the main camera\u0027s near plane); charm builds are logged.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.30/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.31/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.30/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.31/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.30/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.31/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.30/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.31/hitmarker.mp3"
                   }
               ]
 }
