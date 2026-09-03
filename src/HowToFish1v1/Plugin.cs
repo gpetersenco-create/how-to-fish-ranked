@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.38";
+        public const string Version = "0.2.40";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -28,6 +28,8 @@ namespace HowToFish1v1
             Instance = this;
             Log = Logger;
             Cfg = new ModConfig(Config);
+            // Configs saved by 0.2.37/0.2.38 carry the old 35% ricochet default; bring them to the new 10%.
+            if (Mathf.Abs(Cfg.RicochetChance.Value - 0.35f) < 0.001f) Cfg.RicochetChance.Value = 0.10f;
             ModNet.Init();
             RankService.Init();
             _harmony = new Harmony(Guid);
@@ -65,7 +67,6 @@ namespace HowToFish1v1
             ModAttachments.Update();
             Knife.Update();
             Trickshot.Update();
-            RankCharms.Update();
             Ricochet.Update();
             AntiCheat.Update();
             UI.ClassPreview.Update();

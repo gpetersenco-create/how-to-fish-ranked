@@ -187,7 +187,7 @@ namespace HowToFish1v1.UI
             GUI.enabled = inLobby;
             // Scrollable area: gun toggles, then an attachment block per chosen gun.
             float areaTop = y + 66 + PreviewH + 10, areaH = S.DesignH - 130 - areaTop - 90;
-            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52 + 52;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52;
             _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
             float gy = 0;
             // The knife: always carried, one key, its own skin (local only: nobody else sees your knife).
@@ -199,21 +199,6 @@ namespace HowToFish1v1.UI
                 {
                     if (!WeaponSkins.CanPick(ks)) ks = 0;
                     Plugin.Cfg.KnifeSkin.Value = ks;
-                }
-                GUI.enabled = was;
-                gy += 52;
-            }
-            // The gun charm: hangs off the left side of every gun you hold; everyone sees it.
-            {
-                S.Box(new Rect(0, gy, w, 44), S.Panel, 8f);
-                byte ch = (byte)Mathf.Clamp(Plugin.Cfg.Charm.Value, 0, 2);
-                if (ch == 2 && !RankCharms.CanUseDev) ch = 1;
-                bool was = GUI.enabled; GUI.enabled = true;
-                if (Cycle(8, gy + 3, w - 16, "Charm", _charmNames, ref ch))
-                {
-                    if (ch == 2 && !RankCharms.CanUseDev) ch = 0;
-                    Plugin.Cfg.Charm.Value = ch;
-                    SendLoadout(_ready);
                 }
                 GUI.enabled = was;
                 gy += 52;
@@ -321,7 +306,6 @@ namespace HowToFish1v1.UI
             return y + AttachH;
         }
 
-        private static readonly List<string> _charmNames = new List<string> { "None", "Rank emblem", RankCharms.CanUseDev ? "DEV tag" : "DEV tag (locked)" };
         private static readonly List<string> _skinNames = WeaponSkins.Names.Select((n, i) => i == WeaponSkins.Dragon && !WeaponSkins.CanPick((byte)i) ? n + " (locked)" : n).ToList();
 
         private static bool Cycle(float x, float y, float w, string label, List<string> options, ref byte index)
@@ -401,10 +385,8 @@ namespace HowToFish1v1.UI
         {
             _ready = ready;
             var bytes = LoadoutCodec.Encode(_guns);
-            byte charm = (byte)Mathf.Clamp(Plugin.Cfg.Charm.Value, 0, 2);
-            if (charm == 2 && !RankCharms.CanUseDev) charm = 1;
-            if (ModNet.IsHost) Plugin.Host.SetLocalLoadout(bytes, ready, RankService.Points, charm);
-            else ModNet.SendLoadout(bytes, ready, RankService.Points, charm);
+            if (ModNet.IsHost) Plugin.Host.SetLocalLoadout(bytes, ready, RankService.Points, 0);
+            else ModNet.SendLoadout(bytes, ready, RankService.Points, 0);
         }
 
         /// <summary>Re-sends the current loadout so the host learns updated rank points.</summary>
