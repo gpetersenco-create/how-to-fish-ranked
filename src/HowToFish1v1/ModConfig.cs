@@ -1,4 +1,4 @@
-using BepInEx.Configuration;
+﻿using BepInEx.Configuration;
 using HowToFish1v1.Core;
 using UnityEngine;
 
@@ -11,6 +11,7 @@ namespace HowToFish1v1
         public ConfigEntry<int> KillsToWin;
         public ConfigEntry<float> CountdownSeconds;
         public ConfigEntry<float> FfaRespawnSeconds;
+        public ConfigEntry<float> RoundEndSeconds;
         public ConfigEntry<float> DamageMultiplier;
         public ConfigEntry<int> MaxLoadoutGuns;
         public ConfigEntry<string> RankNames;
@@ -30,7 +31,8 @@ namespace HowToFish1v1
             RoundsToWin = file.Bind("Rules", "RoundsToWin", 6, "Round wins needed to take a 1v1 / 2v2 / 3v3 match.");
             KillsToWin = file.Bind("Rules", "KillsToWin", 10, "Kills needed to win a free-for-all.");
             CountdownSeconds = file.Bind("Rules", "CountdownSeconds", 3f, "Freeze time before each round goes live.");
-            FfaRespawnSeconds = file.Bind("Rules", "FfaRespawnSeconds", 3f, "Seconds before a free-for-all respawn.");
+            FfaRespawnSeconds = file.Bind("Rules", "FfaRespawnSeconds", 7f, "Seconds before a free-for-all respawn (the killcam plays during this).");
+            RoundEndSeconds = file.Bind("Rules", "RoundEndSeconds", 7f, "Pause after a round ends before the next countdown (the killcam plays during this).");
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");
             MaxLoadoutGuns = file.Bind("Rules", "MaxLoadoutGuns", 2, "How many guns each player may pick.");
             RankNames = file.Bind("Ranks", "RankNames", RankLadder.DefaultNames, "Comma-separated rank names from lowest to highest.");

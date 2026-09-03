@@ -10,11 +10,29 @@ namespace HowToFish1v1.Match
 
         private const float KeepSeconds = 12f;
         private static readonly Dictionary<int, List<Sample>> _tracks = new Dictionary<int, List<Sample>>();
+        private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
+
+        /// <summary>A weapon held by this player fired (seen on every client through the game's shoot effects).</summary>
+        public static void RecordShot(int ownerId)
+        {
+            if (!ModState.IsActive) return;
+            if (!_shots.TryGetValue(ownerId, out var list)) { list = new List<float>(); _shots[ownerId] = list; }
+            list.Add(Time.unscaledTime);
+            while (list.Count > 0 && Time.unscaledTime - list[0] > KeepSeconds) list.RemoveAt(0);
+        }
+
+        /// <summary>True if the player fired in the (t0, t1] window.</summary>
+        public static bool FiredBetween(int ownerId, float t0, float t1)
+        {
+            if (!_shots.TryGetValue(ownerId, out var list)) return false;
+            foreach (var t in list) if (t > t0 && t <= t1) return true;
+            return false;
+        }
 
         /// <summary>Call every frame.</summary>
         public static void Update()
         {
-            if (!ModState.IsActive) { if (_tracks.Count > 0) _tracks.Clear(); return; }
+            if (!ModState.IsActive) { if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); } return; }
             float now = Time.unscaledTime;
             foreach (var p in PlayerManager.Players)
             {

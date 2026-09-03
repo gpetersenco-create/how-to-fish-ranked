@@ -71,7 +71,7 @@ namespace HowToFish1v1.UI
             TrackLive();
             if (KillCam.Active)
             {
-                string head = KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? "KILLCAM" : "KILLED BY");
+                string head = KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? (KillCam.SlowMotion ? "KILLCAM  <size=60%>(slow motion)</size>" : "KILLCAM") : "KILLED BY");
                 string who = KillCam.IsFinal ? $"{KillCam.KillerName}  killed  {KillCam.VictimName}" : KillCam.KillerName;
                 _banner.text = $"<size=60%>{head}</size>\n{who}\n<size=45%>{KillCam.KillerInfo}</size>";
                 return;

@@ -57,6 +57,16 @@ namespace HowToFish1v1.Patches
             if (ModState.IsActive && Match.KillCam.IsFinal && __instance.Owner.IsLocalClient) Match.KillCam.ApplyPlayerCam(__instance);
         }
 
+        // Every shot a held gun fires plays effects on all clients; remember who fired when, for the killcam.
+        [HarmonyPatch(typeof(Weapon), "ShootEffects")]
+        [HarmonyPostfix]
+        private static void RecordShot(Weapon __instance)
+        {
+            if (!ModState.IsActive || !__instance) return;
+            var holder = __instance.Holder;
+            if (holder) Match.Recorder.RecordShot(holder.OwnerId);
+        }
+
         // Tab opens the fish journal in the base game; during matches Tab is the scoreboard.
         [HarmonyPatch(typeof(PlayerThinking), "ThinkingInput")]
         [HarmonyPrefix]

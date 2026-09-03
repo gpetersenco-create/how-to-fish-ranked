@@ -49,6 +49,7 @@ namespace HowToFish1v1.Match
             KillsToWin = Mathf.Max(1, Plugin.Cfg.KillsToWin.Value),
             CountdownSeconds = Mathf.Max(0f, Plugin.Cfg.CountdownSeconds.Value),
             FfaRespawnSeconds = Mathf.Max(0f, Plugin.Cfg.FfaRespawnSeconds.Value),
+            RoundEndSeconds = Mathf.Max(0f, Plugin.Cfg.RoundEndSeconds.Value),
             MaxLoadoutGuns = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value),
             SoloDebug = Plugin.Cfg.SoloDebug.Value
         };
