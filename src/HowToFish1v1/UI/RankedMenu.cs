@@ -375,7 +375,6 @@ namespace HowToFish1v1.UI
                 { MatchMode.OneVOne, "One kill wins the round.\nFirst to 6 rounds." },
                 { MatchMode.TwoVTwo, "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 4 players." },
                 { MatchMode.ThreeVThree, "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 6 players." },
-                { MatchMode.SearchAndDestroy, "One life per round. Attackers plant at the\ncentre site, defenders stop them. First to 6." },
                 { MatchMode.FreeForAll, "2 to 8 players. First to 10 kills.\nRespawn after a short killcam." },
                 { MatchMode.OneInTheChamber, "Pistols, one bullet each, every hit kills.\nA kill earns a bullet. Knife when dry." },
                 { MatchMode.SniperOnly, "Everyone gets the sniper and nothing else.\nFree-for-all rules." },

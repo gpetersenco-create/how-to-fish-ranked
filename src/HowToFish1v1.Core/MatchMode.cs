@@ -13,7 +13,7 @@ namespace HowToFish1v1.Core
     {
         public static readonly MatchMode[] All =
         {
-            MatchMode.OneVOne, MatchMode.TwoVTwo, MatchMode.ThreeVThree, MatchMode.SearchAndDestroy, MatchMode.FreeForAll,
+            MatchMode.OneVOne, MatchMode.TwoVTwo, MatchMode.ThreeVThree, MatchMode.FreeForAll,
             MatchMode.OneInTheChamber, MatchMode.SniperOnly, MatchMode.KnifeOnly, MatchMode.Trickshot
         };
 
