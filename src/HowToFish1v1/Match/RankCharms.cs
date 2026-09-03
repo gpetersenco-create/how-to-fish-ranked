@@ -104,11 +104,13 @@ namespace HowToFish1v1.Match
         {
             var root = new GameObject("HTF1v1_Charm");
             root.transform.SetParent(item.transform, false);
-            root.layer = item.gameObject.layer;
             var c = new Charm { Root = root, Item = item, Tier = tier, Dev = dev };
 
-            // Anchor: on the right-hand side of the gun's body, a little back from the middle, slightly below centre.
+            // Anchor: on the left-hand side of the gun's body, a little back from the middle, slightly below centre.
             var rends = item.GetComponentsInChildren<Renderer>(false).Where(r => r && r.enabled && !r.name.StartsWith("HTF1v1_")).ToArray();
+            // Same layer as the gun's own meshes: first-person guns are drawn by their own camera, and anything on another
+            // layer this close to the eye is clipped by the main camera's near plane.
+            root.layer = rends.Length > 0 ? rends[0].gameObject.layer : item.gameObject.layer;
             var t = item.transform;
             Vector3 anchor;
             if (rends.Length > 0)
@@ -133,6 +135,7 @@ namespace HowToFish1v1.Match
             float cw = dev ? 0.06f : 0.046f, ch = dev ? 0.036f : 0.052f;
             Prep(card, "HTF1v1_CharmCard", root, new Vector3(0f, -Length - ch * 0.5f, 0f), new Vector3(cw, ch, 0.004f), dev ? _devMat : TierMaterial(tier));
             c.Card = card.transform;
+            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} anchor {c.AnchorLocal}");
             return c;
         }
 

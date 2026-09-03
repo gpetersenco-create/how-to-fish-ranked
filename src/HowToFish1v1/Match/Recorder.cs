@@ -34,6 +34,8 @@ namespace HowToFish1v1.Match
         {
             public float T;
             public Item Item;
+            /// <summary>The part list this sample was recorded against (parts can be added later, e.g. the charm).</summary>
+            public RigParts Parts;
             public Vector3 RootPos; public Quaternion RootRot;
             public Vector3 FirePos; public Quaternion FireRot; public bool HasFire;
             public RigSample Rig;
@@ -276,7 +278,9 @@ namespace HowToFish1v1.Match
                         gs.FirePos = head.InverseTransformPoint(fp.position);
                         gs.FireRot = Quaternion.Inverse(head.rotation) * fp.rotation;
                     }
-                    gs.Rig = Capture(PartsOf(item), head);
+                    var gunParts = PartsOf(item);
+                    gs.Parts = gunParts;
+                    gs.Rig = Capture(gunParts, head);
                 }
                 glist.Add(gs);
                 Prune(glist, now, s => s.T);
@@ -443,7 +447,7 @@ namespace HowToFish1v1.Match
             float f = Mathf.InverseLerp(a.T, b.T, t);
             result = new GunSample
             {
-                T = t, Item = a.Item,
+                T = t, Item = a.Item, Parts = a.Parts,
                 RootPos = Vector3.Lerp(a.RootPos, b.RootPos, f), RootRot = Quaternion.Slerp(a.RootRot, b.RootRot, f),
                 HasFire = a.HasFire && b.HasFire, FirePos = Vector3.Lerp(a.FirePos, b.FirePos, f), FireRot = Quaternion.Slerp(a.FireRot, b.FireRot, f),
                 Rig = Lerp(a.Rig, b.Rig, f)

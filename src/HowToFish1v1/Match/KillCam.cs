@@ -207,22 +207,30 @@ namespace HowToFish1v1.Match
             }
 
             /// <summary>Poses parts and bones (local to Root) from a sample; false when the sample does not fit this copy.</summary>
+            /// <summary>Whether a sample recorded against another part list still fits this copy.</summary>
+            public bool Fits(Recorder.RigParts parts) => parts == null || (parts.Rends.Length == Parts.Length && parts.Bones.Length == Bones.Length);
+
             public bool Pose(Recorder.RigSample s, Vector3 fix, bool hideAll)
             {
                 if (!Root) return false;
-                if (!s.Valid || s.Pos.Length != Parts.Length || s.BonePos == null || s.BonePos.Length != Bones.Length) { Root.SetActive(false); return false; }
+                if (!s.Valid || s.BonePos == null) { Root.SetActive(false); return false; }
                 if (!Root.activeSelf) Root.SetActive(true);
+                // Parts are listed in hierarchy order, so a shorter sample is a prefix of a longer copy (a charm or an
+                // attachment added later): pose what matches and hide the rest instead of dropping the whole gun.
+                int np = Mathf.Min(s.Pos.Length, Parts.Length);
                 for (int i = 0; i < Parts.Length; i++)
                 {
                     var p = Parts[i];
                     if (!p) continue;
+                    var r = Rends[i];
+                    if (i >= np) { if (r && r.enabled) r.enabled = false; continue; }
                     p.localPosition = s.Pos[i] + fix;
                     p.localRotation = s.Rot[i];
                     bool on = s.On != null && i < s.On.Length && s.On[i] && !hideAll;
-                    var r = Rends[i];
                     if (r && r.enabled != on) r.enabled = on;
                 }
-                for (int i = 0; i < Bones.Length; i++)
+                int nb = Mathf.Min(s.BonePos.Length, Bones.Length);
+                for (int i = 0; i < nb; i++)
                 {
                     var b = Bones[i];
                     if (!b) continue;
@@ -368,14 +376,14 @@ namespace HowToFish1v1.Match
         }
 
         /// <summary>Builds the copy of an item the killer held during the replay and reads its weapon settings.</summary>
-        private static void BuildViewGun(Item item)
+        private static void BuildViewGun(Item item, Recorder.RigParts parts = null)
         {
             DestroyViewGun();
             ResetWeaponState();
             if (!item) return;
             _tpOffset = 0f;
             try { if (item is Tool tool && _remoteKiller) _tpOffset = tool.ThirdPersonOffset; } catch (System.Exception) { }
-            _gun = RigCopy.Build(Recorder.PartsOf(item), "HTF1v1_KillcamGun");
+            _gun = RigCopy.Build(parts ?? Recorder.PartsOf(item), "HTF1v1_KillcamGun");
             _gunSource = item;
 
             if (item is Weapon w && w.Attachments)
@@ -461,7 +469,7 @@ namespace HowToFish1v1.Match
                 _gun?.SetActive(false);
                 return;
             }
-            if (gs.Item != _gunSource) BuildViewGun(gs.Item);
+            if (gs.Item != _gunSource || (_gun != null && !_gun.Fits(gs.Parts))) BuildViewGun(gs.Item, gs.Parts);
             if (_gun == null) return;
 
             Vector3 offset = Vector3.zero; Quaternion rot = Quaternion.identity;
@@ -620,10 +628,10 @@ namespace HowToFish1v1.Match
                 // Their gun rides on their recorded head, exactly as this client saw it.
                 if (Recorder.TryGetGun(id, t, out var gs) && gs.Item && Recorder.TryGet(id, t, out var hp, out var hr))
                 {
-                    if (!_otherGunCopies.TryGetValue(id, out var gc) || gc.Root == null || !_otherGunSource.TryGetValue(id, out var src) || src != gs.Item)
+                    if (!_otherGunCopies.TryGetValue(id, out var gc) || gc.Root == null || !_otherGunSource.TryGetValue(id, out var src) || src != gs.Item || !gc.Fits(gs.Parts))
                     {
                         gc?.Destroy();
-                        gc = RigCopy.Build(Recorder.PartsOf(gs.Item), "HTF1v1_ReplayGun_" + p.SteamName);
+                        gc = RigCopy.Build(gs.Parts ?? Recorder.PartsOf(gs.Item), "HTF1v1_ReplayGun_" + p.SteamName);
                         _otherGunCopies[id] = gc;
                         _otherGunSource[id] = gs.Item;
                     }
