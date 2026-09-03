@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.18";
+        public const string Version = "0.2.19";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }

@@ -104,7 +104,7 @@ namespace HowToFish1v1.Match
         /// <summary>The killer was aiming down sights at the current replay moment.</summary>
         public static bool ReplayAds { get; private set; }
         public static bool ShowScope => IsReplay && _sniperSight && _aimPercent > 0.6f;
-        public static bool ShowCrosshair => IsReplay && ReplayAds && !_sniperSight;
+        public static bool ShowCrosshair => false;   // no drawn crosshair in replays; the killer's own sight picture is enough
         public static string KillerName { get; private set; } = "";
         public static string VictimName { get; private set; } = "";
         public static string KillerInfo { get; private set; } = "";
@@ -918,16 +918,6 @@ namespace HowToFish1v1.Match
                 if (y > 0) { UnityEngine.GUI.DrawTexture(new Rect(0, 0, w, y), Texture2D.whiteTexture); UnityEngine.GUI.DrawTexture(new Rect(0, y + size, w, h - y - size), Texture2D.whiteTexture); }
                 UnityEngine.GUI.color = new Color(1f, 1f, 1f, a);
                 UnityEngine.GUI.DrawTexture(new Rect(x, y, size, size), _scopeTex);
-                UnityEngine.GUI.color = Color.white;
-            }
-            else if (ShowCrosshair)
-            {
-                UnityEngine.GUI.color = new Color(1f, 1f, 1f, 0.9f * _aimPercent);
-                float cx = w / 2f, cy = h / 2f, len = 14f, gap = 6f, th = 2f;
-                UnityEngine.GUI.DrawTexture(new Rect(cx - gap - len, cy - th / 2, len, th), Texture2D.whiteTexture);
-                UnityEngine.GUI.DrawTexture(new Rect(cx + gap, cy - th / 2, len, th), Texture2D.whiteTexture);
-                UnityEngine.GUI.DrawTexture(new Rect(cx - th / 2, cy - gap - len, th, len), Texture2D.whiteTexture);
-                UnityEngine.GUI.DrawTexture(new Rect(cx - th / 2, cy + gap, th, len), Texture2D.whiteTexture);
                 UnityEngine.GUI.color = Color.white;
             }
             if (_fade > 0f)
