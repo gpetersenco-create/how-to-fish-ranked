@@ -402,20 +402,33 @@ namespace HowToFish1v1.UI
         private static void DrawMaps()
         {
             S.Shadowed(new Rect(60, 130, 900, 50), "MAPS", S.Title); S.Rule(60, 184, 240);
+            // Four cards per row; two rows fit above the footer.
+            const int cols = 4;
+            float cardW = 430f, cardH = 330f, gapX = 20f, gapY = 16f;
             for (int i = 0; i < ArenaLayout.MapCount; i++)
             {
-                float ce = S.Ease(TabKey, 0.3f, 0.06f * i);
-                var r = new Rect(60 + i * 450, 220 + (1f - ce) * 40f, 420, 380);
+                float ce = S.Ease(TabKey, 0.3f, 0.05f * i);
+                int col = i % cols, row = i / cols;
+                var r = new Rect(60 + col * (cardW + gapX), 205 + row * (cardH + gapY) + (1f - ce) * 40f, cardW, cardH);
                 bool on = i == _map;
                 var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
                 S.Box(r, on ? S.PanelLightColor : S.PanelColor, 16f);
                 if (on) S.Outline(r, S.GoldColor, 2f, 16f);
-                GUI.DrawTexture(new Rect(r.x + 18, r.y + 20, 384, 256), MapPreview.Get(i), ScaleMode.StretchToFill, true, 0f, GUI.color, 0f, 10f);
-                GUI.Label(new Rect(r.x + 20, r.y + 284, r.width - 40, 44), ArenaLayout.MapNames[i].ToUpperInvariant(), S.H1);
-                if (S.Btn(new Rect(r.x + 20, r.y + 326, r.width - 40, 44), on ? "SELECTED" : "SELECT", on ? S.BigButton : S.Button)) _map = i;
+                GUI.DrawTexture(new Rect(r.x + 15, r.y + 14, cardW - 30, 210), MapPreview.Get(i), ScaleMode.StretchToFill, true, 0f, GUI.color, 0f, 10f);
+                GUI.Label(new Rect(r.x + 20, r.y + 230, r.width - 200, 40), ArenaLayout.MapNames[i].ToUpperInvariant(), S.H2);
+                GUI.Label(new Rect(r.x + 20, r.y + 262, r.width - 200, 30), MapSize(i), S.Small);
+                if (S.Btn(new Rect(r.x + cardW - 180, r.y + 240, 160, 44), on ? "SELECTED" : "SELECT", on ? S.BigButton : S.Button)) _map = i;
                 GUI.color = saved;
             }
-            GUI.Label(new Rect(60, 620, S.DesignW - 120, 40), "Blue and orange squares are the team pads; green dots are free-for-all spawns.", S.Small);
+            GUI.Label(new Rect(60, 900, S.DesignW - 120, 30), "Blue and orange squares are the team pads; green dots are free-for-all spawns.", S.Small);
+        }
+
+        private static string MapSize(int i)
+        {
+            var l = ArenaLayout.Create(i);
+            float w = l.HalfWidth * 2f, d = l.HalfDepth * 2f;
+            string size = w * d >= 2500f ? "Large" : w * d >= 1200f ? "Medium" : "Small";
+            return ArenaLayout.IsSoloMap(i) ? "Solo practice" : $"{size}   {w:0} x {d:0} m";
         }
 
         // ---------------------------------------------------------------- hosting

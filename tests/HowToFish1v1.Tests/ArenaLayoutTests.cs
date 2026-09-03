@@ -17,7 +17,7 @@ namespace HowToFish1v1.Tests
         [Fact]
         public void MapIndexWrapsAndNamesMatch()
         {
-            Assert.Equal(4, ArenaLayout.MapCount);
+            Assert.Equal(7, ArenaLayout.MapCount);
             for (int i = 0; i < ArenaLayout.MapCount; i++)
                 Assert.Equal(ArenaLayout.MapNames[i], ArenaLayout.Create(i).Name);
             Assert.Equal(ArenaLayout.MapNames[1], ArenaLayout.Create(1 + ArenaLayout.MapCount).Name);
@@ -65,7 +65,7 @@ namespace HowToFish1v1.Tests
                 float halfZ = b.SZ / 2f + Math.Abs(b.SZ / 2f * (float)Math.Sin(b.RotX * Math.PI / 180));
                 Assert.True(Math.Abs(b.X) + halfX <= l.HalfWidth + 0.001f, l.Name + ": " + b.Name + " exceeds X bound");
                 Assert.True(Math.Abs(b.Z) + halfZ <= l.HalfDepth + 0.001f, l.Name + ": " + b.Name + " exceeds Z bound");
-                Assert.True(b.Y + b.SY / 2f <= ArenaLayout.CeilingY, l.Name + ": " + b.Name + " exceeds ceiling");
+                Assert.True(b.Y + b.SY / 2f <= l.Ceiling, l.Name + ": " + b.Name + " exceeds ceiling");
             }
         }
 

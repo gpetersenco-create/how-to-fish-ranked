@@ -44,7 +44,7 @@ namespace HowToFish1v1.Core
         private const float Ramp2over4 = 26.565f; // atan(2/4)
         private const float Ramp3over4 = 36.87f;  // atan(3/4)
 
-        public static readonly string[] MapNames = { "Rust", "Shipment", "Killhouse", "Trickshot Tower" };
+        public static readonly string[] MapNames = { "Rust", "Shipment", "Killhouse", "Trickshot Tower", "Harbor", "Refinery", "Terminal" };
         public static int MapCount => MapNames.Length;
         public const int TrickshotIndex = 3;
         /// <summary>Maps built for one player (no facing spawn pads, no symmetry).</summary>
@@ -94,6 +94,9 @@ namespace HowToFish1v1.Core
                 case 1: return Shipment();
                 case 2: return Killhouse();
                 case 3: return Trickshot();
+                case 4: return Harbor();
+                case 5: return Refinery();
+                case 6: return Terminal();
                 default: return Rust();
             }
         }
@@ -276,6 +279,128 @@ namespace HowToFish1v1.Core
             FfaPoint(x, z);
             FfaPoint(-x, z);
             FfaPoint(x, -z);
+        }
+
+        // ------------------------------------------------------------------ Harbor: crane tower, decks, container yard
+
+        public static ArenaLayout Harbor()
+        {
+            var l = new ArenaLayout { Name = "Harbor", HalfWidth = 36f, HalfDepth = 24f, Ceiling = 20f };
+            l.Floor();
+            l.SpawnPads(32f, shieldOffset: 5f);
+
+            // Crane: four legs, a slab 8 m up with railings; reached from two decks at 4 m by ramps at both ends.
+            l.Pair("CraneLeg", 3f, 4f, 3f, 1, 8, 1, BoxKind.Steel);
+            l.Pair("CraneLeg", 3f, 4f, -3f, 1, 8, 1, BoxKind.Steel);
+            l.Add("CraneSlab", 0, 8.15f, 0, 10, 0.3f, 10, BoxKind.Steel);
+            l.Pair("CraneRail", 4.75f, 8.8f, 0, 0.5f, 1, 10, BoxKind.Yellow);
+            l.Pair("CraneRailZ", 3f, 8.8f, 4.75f, 4, 1, 0.5f, BoxKind.Yellow);
+            l.Pair("CraneRailZ", -3f, 8.8f, 4.75f, 4, 1, 0.5f, BoxKind.Yellow);
+            l.Pair("Deck", 0, 4.15f, 9f, 10, 0.3f, 6, BoxKind.Concrete);
+            l.Pair("DeckPost", 4.5f, 2f, 9f, 0.5f, 4, 0.5f, BoxKind.Concrete);
+            l.Pair("DeckPost", -4.5f, 2f, 9f, 0.5f, 4, 0.5f, BoxKind.Concrete);
+            l.Pair("DeckRail", 4.75f, 4.8f, 9f, 0.5f, 1, 6, BoxKind.Steel);
+            l.Pair("DeckRail", -4.75f, 4.8f, 9f, 0.5f, 1, 6, BoxKind.Steel);
+            // Ground to deck: rises 4 m over 8 m; +RotX tips the +Z end down, so the ramp on the +Z side leans toward the centre.
+            l.Pair("DeckRamp", 0, 2f, 16f, 3, 0.3f, 8.94f, BoxKind.Concrete, rotX: 26.565f);
+            // Deck to slab: rises 4 m over 7 m.
+            l.Pair("SlabRamp", 0, 6.15f, 8.5f, 3, 0.3f, 8.06f, BoxKind.Steel, rotX: 29.7f);
+
+            // Container yard on both flanks, some stacked two high.
+            l.Pair("Container", 20f, 1.3f, 14f, 6, 2.6f, 2.4f, BoxKind.Rust);
+            l.Pair("ContainerTop", 20f, 3.9f, 14f, 6, 2.6f, 2.4f, BoxKind.Red);
+            l.Pair("Container", 20f, 1.3f, -14f, 6, 2.6f, 2.4f, BoxKind.Blue);
+            l.Pair("Container", 12f, 1.3f, 18f, 2.4f, 2.6f, 6, BoxKind.White);
+            l.Pair("Container", 8f, 1.3f, -19f, 6, 2.6f, 2.4f, BoxKind.Rust);
+            // Warehouses between the spawns and the yard, with a corridor through the middle.
+            l.Pair("WarehouseA", 22f, 3f, 3.5f, 8, 6, 3, BoxKind.Concrete);
+            l.Pair("WarehouseB", 22f, 3f, -3.5f, 8, 6, 3, BoxKind.Concrete);
+            l.Pair("WarehouseRoof", 22f, 6.15f, 0, 8, 0.3f, 10, BoxKind.Concrete);
+            l.Pair("Crate", 8f, 0.75f, -12f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Pair("Crate", 26f, 0.75f, 16f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Pair("Barrel", 14f, 0.6f, 4f, 1.2f, 1.2f, 1.2f, BoxKind.Steel);
+            l.Pair("Barrel", 14f, 0.6f, -6f, 1.2f, 1.2f, 1.2f, BoxKind.Rust);
+            l.Perimeter();
+            l.FfaPoints(24f, 20f);
+            return l;
+        }
+
+        // ------------------------------------------------------------------ Refinery: tanks, pipes, a long catwalk
+
+        public static ArenaLayout Refinery()
+        {
+            var l = new ArenaLayout { Name = "Refinery", HalfWidth = 38f, HalfDepth = 26f, Ceiling = 20f };
+            l.Floor();
+            l.SpawnPads(34f, shieldOffset: 5f);
+
+            // Storage tanks in the four corners.
+            l.Pair("Tank", 24f, 4f, 14f, 8, 8, 8, BoxKind.Steel);
+            l.Pair("Tank", 24f, 4f, -14f, 8, 8, 8, BoxKind.Rust);
+            // Catwalk down the middle at 4.5 m with railings, posts and side stairs.
+            l.Add("Catwalk", 0, 4.65f, 0, 44, 0.3f, 2.5f, BoxKind.Steel);
+            l.Pair("CatRail", 0, 5.3f, 1.35f, 44, 1, 0.3f, BoxKind.Yellow);
+            l.Pair("CatPost", 10f, 2.25f, 0, 0.5f, 4.5f, 0.5f, BoxKind.Steel);
+            l.Pair("CatPost", 20f, 2.25f, 0, 0.5f, 4.5f, 0.5f, BoxKind.Steel);
+            l.Add("CatPost", 0, 2.25f, 0, 0.5f, 4.5f, 0.5f, BoxKind.Steel);
+            // Stairs run sideways up to the catwalk: rise 4.5 m over 7.75 m.
+            l.Pair("CatStairs", 14f, 2.25f, 5.1f, 2.5f, 0.3f, 8.96f, BoxKind.Steel, rotX: 30.1f);
+            // Pipe runs at head height with supports.
+            l.Pair("Pipe", 0, 3.3f, 7f, 40, 0.6f, 0.6f, BoxKind.Steel);
+            l.Pair("PipeSupport", 12f, 1.5f, 7f, 0.4f, 3, 0.4f, BoxKind.Steel);
+            l.Pair("PipeSupport", -12f, 1.5f, 7f, 0.4f, 3, 0.4f, BoxKind.Steel);
+            // Control rooms at the north and south ends.
+            l.Pair("ControlRoom", 0, 2.5f, 19f, 10, 5, 5, BoxKind.Concrete);
+            l.Pair("ControlDoor", 5.25f, 1.25f, 19f, 0.5f, 2.5f, 2, BoxKind.Blue);
+            l.Pair("Barrel", 8f, 0.6f, -11f, 1.2f, 1.2f, 1.2f, BoxKind.Rust);
+            l.Pair("Barrel", 9.5f, 0.6f, -12.5f, 1.2f, 1.2f, 1.2f, BoxKind.Rust);
+            l.Pair("Crate", 30f, 0.75f, 10f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Pair("Crate", 30f, 0.75f, -8f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Pair("LowWall", 6f, 0.6f, -18f, 6, 1.2f, 0.5f, BoxKind.Concrete);
+            l.Perimeter();
+            l.FfaPoints(28f, 21f);
+            return l;
+        }
+
+        // ------------------------------------------------------------------ Terminal: a long hall with a roof, lanes of vehicles
+
+        public static ArenaLayout Terminal()
+        {
+            var l = new ArenaLayout { Name = "Terminal", HalfWidth = 40f, HalfDepth = 22f, Ceiling = 20f };
+            l.Floor();
+            l.SpawnPads(36f, shieldOffset: 5f);
+
+            // The hall: walls with a doorway in the middle of each side, pillars, a roof with railings, ramps up at both ends.
+            l.Pair("HallWall", 9f, 2f, 5.25f, 12, 4, 0.5f, BoxKind.Concrete);
+            l.Pair("HallWall", -9f, 2f, 5.25f, 12, 4, 0.5f, BoxKind.Concrete);
+            l.Pair("HallPillar", 6f, 2f, 0, 0.6f, 4, 0.6f, BoxKind.Concrete);
+            l.Add("HallDesk", 0, 0.6f, 0, 4, 1.2f, 1.2f, BoxKind.Wood);
+            l.Add("HallRoof", 0, 4.15f, 0, 32, 0.3f, 11.5f, BoxKind.Concrete);
+            l.Pair("RoofRail", 0, 4.8f, 5.5f, 32, 1, 0.3f, BoxKind.Steel);
+            l.Pair("RoofRailEnd", 15.85f, 4.8f, 3.9f, 0.3f, 1, 3.7f, BoxKind.Steel);
+            l.Pair("RoofRailEnd", 15.85f, 4.8f, -3.9f, 0.3f, 1, 3.7f, BoxKind.Steel);
+            l.Pair("RoofVent", 8f, 4.8f, 0, 2, 1, 2, BoxKind.Steel);
+            // Ramps: rise 4 m over 10 m; +RotZ raises the +X end, so the ramp on the +X side needs the negative angle.
+            l.Pair("RoofRamp", 21f, 2f, 0, 10.77f, 0.3f, 3, BoxKind.Concrete, rotZ: -21.8f);
+            // Lanes on both sides: cars, a bus, planters.
+            l.Pair("Car", 20f, 0.8f, 14f, 4.4f, 1.6f, 2.0f, BoxKind.Blue);
+            l.Pair("CarCab", 20.5f, 2.0f, 14f, 2.4f, 0.8f, 1.8f, BoxKind.Blue);
+            l.Pair("Car", -8f, 0.8f, 16f, 4.4f, 1.6f, 2.0f, BoxKind.Red);
+            l.Pair("CarCab", -7.5f, 2.0f, 16f, 2.4f, 0.8f, 1.8f, BoxKind.Red);
+            l.Pair("Bus", 28f, 1.5f, -12f, 10, 3, 2.6f, BoxKind.Yellow);
+            l.Pair("Planter", 12f, 0.5f, 10f, 3, 1, 1.5f, BoxKind.Brick);
+            l.Pair("Planter", -12f, 0.5f, 10f, 3, 1, 1.5f, BoxKind.Brick);
+            l.Pair("Kiosk", 4f, 1.25f, -13f, 3, 2.5f, 3, BoxKind.White);
+            l.Pair("Bench", 30f, 0.45f, 8f, 2.5f, 0.9f, 0.8f, BoxKind.Wood);
+            l.Perimeter();
+            l.FfaPoints(26f, 17f);
+            return l;
+        }
+
+        /// <summary>A box and its twin rotated 180 degrees about the centre, so both sides of the map get the same cover.</summary>
+        private void Pair(string name, float x, float y, float z, float sx, float sy, float sz, BoxKind kind, float rotX = 0, float rotZ = 0)
+        {
+            Add(name, x, y, z, sx, sy, sz, kind, rotX, rotZ);
+            Add(name, -x, y, -z, sx, sy, sz, kind, -rotX, -rotZ);
         }
 
         // ------------------------------------------------------------------ shared pieces
