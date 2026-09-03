@@ -106,6 +106,22 @@ namespace HowToFish1v1.Match
             return string.Join(", ", guns.Select(g => DisplayName(GameInfo.IDToItem(g.ItemId)) + (g.ModCount > 0 ? $" (+{g.ModCount})" : "") + (g.Skin > 0 && g.Skin < WeaponSkins.Count ? $" [{WeaponSkins.Names[g.Skin]}]" : "")));
         }
 
+        /// <summary>
+        /// The loadout a mode actually hands out: the player's own in normal modes; exactly one gun (with the player's
+        /// attachments and skin for it, if they picked it) in single-gun modes; nothing in knife-only.
+        /// </summary>
+        public static byte[] ForcedLoadout(MatchMode mode, byte[] own)
+        {
+            string filter = MatchModes.GunFilter(mode);
+            if (filter == null) return own;
+            if (filter == "") return Array.Empty<byte>();
+            var gun = Weapons().FirstOrDefault(w => DisplayName(w).ToLowerInvariant().Contains(filter));
+            if (!gun) return own;
+            var mine = LoadoutCodec.Decode(own).FirstOrDefault(g => g.ItemId == gun.ID);
+            var pick = mine.ItemId == gun.ID ? mine : new LoadoutGun(gun.ID);
+            return LoadoutCodec.Encode(new[] { pick });
+        }
+
         /// <summary>Server only. Destroys the held item, everything in the inventory, and the death ragdoll.</summary>
         public static void ServerClearItems(Player p)
         {

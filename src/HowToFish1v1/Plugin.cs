@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.41";
+        public const string Version = "0.3.0";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -37,6 +37,7 @@ namespace HowToFish1v1
             ClientMatchView.Init(this);
             Hud.Init();
             KillCam.Init();
+            MatchEvents.Init();
             Host = new HostMatchController(this);
             Log.LogInfo($"{Name} {Version} loaded. Panel key: {Cfg.PanelKey.Value}. Rank: {RankService.RankName} ({RankService.Points})");
         }
@@ -45,6 +46,7 @@ namespace HowToFish1v1
         {
             StartCoroutine(Updater.Run());
             StartCoroutine(HitSounds.LoadFiles());
+            StartCoroutine(Announcer.LoadFiles());
             StartCoroutine(CloudRanks.Report());
             StartCoroutine(CloudRanks.Refresh(force: true));
             ModNet.HelloReceived += (conn, msg) => Log.LogInfo($"Hello from client {conn.ClientId}: mod {msg.ModVersion}{(msg.ModVersion == Version ? "" : " (MISMATCH, ours is " + Version + ")")}");
@@ -81,11 +83,14 @@ namespace HowToFish1v1
         {
             LobbyPanel.Draw();
             Scoreboard.Draw();
+            HitReactions.Draw();
+            Hud.DrawRadar();
             Match.KillCam.DrawOverlay();
             Hud.DrawKillcamCard();
             Hud.DrawAnnouncement();
             Updater.Draw();
             RankedMenu.Draw();
+            Results.Draw();
         }
 
         private void AutoHostForTesting()

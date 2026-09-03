@@ -16,6 +16,8 @@ namespace HowToFish1v1.Net.Proto2
         public bool Ready;
         public int RankPoints;
         public byte Charm;
+        /// <summary>Map vote: 255 = none.</summary>
+        public byte Vote;
         /// <summary>Doubles as a hello: any loadout message proves the sender runs this mod version.</summary>
         public string ModVersion;
     }
@@ -55,6 +57,12 @@ namespace HowToFish1v1.Net.Proto2
         public bool Suicide;
         public int KillerId;
         public int VictimId;
+        /// <summary>Comma-separated medal names earned by the kill ("" for none).</summary>
+        public string Medals;
+        /// <summary>The killer's streak after this kill.</summary>
+        public int Streak;
+        /// <summary>KillKind as a byte.</summary>
+        public byte Kind;
     }
 
     public struct ArenaBroadcast : IBroadcast
@@ -75,6 +83,7 @@ namespace HowToFish1v1.Net.Proto2
         public bool HasMod;
         public int RankPoints;
         public byte Charm;
+        public int Vote;
         public byte[] Loadout;
         /// <summary>Mod version this player reported ("" if none), so the lobby can say who needs to update.</summary>
         public string ModVersion;

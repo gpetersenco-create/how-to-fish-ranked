@@ -70,7 +70,7 @@ namespace HowToFish1v1.Core
             Dirty = true;
         }
 
-        public void SetLoadout(int id, byte[] itemIds, bool ready, int rankPoints = -1, int charm = -1)
+        public void SetLoadout(int id, byte[] itemIds, bool ready, int rankPoints = -1, int charm = -1, int vote = -2)
         {
             var slot = State.Slot(id);
             if (slot == null) return;
@@ -78,7 +78,18 @@ namespace HowToFish1v1.Core
             slot.Ready = ready;
             if (rankPoints >= 0) slot.RankPoints = rankPoints;
             if (charm >= 0) slot.Charm = (byte)charm;
+            if (vote >= -1) slot.Vote = vote;
             Dirty = true;
+        }
+
+        /// <summary>The most voted map in the lobby (ties go to the lowest index); -1 when nobody voted.</summary>
+        public int WinningVote()
+        {
+            var counts = new Dictionary<int, int>();
+            foreach (var p in State.Players) if (p.Vote >= 0) counts[p.Vote] = counts.TryGetValue(p.Vote, out int c) ? c + 1 : 1;
+            int best = -1, bestCount = 0;
+            foreach (var kv in counts) if (kv.Value > bestCount || (kv.Value == bestCount && kv.Key < best)) { best = kv.Key; bestCount = kv.Value; }
+            return best;
         }
 
         /// <summary>Host moves a player to the other team. Lobby only, team modes only.</summary>
@@ -128,6 +139,8 @@ namespace HowToFish1v1.Core
                 Dirty = true;
                 return;
             }
+            int voted = MatchModes.IsSolo(State.Mode) ? -1 : WinningVote();
+            if (voted >= 0 && !ArenaLayout.IsSoloMap(voted)) State.MapIndex = ((voted % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount;
             if (!State.ArenaBuilt || State.BuiltMapIndex != State.MapIndex)
             {
                 Effects.Add(new Effect(EffectKind.BuildArena));
@@ -138,7 +151,8 @@ namespace HowToFish1v1.Core
             State.Round = 1;
             State.TeamScore[0] = 0;
             State.TeamScore[1] = 0;
-            foreach (var p in State.Players) { p.Kills = 0; p.Deaths = 0; }
+            foreach (var p in State.Players) { p.ResetMatchStats(); p.Vote = -1; }
+            State.FirstBloodDone = false;
             State.TeamAIsLeft = true;
             State.MatchWinnerTeam = -1;
             State.MatchWinnerId = -1;
@@ -198,18 +212,56 @@ namespace HowToFish1v1.Core
         /// Free-for-all: the killer gains a kill (suicides count nothing), the victim respawns after a delay.
         /// </summary>
         /// <summary>Returns true when the death was accepted (so the host can announce it).</summary>
-        public bool Kill(int victimId, int killerId, double now)
+        public bool Kill(int victimId, int killerId, double now) => Kill(victimId, killerId, now, KillKind.Bullet, false).Accepted;
+
+        /// <summary>A death with how it happened: credits the kill, runs streaks and medals, and returns what to announce.</summary>
+        public KillDetail Kill(int victimId, int killerId, double now, KillKind kind, bool killerAirborne)
         {
-            if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return false;
+            var detail = new KillDetail { Medals = new List<string>() };
+            if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return detail;
             var victim = State.Slot(victimId);
-            if (victim == null || victim.DeadThisRound) return false;
+            if (victim == null || victim.DeadThisRound) return detail;
+            detail.Accepted = true;
             victim.DeadThisRound = true;
             victim.Deaths++;
+            victim.DeathsSinceKill++;
+            victim.Streak = 0;
+            victim.OneShot = false;
             Dirty = true;
 
             var killer = State.Slot(killerId);
             bool credited = killer != null && killerId != victimId && (State.IsFfa || killer.Team != victim.Team);
-            if (credited) killer.Kills++;
+            detail.Credited = credited;
+            if (credited)
+            {
+                killer.Kills++;
+                killer.Streak++;
+                killer.BestStreak = Math.Max(killer.BestStreak, killer.Streak);
+                detail.Streak = killer.Streak;
+                // Medals.
+                if (!State.FirstBloodDone) { State.FirstBloodDone = true; detail.Medals.Add(Streaks.FirstBlood); }
+                if (killer.DeathsSinceKill >= 2) detail.Medals.Add(Streaks.Comeback);
+                killer.DeathsSinceKill = 0;
+                if (kind == KillKind.Ricochet) detail.Medals.Add(Streaks.Firehorn);
+                if (kind == KillKind.Knife) detail.Medals.Add(Streaks.Shank);
+                if (killerAirborne) detail.Medals.Add(Streaks.Airborne);
+                if (now - killer.LastKillAt <= Streaks.MultiKillWindow) killer.MultiKill++; else killer.MultiKill = 1;
+                killer.LastKillAt = now;
+                if (killer.MultiKill == 2) detail.Medals.Add(Streaks.DoubleKill);
+                else if (killer.MultiKill == 3) detail.Medals.Add(Streaks.TripleKill);
+                else if (killer.MultiKill >= 4) detail.Medals.Add(Streaks.Rampage);
+                string streakName = Streaks.StreakName(killer.Streak);
+                if (streakName != null) detail.Medals.Add(streakName);
+                if (killer.Streak == Streaks.OneShot) { killer.OneShot = true; detail.OneShotGranted = true; }
+                killer.Medals += detail.Medals.Count;
+            }
+            FinishKill(victim, killer, credited, now);
+            return detail;
+        }
+
+        private void FinishKill(PlayerSlot victim, PlayerSlot killer, bool credited, double now)
+        {
+            int victimId = victim.Id;
 
             if (MatchModes.RespawnsInPlace(State.Mode))
             {
@@ -222,7 +274,7 @@ namespace HowToFish1v1.Core
                         State.MatchWinnerId = killer.Id;
                         State.PhaseEndsAt = now + Rules.MatchEndSeconds;
                         State.StatusText = killer.Name + " wins the match";
-                        return true;
+                        return;
                     }
                 }
                 else
@@ -230,12 +282,12 @@ namespace HowToFish1v1.Core
                     State.StatusText = victim.Name + " died";
                 }
                 Effects.Add(new Effect(EffectKind.RespawnPlayer, victimId));
-                return true;
+                return;
             }
 
             int team = victim.Team;
             bool teamWiped = State.TeamMembers(team).All(p => p.DeadThisRound);
-            if (!teamWiped) return true;
+            if (!teamWiped) return;
             int winner = State.TeamCount(1 - team) > 0 ? 1 - team : -1;
             if (winner >= 0)
             {
@@ -249,7 +301,7 @@ namespace HowToFish1v1.Core
                     State.MatchWinnerTeam = winner;
                     State.PhaseEndsAt = now + Rules.MatchEndSeconds;
                     State.StatusText = TeamLabel(winner) + " wins the match";
-                    return true;
+                    return;
                 }
             }
             else
@@ -259,7 +311,6 @@ namespace HowToFish1v1.Core
             }
             State.Phase = MatchPhase.RoundEnd;
             State.PhaseEndsAt = now + Rules.RoundEndSeconds;
-            return true;
         }
 
         /// <summary>Trickshot: the player landed a mid-air hit; the match ends and the final killcam replays it.</summary>
@@ -322,7 +373,7 @@ namespace HowToFish1v1.Core
             State.Phase = MatchPhase.Lobby;
             State.Round = 0;
             State.TeamScore[0] = 0; State.TeamScore[1] = 0;
-            foreach (var p in State.Players) { p.Ready = false; p.DeadThisRound = false; p.Kills = 0; p.Deaths = 0; }
+            foreach (var p in State.Players) { p.Ready = false; p.DeadThisRound = false; p.ResetMatchStats(); }
             State.LastRoundWinnerTeam = -1;
             State.StatusText = status;
             Dirty = true;

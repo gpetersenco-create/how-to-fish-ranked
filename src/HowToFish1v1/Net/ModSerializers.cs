@@ -30,6 +30,7 @@ namespace HowToFish1v1.Net
                 b.WriteInt32(v.RankPoints);
                 b.WriteString(v.ModVersion ?? "");
                 b.WriteUInt8Unpacked(v.Charm);
+                b.WriteUInt8Unpacked(v.Vote);
             }));
             GenericReader<LoadoutBroadcast>.SetRead(r => Open(r, b => new LoadoutBroadcast
             {
@@ -37,7 +38,8 @@ namespace HowToFish1v1.Net
                 Ready = b.ReadBoolean(),
                 RankPoints = b.ReadInt32(),
                 ModVersion = b.ReadStringAllocated() ?? "",
-                Charm = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)1
+                Charm = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)1,
+                Vote = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)255
             }));
 
             GenericWriter<AimBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteBoolean(v.Ads)));
@@ -62,14 +64,25 @@ namespace HowToFish1v1.Net
                 b.WriteBoolean(v.Suicide);
                 b.WriteInt32(v.KillerId);
                 b.WriteInt32(v.VictimId);
+                b.WriteString(v.Medals ?? "");
+                b.WriteInt32(v.Streak);
+                b.WriteUInt8Unpacked(v.Kind);
             }));
-            GenericReader<KillFeedBroadcast>.SetRead(r => Open(r, b => new KillFeedBroadcast
+            GenericReader<KillFeedBroadcast>.SetRead(r => Open(r, b =>
             {
-                Killer = b.ReadStringAllocated() ?? "",
-                Victim = b.ReadStringAllocated() ?? "",
-                Suicide = b.ReadBoolean(),
-                KillerId = b.ReadInt32(),
-                VictimId = b.ReadInt32()
+                var k = new KillFeedBroadcast
+                {
+                    Killer = b.ReadStringAllocated() ?? "",
+                    Victim = b.ReadStringAllocated() ?? "",
+                    Suicide = b.ReadBoolean(),
+                    KillerId = b.ReadInt32(),
+                    VictimId = b.ReadInt32(),
+                    Medals = ""
+                };
+                if (b.Remaining >= 1) k.Medals = b.ReadStringAllocated() ?? "";
+                if (b.Remaining >= 4) k.Streak = b.ReadInt32();
+                if (b.Remaining >= 1) k.Kind = b.ReadUInt8Unpacked();
+                return k;
             }));
 
             GenericWriter<ArenaBroadcast>.SetWrite((w, v) => Envelope(w, b =>
@@ -121,6 +134,7 @@ namespace HowToFish1v1.Net
                 b.WriteSingle(v.RoundEndSeconds);
                 b.WriteSingle(v.MatchEndSeconds);
                 foreach (var p in players) b.WriteUInt8Unpacked(p.Charm);
+                foreach (var p in players) b.WriteInt32(p.Vote);
             }));
             GenericReader<MatchStateBroadcast>.SetRead(r => Open(r, b =>
             {
@@ -168,6 +182,7 @@ namespace HowToFish1v1.Net
                     s.MatchEndSeconds = b.ReadSingle();
                 }
                 for (int i = 0; i < n; i++) s.Players[i].Charm = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)1;
+                for (int i = 0; i < n; i++) s.Players[i].Vote = b.Remaining >= 4 ? b.ReadInt32() : -1;
                 return s;
             }));
         }

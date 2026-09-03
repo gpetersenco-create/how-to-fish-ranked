@@ -18,6 +18,11 @@ namespace HowToFish1v1
         public ConfigEntry<int> KnifeSkin;
         public ConfigEntry<float> HitmarkerVolume;
         public ConfigEntry<bool> AntiCheat;
+        public ConfigEntry<bool> Announcer;
+        public ConfigEntry<int> Crosshair;
+        public ConfigEntry<float> CrosshairSize;
+        public ConfigEntry<string> CrosshairColor;
+        public ConfigEntry<int> HitmarkerStyle;
         public ConfigEntry<float> RicochetChance;
         public ConfigEntry<KeyCode> CaughtPreviewKey;
         public ConfigEntry<float> KnifeSoundTrim;
@@ -52,6 +57,11 @@ namespace HowToFish1v1
             KnifeSoundTrim = file.Bind("General", "KnifeSoundTrim", 0.05f, "Extra seconds cut from the start of the knife swing sound (its silent lead-in is removed automatically).");
             CaughtPreviewKey = file.Bind("General", "CaughtPreviewKey", KeyCode.F9, "Shows the anti-cheat caught screen on your own screen (preview only, nobody is kicked).");
             RicochetChance = file.Bind("Rules", "RicochetChance", 0.10f, "Chance (0-1) that a bullet hitting an arena surface ricochets (never off the invisible borders).");
+            Announcer = file.Bind("General", "Announcer", true, "Announcer lines (drop announcer_<key>.mp3 files into the plugin folder for your own).");
+            Crosshair = file.Bind("General", "Crosshair", 0, "Custom crosshair: 0 game default, 1 dot, 2 cross, 3 circle, 4 chevron, 5 T (picked in the lobby).");
+            CrosshairSize = file.Bind("General", "CrosshairSize", 14f, "Custom crosshair size in pixels (at 1080p).");
+            CrosshairColor = file.Bind("General", "CrosshairColor", "#F5C740", "Custom crosshair colour (hex).");
+            HitmarkerStyle = file.Bind("General", "HitmarkerStyle", 0, "Hit marker: 0 game default, 1 X, 2 plus, 3 box, 4 circle (picked in the lobby).");
             AntiCheat = file.Bind("General", "AntiCheat", true, "Host only: detect silent aim, aimbot snaps, rapid fire, damage and speed hacks; announce and kick the cheater.");
             HitmarkerVolume = file.Bind("General", "HitmarkerVolume", 1f, "Volume of the mod's hitmarker sound (0-2).");
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");

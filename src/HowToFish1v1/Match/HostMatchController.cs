@@ -96,10 +96,10 @@ namespace HowToFish1v1.Match
         public void SetMode(MatchMode mode) { if (Machine != null) { Machine.SetMode(mode); Flush(); } }
         public void MoveTeam(int ownerId) { if (Machine != null) { Machine.MoveTeam(ownerId); Flush(); } }
 
-        public void SetLocalLoadout(byte[] ids, bool ready, int rankPoints, byte charm = 1)
+        public void SetLocalLoadout(byte[] ids, bool ready, int rankPoints, byte charm = 0, int vote = -1)
         {
             if (Machine == null || Player.LocalPlayer == null) return;
-            Machine.SetLoadout(Player.LocalPlayer.OwnerId, ids, ready, rankPoints, charm);
+            Machine.SetLoadout(Player.LocalPlayer.OwnerId, ids, ready, rankPoints, charm, vote);
             Flush();
         }
 
@@ -131,24 +131,27 @@ namespace HowToFish1v1.Match
             if (!string.IsNullOrEmpty(msg.ModVersion)) _helloVersions[conn.ClientId] = msg.ModVersion;
             if (Machine == null) return;
             ApplyKnownVersions();
-            Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready, msg.RankPoints, msg.Charm);
+            Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready, msg.RankPoints, msg.Charm, msg.Vote == 255 ? -1 : msg.Vote);
             Flush();
         }
 
         private void OnKill(Player victim)
         {
             if (Machine == null || !ModNet.IsHost) return;
-            int killer = KillAttribution.Take(victim.OwnerId);
+            var hit = KillAttribution.TakeDetail(victim.OwnerId);
+            int killer = hit.killer;
             var victimSlot = Machine.State.Slot(victim.OwnerId);
             var killerSlot = Machine.State.Slot(killer);
-            if (Machine.Kill(victim.OwnerId, killer, Now))
+            var detail = Machine.Kill(victim.OwnerId, killer, Now, hit.kind, hit.airborne);
+            if (detail.Accepted)
             {
                 bool suicide = killerSlot == null || killer == victim.OwnerId;
-                Plugin.Log.LogInfo($"Kill: {(suicide ? "(self)" : killerSlot.Name)} -> {victimSlot?.Name}");
+                Plugin.Log.LogInfo($"Kill: {(suicide ? "(self)" : killerSlot.Name)} -> {victimSlot?.Name} [{hit.kind}{(hit.airborne ? ", airborne" : "")}] streak {detail.Streak} medals [{detail.MedalText}]");
                 ModNet.BroadcastKill(new KillFeedBroadcast
                 {
                     Killer = suicide ? "" : killerSlot.Name, Victim = victimSlot?.Name ?? "", Suicide = suicide,
-                    KillerId = suicide ? -1 : killer, VictimId = victim.OwnerId
+                    KillerId = suicide ? -1 : killer, VictimId = victim.OwnerId,
+                    Medals = suicide ? "" : detail.MedalText, Streak = suicide ? 0 : detail.Streak, Kind = (byte)hit.kind
                 });
             }
             Flush();
@@ -212,7 +215,7 @@ namespace HowToFish1v1.Match
                     var (index, count) = state.TeamSlot(slot.Id);
                     spawn = ArenaBuilder.Spawn(state.SideFor(slot.Id), index, count);
                 }
-                players.Add((player, spawn.pos, spawn.yaw, slot.Loadout));
+                players.Add((player, spawn.pos, spawn.yaw, LoadoutService.ForcedLoadout(state.Mode, slot.Loadout)));
             }
 
             // Move everyone to their pads immediately so nobody is standing on an island that is about to unload.
@@ -255,7 +258,7 @@ namespace HowToFish1v1.Match
             yield return new WaitForSeconds(0.3f);
             if (!player) yield break;
             Server.Instance.TeleportPlayer(player, best.pos, best.yaw);
-            LoadoutService.ServerGive(player, slot.Loadout, best.pos);
+            LoadoutService.ServerGive(player, LoadoutService.ForcedLoadout(Machine.State.Mode, slot.Loadout), best.pos);
             Machine.PlayerRespawned(ownerId);
             Flush();
         }
@@ -281,7 +284,7 @@ namespace HowToFish1v1.Match
             var entries = s.Players.Select(p => new PlayerEntry
             {
                 Id = p.Id, Name = p.Name ?? "", Team = (byte)p.Team, Kills = p.Kills, Deaths = p.Deaths, Ready = p.Ready, HasMod = p.HasMod,
-                RankPoints = p.RankPoints, Loadout = p.Loadout, Charm = p.Charm, ModVersion = _helloVersions.TryGetValue(p.Id, out var v) ? v : ""
+                RankPoints = p.RankPoints, Loadout = p.Loadout, Charm = p.Charm, Vote = p.Vote, ModVersion = _helloVersions.TryGetValue(p.Id, out var v) ? v : ""
             }).ToArray();
             return new MatchStateBroadcast
             {

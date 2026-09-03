@@ -45,7 +45,7 @@ namespace HowToFish1v1.UI
 
         public static void Draw()
         {
-            if (!IsOpen) return;
+            if (!IsOpen || Results.Visible) return;
             float open = S.Ease("lobby", 0.35f);
             var saved = S.BeginCanvas((1f - open) * 24f);
             S.DrawBackground(open);
@@ -68,6 +68,7 @@ namespace HowToFish1v1.UI
                 bool inLobby = (MatchPhase)s.Phase == MatchPhase.Lobby;
                 if (MatchModes.IsFfa(mode)) DrawFfaGrid(s, host && inLobby);
                 else DrawTeams(s, host && inLobby);
+                DrawVotes(s, inLobby);
                 DrawLoadout(inLobby);
                 DrawFooter(host, inLobby, s);
             }
@@ -143,6 +144,37 @@ namespace HowToFish1v1.UI
         }
 
         private static int _cardIndex;
+        private static int _vote = -1;
+
+        /// <summary>Everyone votes for the next map; the host's start uses the winner (ties: the lowest map).</summary>
+        private static void DrawVotes(MatchStateBroadcast s, bool inLobby)
+        {
+            if (MatchModes.IsSolo((MatchMode)s.Mode)) return;
+            float x = 60, y = S.DesignH - 130 - 122, w = 1160;
+            S.Box(new Rect(x, y, w, 110), S.PanelColor, 14f);
+            GUI.DrawTexture(new Rect(x, y, 6, 110), S.GoldDim);
+            var players = ClientMatchView.Players;
+            int leading = -1, leadCount = 0;
+            var counts = new int[ArenaLayout.MapCount];
+            foreach (var p in players) if (p.Vote >= 0 && p.Vote < counts.Length) counts[p.Vote]++;
+            for (int i = 0; i < counts.Length; i++) if (counts[i] > leadCount) { leadCount = counts[i]; leading = i; }
+            GUI.Label(new Rect(x + 20, y + 8, 600, 30), "VOTE NEXT MAP" + (leading >= 0 ? $"   <size=80%>leading: {ArenaLayout.MapNames[leading]}</size>" : ""), S.H2);
+            float bx = x + 20, bw = 170;
+            GUI.enabled = inLobby;
+            for (int i = 0; i < ArenaLayout.MapCount; i++)
+            {
+                if (ArenaLayout.IsSoloMap(i)) continue;
+                bool mine = _vote == i;
+                string label = ArenaLayout.MapNames[i] + (counts[i] > 0 ? $"  ({counts[i]})" : "");
+                if (S.Btn(new Rect(bx, y + 48, bw, 46), label, mine ? S.ToggleButtonOn : S.ToggleButton))
+                {
+                    _vote = mine ? -1 : i;
+                    SendLoadout(_ready);
+                }
+                bx += bw + 10;
+            }
+            GUI.enabled = true;
+        }
 
         private static void DrawCard(float x, float y, float w, PlayerEntry p, bool canMove, bool showKills)
         {
@@ -187,7 +219,7 @@ namespace HowToFish1v1.UI
             GUI.enabled = inLobby;
             // Scrollable area: gun toggles, then an attachment block per chosen gun.
             float areaTop = y + 66 + PreviewH + 10, areaH = S.DesignH - 130 - areaTop - 90;
-            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52 + 104;
             _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
             float gy = 0;
             // The knife: always carried, one key, its own skin (local only: nobody else sees your knife).
@@ -202,6 +234,19 @@ namespace HowToFish1v1.UI
                 }
                 GUI.enabled = was;
                 gy += 52;
+            }
+            // Crosshair and hit marker styles (yours only).
+            {
+                bool was = GUI.enabled; GUI.enabled = true;
+                S.Box(new Rect(0, gy, w, 44), S.Panel, 8f);
+                byte ch = (byte)Mathf.Clamp(Plugin.Cfg.Crosshair.Value, 0, HitReactions.Crosshairs.Count - 1);
+                if (Cycle(8, gy + 3, w - 16, "Crosshair", HitReactions.Crosshairs.ToList(), ref ch)) Plugin.Cfg.Crosshair.Value = ch;
+                gy += 52;
+                S.Box(new Rect(0, gy, w, 44), S.Panel, 8f);
+                byte hm = (byte)Mathf.Clamp(Plugin.Cfg.HitmarkerStyle.Value, 0, HitReactions.Markers.Count - 1);
+                if (Cycle(8, gy + 3, w - 16, "Hit marker", HitReactions.Markers.ToList(), ref hm)) Plugin.Cfg.HitmarkerStyle.Value = hm;
+                gy += 52;
+                GUI.enabled = was;
             }
             foreach (var item in LoadoutService.Weapons())
             {
@@ -331,13 +376,12 @@ namespace HowToFish1v1.UI
                 GUI.enabled = inLobby;
                 float x = 40;
                 GUI.Label(new Rect(x, S.DesignH - 118, 100, 40), "MODE", S.Small);
-                foreach (var m in MatchModes.All)
-                {
-                    bool on = m == mode;
-                    if (S.Btn(new Rect(x, S.DesignH - 84, 150, 54), MatchModes.Name(m), on ? S.ToggleButtonOn : S.ToggleButton) && !on) Plugin.Host.SetMode(m);
-                    x += 158;
-                }
-                x += 30;
+                int mi = System.Array.IndexOf(MatchModes.All, mode);
+                if (mi < 0) mi = 0;
+                if (S.Btn(new Rect(x, S.DesignH - 84, 54, 54), "<", S.ToggleButton)) Plugin.Host.SetMode(MatchModes.All[(mi + MatchModes.All.Length - 1) % MatchModes.All.Length]);
+                GUI.Label(new Rect(x + 60, S.DesignH - 84, 300, 54), MatchModes.Name(mode).ToUpperInvariant(), S.H1Center);
+                if (S.Btn(new Rect(x + 366, S.DesignH - 84, 54, 54), ">", S.ToggleButton)) Plugin.Host.SetMode(MatchModes.All[(mi + 1) % MatchModes.All.Length]);
+                x += 450;
                 string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
                 GUI.Label(new Rect(x, S.DesignH - 118, 300, 40), "MAP", S.Small);
                 if (S.Btn(new Rect(x, S.DesignH - 84, 54, 54), "<", S.ToggleButton)) Plugin.Host.SetMap(s.MapIndex - 1);
@@ -385,8 +429,8 @@ namespace HowToFish1v1.UI
         {
             _ready = ready;
             var bytes = LoadoutCodec.Encode(_guns);
-            if (ModNet.IsHost) Plugin.Host.SetLocalLoadout(bytes, ready, RankService.Points, 0);
-            else ModNet.SendLoadout(bytes, ready, RankService.Points, 0);
+            if (ModNet.IsHost) Plugin.Host.SetLocalLoadout(bytes, ready, RankService.Points, 0, _vote);
+            else ModNet.SendLoadout(bytes, ready, RankService.Points, 0, _vote);
         }
 
         /// <summary>Re-sends the current loadout so the host learns updated rank points.</summary>

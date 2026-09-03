@@ -344,27 +344,32 @@ namespace HowToFish1v1.UI
         private static void DrawGameplay()
         {
             S.Shadowed(new Rect(60, 130, 900, 50), "GAMEPLAY", S.Title); S.Rule(60, 184, 240);
-            string[] blurbs =
+            var blurbs = new System.Collections.Generic.Dictionary<MatchMode, string>
             {
-                "One kill wins the round.\nFirst to 6 rounds.",
-                "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 4 players.",
-                "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 6 players.",
-                "2 to 8 players. First to 10 kills.\nRespawn after a short killcam.",
-                "Solo practice. Jump off the tower and\nhit a bot mid-air. Miss and you go back up."
+                { MatchMode.OneVOne, "One kill wins the round.\nFirst to 6 rounds." },
+                { MatchMode.TwoVTwo, "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 4 players." },
+                { MatchMode.ThreeVThree, "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 6 players." },
+                { MatchMode.FreeForAll, "2 to 8 players. First to 10 kills.\nRespawn after a short killcam." },
+                { MatchMode.OneInTheChamber, "Pistols, one bullet each, every hit kills.\nA kill earns a bullet. Knife when dry." },
+                { MatchMode.SniperOnly, "Everyone gets the sniper and nothing else.\nFree-for-all rules." },
+                { MatchMode.KnifeOnly, "No guns. Knife on V, one hit kills.\nFree-for-all rules." },
+                { MatchMode.Trickshot, "Solo practice. Jump off the tower and\nhit a bot mid-air. Miss and you go back up." },
             };
+            const int cols = 4;
+            float cardW = 430f, cardH = 285f, gapX = 20f, gapY = 16f;
             for (int i = 0; i < MatchModes.All.Length; i++)
             {
                 var m = MatchModes.All[i];
-                float ce = S.Ease(TabKey, 0.3f, 0.06f * i);
-                float cardW = Mathf.Min(420f, (S.DesignW - 120f - 30f * (MatchModes.All.Length - 1)) / MatchModes.All.Length);
-                var r = new Rect(60 + i * (cardW + 30f), 220 + (1f - ce) * 40f, cardW, 300);
+                float ce = S.Ease(TabKey, 0.3f, 0.05f * i);
+                int col = i % cols, row = i / cols;
+                var r = new Rect(60 + col * (cardW + gapX), 205 + row * (cardH + gapY) + (1f - ce) * 40f, cardW, cardH);
                 bool on = m == _mode;
                 var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
                 S.Box(r, on ? S.PanelLightColor : S.PanelColor, 16f);
                 if (on) S.Outline(r, S.GoldColor, 2f, 16f);
-                GUI.Label(new Rect(r.x + 20, r.y + 30, r.width - 40, 60), MatchModes.Name(m).ToUpperInvariant(), S.H1);
-                GUI.Label(new Rect(r.x + 20, r.y + 110, r.width - 40, 100), blurbs[i], S.Body);
-                if (S.Btn(new Rect(r.x + 20, r.y + 220, r.width - 40, 56), on ? "SELECTED" : "SELECT", on ? S.BigButton : S.Button)) _mode = m;
+                GUI.Label(new Rect(r.x + 20, r.y + 22, r.width - 40, 44), MatchModes.Name(m).ToUpperInvariant(), S.H1);
+                GUI.Label(new Rect(r.x + 20, r.y + 80, r.width - 40, 110), blurbs.TryGetValue(m, out var text) ? text : "", S.Body);
+                if (S.Btn(new Rect(r.x + 20, r.y + cardH - 72, r.width - 40, 52), on ? "SELECTED" : "SELECT", on ? S.BigButton : S.Button)) _mode = m;
                 GUI.color = saved;
             }
         }

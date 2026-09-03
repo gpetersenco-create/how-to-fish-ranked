@@ -67,6 +67,7 @@ namespace HowToFish1v1.UI
                 string killer = k.Killer == me ? "<color=#F5C740>YOU</color>" : k.Killer;
                 string victim = k.Victim == me ? "<color=#F5C740>YOU</color>" : k.Victim;
                 string line = k.Suicide ? $"{victim}  died" : $"{killer}  <color=#FF6A5A>killed</color>  {victim}";
+                if (!k.Suicide && !string.IsNullOrEmpty(k.Medals)) line += $"   <color=#F5C740><size=75%>{k.Medals.Replace(",", "  ")}</size></color>";
                 _feedLines.Insert(0, (line, Time.unscaledTime));
                 while (_feedLines.Count > FeedMax) _feedLines.RemoveAt(_feedLines.Count - 1);
             };
@@ -150,6 +151,52 @@ namespace HowToFish1v1.UI
         }
 
         private static bool DeadNow() => Player.LocalPlayer && Player.LocalPlayer.Dying.IsDead;
+
+        /// <summary>UAV killstreak: a radar bottom-left with every enemy as a blip, relative to where you look.</summary>
+        public static void DrawRadar()
+        {
+            var me = Player.LocalPlayer;
+            if (!MatchEvents.UavActive || !me || ModState.PanelOpen || KillCam.Active || Results.Visible) return;
+            var saved = RankedStyles.BeginCanvas();
+            float r = 110f, cx = 40f + r, cy = RankedStyles.DesignH - 40f - r;
+            const float Range = 45f;
+            RankedStyles.Box(new Rect(cx - r, cy - r, r * 2f, r * 2f), new Color(0.05f, 0.1f, 0.15f, 0.75f), r);
+            RankedStyles.Outline(new Rect(cx - r, cy - r, r * 2f, r * 2f), new Color(0.4f, 0.9f, 0.5f, 0.8f), 2f, r);
+            RankedStyles.Outline(new Rect(cx - r / 2f, cy - r / 2f, r, r), new Color(0.4f, 0.9f, 0.5f, 0.35f), 1f, r / 2f);
+            RankedStyles.Box(new Rect(cx - 1f, cy - r, 2f, r * 2f), new Color(0.4f, 0.9f, 0.5f, 0.25f), 1f);
+            RankedStyles.Box(new Rect(cx - r, cy - 1f, r * 2f, 2f), new Color(0.4f, 0.9f, 0.5f, 0.25f), 1f);
+            // Sweep.
+            float sweep = (Time.unscaledTime * 120f) % 360f;
+            var m = GUI.matrix;
+            GUIUtility.RotateAroundPivot(sweep, new Vector2(cx, cy));
+            RankedStyles.Box(new Rect(cx, cy - 1.5f, r, 3f), new Color(0.5f, 1f, 0.6f, 0.6f), 1f);
+            GUI.matrix = m;
+            var cam = me.CamObject ? me.CamObject : me.Transform;
+            float yaw = Mathf.Atan2(cam.forward.x, cam.forward.z);
+            int myTeam = ClientMatchView.MyTeam;
+            bool ffa = ClientMatchView.IsFfa;
+            RankedStyles.Box(new Rect(cx - 5f, cy - 5f, 10f, 10f), new Color(0.6f, 0.9f, 1f), 5f);
+            foreach (var p in PlayerManager.Players)
+            {
+                if (!p || p == me || !p.Transform || p.Dying.IsDead) continue;
+                if (!ffa)
+                {
+                    int team = -1;
+                    foreach (var e in ClientMatchView.Players) if (e.Id == p.OwnerId) { team = e.Team; break; }
+                    if (team == myTeam) continue;
+                }
+                Vector3 d = p.Transform.position - cam.position;
+                float dist = new Vector2(d.x, d.z).magnitude;
+                if (dist > Range) continue;
+                float ang = Mathf.Atan2(d.x, d.z) - yaw;
+                float px = cx + Mathf.Sin(ang) * (dist / Range) * (r - 8f);
+                float py = cy - Mathf.Cos(ang) * (dist / Range) * (r - 8f);
+                RankedStyles.Glow(new Rect(px - 8f, py - 8f, 16f, 16f), new Color(1f, 0.3f, 0.2f, 0.7f), 1.8f);
+                RankedStyles.Box(new Rect(px - 5f, py - 5f, 10f, 10f), new Color(1f, 0.35f, 0.25f), 5f);
+            }
+            GUI.Label(new Rect(cx - r, cy + r + 4f, r * 2f, 26f), $"UAV   {Mathf.CeilToInt(MatchEvents.UavUntil - Time.unscaledTime)} s", RankedStyles.SmallCenter);
+            GUI.matrix = saved;
+        }
 
         /// <summary>IMGUI: a calling card along the bottom of the screen during a killcam: emblem, name, rank, gun, and what happens next.</summary>
         public static void DrawKillcamCard()

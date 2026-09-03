@@ -22,6 +22,8 @@ namespace HowToFish1v1.Core
         public int MatchWinnerId = -1;
         public string StatusText = "";
         public bool ArenaBuilt;
+        /// <summary>Set once the first kill of the match has been made (first blood medal).</summary>
+        public bool FirstBloodDone;
         public int MapIndex;
         public int BuiltMapIndex = -1;
 

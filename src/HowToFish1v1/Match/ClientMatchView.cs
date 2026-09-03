@@ -116,8 +116,20 @@ namespace HowToFish1v1.Match
             // Joiners arrive through a plain Steam invite, not our menu: the host running the mode makes this a ranked session for them too.
             if (phase != MatchPhase.Inactive) ModState.RankedSession = true;
 
-            if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live) LoadoutService.RefillLocalAmmo();
+            if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live)
+            {
+                LoadoutService.RefillLocalAmmo();
+                if (MatchModes.OneBullet((MatchMode)s.Mode)) OneInTheChamber.SetOneBullet();
+            }
+            if (phase == MatchPhase.Countdown && _prevPhase != MatchPhase.Countdown)
+            {
+                if (s.Round <= 1) MatchEvents.ResetTally();
+                bool final = !MatchModes.IsFfa((MatchMode)s.Mode) && (s.TeamScoreA == s.RoundsToWin - 1 || s.TeamScoreB == s.RoundsToWin - 1);
+                Announcer.Play(MatchModes.IsSolo((MatchMode)s.Mode) ? "round" : final ? "final" : MatchModes.OneBullet((MatchMode)s.Mode) ? "oitc" : MatchModes.IsFfa((MatchMode)s.Mode) ? "round" : "round" + Mathf.Clamp(s.Round, 1, 6));
+            }
+            if (phase == MatchPhase.MatchEnd) Results.Snapshot(s);
             if (phase == MatchPhase.MatchEnd && _prevPhase != MatchPhase.MatchEnd) KillCam.StartFinal();
+            if (phase == MatchPhase.Lobby && _prevPhase == MatchPhase.MatchEnd) Results.Show();
             if (phase != MatchPhase.MatchEnd && _prevPhase == MatchPhase.MatchEnd) KillCam.OnMatchLeftEndPhase();
             if ((phase == MatchPhase.Inactive || phase == MatchPhase.Lobby) && phase != _prevPhase) KillCam.Stop();
             if (phase == MatchPhase.MatchEnd && s.MatchNumber != _lastRankedMatch) ApplyRank(s);

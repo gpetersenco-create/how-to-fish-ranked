@@ -54,6 +54,7 @@ namespace HowToFish1v1.Patches
         [HarmonyPostfix]
         private static void FinalKillCam(PlayerCamera __instance)
         {
+            if (__instance.Owner.IsLocalClient && !Match.KillCam.Active) UI.HitReactions.ApplyShake(__instance);
             if (Match.KillCam.UsesPlayerCam && __instance.Owner.IsLocalClient) Match.KillCam.ApplyPlayerCam(__instance);
         }
 

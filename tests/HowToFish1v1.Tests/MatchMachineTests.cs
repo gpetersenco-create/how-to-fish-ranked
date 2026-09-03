@@ -421,5 +421,69 @@ namespace HowToFish1v1.Tests
             Assert.Equal(24, GunBalance.Authoritative("Assault Rifle", 150, 12f));   // "knife" from 12 m is not a knife
             Assert.Equal(75, GunBalance.RicochetDamageFor("Sniper Rifle"));
         }
+
+        [Fact]
+        public void StreaksAndMedals()
+        {
+            var m = Live(MatchMode.FreeForAll, 3, new MatchRules { KillsToWin = 20 });
+            var d = m.Kill(2, 1, 10, KillKind.Ricochet, true);
+            Assert.True(d.Accepted && d.Credited);
+            Assert.Contains(Streaks.FirstBlood, d.Medals);
+            Assert.Contains(Streaks.Firehorn, d.Medals);
+            Assert.Contains(Streaks.Airborne, d.Medals);
+            Assert.Equal(1, d.Streak);
+            m.PlayerRespawned(2);
+            d = m.Kill(2, 1, 12, KillKind.Knife, false);           // 2 s later: double kill + shank
+            Assert.Contains(Streaks.DoubleKill, d.Medals);
+            Assert.Contains(Streaks.Shank, d.Medals);
+            Assert.DoesNotContain(Streaks.FirstBlood, d.Medals);
+            m.PlayerRespawned(2);
+            d = m.Kill(3, 1, 30, KillKind.Bullet, false);          // streak 3: UAV
+            Assert.Equal(3, d.Streak);
+            Assert.Contains(Streaks.Streak3, d.Medals);
+            m.PlayerRespawned(3);
+            // Player 1 dies: streak resets. Player 2 has died twice without a kill: a comeback when they score.
+            m.Kill(1, 3, 31); m.PlayerRespawned(1);
+            Assert.Equal(0, m.State.Slot(1).Streak);
+            d = m.Kill(3, 2, 40, KillKind.Bullet, false);
+            Assert.Contains(Streaks.Comeback, d.Medals);
+            Assert.Equal(3, m.State.Slot(1).BestStreak);
+        }
+
+        [Fact]
+        public void OneShotStreakGrantedAtSeven()
+        {
+            var m = Live(MatchMode.FreeForAll, 2, new MatchRules { KillsToWin = 20 });
+            KillDetail d = default;
+            for (int i = 0; i < 7; i++) { d = m.Kill(2, 1, 10 + i * 10, KillKind.Bullet, false); m.PlayerRespawned(2); }
+            Assert.True(d.OneShotGranted);
+            Assert.True(m.State.Slot(1).OneShot);
+            m.Kill(1, 2, 100);
+            Assert.False(m.State.Slot(1).OneShot);
+        }
+
+        [Fact]
+        public void VotesPickTheMap()
+        {
+            var m = Lobby(MatchMode.FreeForAll, 3);
+            m.SetLoadout(1, new byte[0], true, -1, -1, 1);
+            m.SetLoadout(2, new byte[0], true, -1, -1, 2);
+            m.SetLoadout(3, new byte[0], true, -1, -1, 2);
+            Assert.Equal(2, m.WinningVote());
+            m.Start(0);
+            Assert.Equal(2, m.State.MapIndex);
+            Assert.All(m.State.Players, p => Assert.Equal(-1, p.Vote));
+        }
+
+        [Fact]
+        public void VariantsAreFfaWithGunRules()
+        {
+            Assert.True(MatchModes.IsFfa(MatchMode.OneInTheChamber));
+            Assert.True(MatchModes.IsFfa(MatchMode.KnifeOnly));
+            Assert.Equal("pistol", MatchModes.GunFilter(MatchMode.OneInTheChamber));
+            Assert.Equal("", MatchModes.GunFilter(MatchMode.KnifeOnly));
+            Assert.Null(MatchModes.GunFilter(MatchMode.FreeForAll));
+            Assert.Equal(8, MatchModes.MaxPlayers(MatchMode.SniperOnly));
+        }
 }
 }
