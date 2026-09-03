@@ -21,6 +21,9 @@ namespace HowToFish1v1.Match
             public int Tier;
             public bool Dev;
             public Transform Muzzle;
+            public Renderer Body;          // the gun's main mesh; the charm hangs off its left flank
+            public Bounds BodyLocal;       // that mesh's own bounds, in its transform's space
+            public Transform BodySpace;
             public GameObject LayerProbe;
             public Vector3 Pos, Prev;
             public bool Init;
@@ -106,12 +109,28 @@ namespace HowToFish1v1.Match
         }
 
         /// <summary>
-        /// Where the chain hangs from: a point on the line from the grip (the item root) to the muzzle, a little over
-        /// half way along, pushed to the gun's left and slightly down. Works in first person, in other players' hands and
+        /// Where the chain hangs from: a point on the line from the grip (the item root) to the muzzle, near the receiver
+        /// above the magazine, pushed to the gun's left and slightly down. Works in first person, in other players' hands and
         /// while the gun is still being picked up, because it never depends on mesh bounds.
         /// </summary>
         private static Vector3 Anchor(Charm c, Transform root)
         {
+            if (c.Body && c.BodySpace)
+            {
+                // The body mesh's bounds, turned into the gun's axes: left flank, a bit below the centre line, toward the rear.
+                Vector3 mn = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue), mx = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+                Vector3 right = root.right, up = root.up, fwd = root.forward;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = c.BodyLocal.center + Vector3.Scale(c.BodyLocal.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    var w = c.BodySpace.TransformPoint(corner) - root.position;
+                    var p = new Vector3(Vector3.Dot(w, right), Vector3.Dot(w, up), Vector3.Dot(w, fwd));
+                    mn = Vector3.Min(mn, p); mx = Vector3.Max(mx, p);
+                }
+                Vector3 c0 = (mn + mx) * 0.5f, ext = (mx - mn) * 0.5f;
+                if (ext.magnitude > 0.02f && ext.magnitude < 3f)
+                    return root.position + right * (mn.x - 0.006f) + up * (c0.y - ext.y * 0.1f) + fwd * (c0.z - ext.z * 0.15f);
+            }
             Vector3 muzzle = c.Muzzle ? c.Muzzle.position : root.position + root.forward * 0.6f;
             Vector3 axis = muzzle - root.position;
             float len = axis.magnitude;
@@ -122,7 +141,10 @@ namespace HowToFish1v1.Match
             left.Normalize();
             Vector3 down = Vector3.Cross(axis, left).normalized;
             if (Vector3.Dot(down, Vector3.up) > 0f) down = -down;
-            return root.position + axis * (len * 0.55f) + left * 0.045f + down * 0.035f;
+            // Beside the receiver, above the magazine: a third of the way to the muzzle but never further than 30 cm from the
+            // grip, so a long barrel or a suppressor cannot drag it forward.
+            float along = Mathf.Min(len * 0.32f, 0.30f);
+            return root.position + axis * along + left * 0.045f + down * 0.02f;
         }
 
         private static void SetLayer(GameObject go, int layer)
@@ -141,8 +163,22 @@ namespace HowToFish1v1.Match
             try { if (item is Weapon w && w.Attachments) c.Muzzle = w.Attachments.FirePoint; } catch (System.Exception) { }
             var probe = item.GetComponentsInChildren<Renderer>(true).FirstOrDefault(r => r && !r.name.StartsWith("HTF1v1_"));
             c.LayerProbe = probe ? probe.gameObject : item.gameObject;
+            // The body: the biggest mesh on the gun that is not the hands. Its own bounds are exact whatever it is doing.
+            Renderer hands = null;
+            try { hands = item is Tool tool ? tool.HandsMesh : null; } catch (System.Exception) { }
+            float bestVol = 0f;
+            foreach (var r in item.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!r || r == hands || r.name.StartsWith("HTF1v1_")) continue;
+                Bounds lb; Transform space;
+                if (r is SkinnedMeshRenderer smr) { if (!smr.sharedMesh) continue; lb = smr.sharedMesh.bounds; space = smr.rootBone ? smr.rootBone : smr.transform; if (smr.rootBone) lb = smr.localBounds; }
+                else { var mf = r.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue; lb = mf.sharedMesh.bounds; space = r.transform; }
+                var ws = Vector3.Scale(lb.size, space.lossyScale);
+                float vol = Mathf.Abs(ws.x * ws.y * ws.z);
+                if (vol > bestVol) { bestVol = vol; c.Body = r; c.BodyLocal = lb; c.BodySpace = space; }
+            }
             root.layer = c.LayerProbe.layer;
-            string dbg = $"root {item.transform.position} muzzle {(c.Muzzle ? c.Muzzle.position.ToString() : "none")}";
+            string dbg = $"root {item.transform.position} muzzle {(c.Muzzle ? c.Muzzle.position.ToString() : "none")} body {(c.Body ? c.Body.name : "none")} bodySize {(c.Body ? Vector3.Scale(c.BodyLocal.size, c.BodySpace.lossyScale).ToString() : "-")}";
             EnsureMaterials();
             var ring = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Prep(ring, "HTF1v1_CharmRing", root, new Vector3(0f, 0f, 0f), new Vector3(0.008f, 0.008f, 0.008f), _chainMat);

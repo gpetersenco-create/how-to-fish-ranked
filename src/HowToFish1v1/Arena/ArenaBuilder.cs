@@ -10,9 +10,8 @@ namespace HowToFish1v1.Arena
     {
         public BoxKind Kind;
         public bool IsFloor;
-        /// <summary>Metal and concrete bounce bullets; wood, brick and the ground swallow them.</summary>
-        public bool Bounces => !IsFloor && (Kind == BoxKind.Concrete || Kind == BoxKind.Steel || Kind == BoxKind.Rust
-            || Kind == BoxKind.Yellow || Kind == BoxKind.Red || Kind == BoxKind.Blue || Kind == BoxKind.White);
+        /// <summary>Every real surface can bounce a bullet; only the invisible borders never do.</summary>
+        public bool Bounces => Kind != BoxKind.Invisible;
     }
 
     /// <summary>Builds an arena from ArenaLayout on this peer. Deterministic, so every peer produces identical geometry.</summary>
