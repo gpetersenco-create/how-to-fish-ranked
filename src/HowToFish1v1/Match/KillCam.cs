@@ -10,11 +10,12 @@ namespace HowToFish1v1.Match
 {
     /// <summary>
     /// CoD-style killcam. After the local player dies to someone, the camera replays the killer's recorded first-person view
-    /// from a few seconds before the kill, slowing down just before the killing shot, with a ghost of the victim showing
-    /// where they were. The killer's gun is a render-only copy driven by the recorded part poses, so sway, aiming, recoil,
-    /// reloads, inspects and weapon swaps play back as they happened. The replay is sized to fit the time until the
-    /// respawn / next round; if time remains it follows the killer live, otherwise it holds the last frame. At match end
-    /// everyone watches the final kill the same way. Drives whichever camera the game currently uses.
+    /// from a few seconds before the kill, slowing down just before the killing shot. Everything the killer could see is
+    /// rebuilt from the recorder: their gun (a skinned copy driven by recorded bone poses, so sway, aiming, reloads and
+    /// swaps play back), other players' bodies and guns, birds and fish, and the victim: an animated copy when they are
+    /// another player, or a mannequin in their colours when the victim is the viewer (the local player has no body).
+    /// The replay is sized to fit the time until the respawn / next round; if time remains it follows the killer live,
+    /// otherwise it holds the last frame. At match end everyone watches the final kill the same way.
     /// </summary>
     public static class KillCam
     {
@@ -58,27 +59,31 @@ namespace HowToFish1v1.Match
         private static float _savedNearClip = -1f;
         private static Texture2D _scopeTex;
 
-        // The gun copy: one child per recorded part of the killer's held item, in the recorder's order.
-        private static GameObject _viewGun, _flash;
+        // Replay copies.
+        private static RigCopy _gun;
         private static Item _gunSource;
-        private static Transform[] _gunParts;
-        private static Transform[] _boneCopies;
-        private static Vector3[] _boneScale;
-        private static readonly List<Renderer> _gunRenderers = new List<Renderer>();
-        private static readonly List<Object> _gunCreated = new List<Object>();
+        private static GameObject _flash;
         private static bool _remoteKiller;
         private static float _tpOffset;
         private static Vector3 _flashLocal;
-
-        // Everything else hidden or created for the replay.
+        private static readonly Dictionary<int, RigCopy> _bodyCopies = new Dictionary<int, RigCopy>();
+        private static readonly Dictionary<int, Recorder.RigParts> _bodyCopyParts = new Dictionary<int, Recorder.RigParts>();
+        private static readonly Dictionary<int, RigCopy> _otherGunCopies = new Dictionary<int, RigCopy>();
+        private static readonly Dictionary<int, Item> _otherGunSource = new Dictionary<int, Item>();
+        private static RigCopy _mannequin;
+        private static Recorder.MannequinData _mannequinData;
+        private static bool _victimShown;
+        private static readonly Dictionary<int, GameObject> _actorCopies = new Dictionary<int, GameObject>();
         private static GameObject _ghost;
+
+        // Everything hidden for the replay.
         private static readonly List<Object> _created = new List<Object>();
         private static readonly List<Renderer> _hiddenRenderers = new List<Renderer>();
         private static readonly List<Canvas> _hiddenCanvases = new List<Canvas>();
-        private static Item _hiddenItem;
+        private static readonly Dictionary<int, Item> _hiddenItems = new Dictionary<int, Item>();
         private static DeadPlayer _hiddenCorpse;
         private static bool _hudHidden;
-        private static float _flashUntil, _lastShotCheck;
+        private static float _flashUntil, _lastShotCheck, _nextRehideScan;
         private static Vector3 _previewGhostPos;
         private static Quaternion _previewGhostRot;
 
@@ -103,6 +108,129 @@ namespace HowToFish1v1.Match
         public static string KillerName { get; private set; } = "";
         public static string VictimName { get; private set; } = "";
         public static string KillerInfo { get; private set; } = "";
+        public static int KillerId => _killerId;
+
+        // ------------------------------------------------------------------ rig copies
+
+        /// <summary>A render-only copy of a recorded rig: one child per part, skinned parts rigged to stand-in bones.</summary>
+        private sealed class RigCopy
+        {
+            public GameObject Root;
+            public Transform[] Parts;
+            public Renderer[] Rends;
+            public Transform[] Bones;
+            public Vector3[] BoneScale;
+            public readonly List<Object> Created = new List<Object>();
+
+            public static RigCopy Build(Recorder.RigParts parts, string name)
+            {
+                var c = new RigCopy { Root = new GameObject(name) };
+                var boneRoot = new GameObject("Bones").transform;
+                boneRoot.SetParent(c.Root.transform, false);
+                c.Bones = new Transform[parts.Bones.Length];
+                c.BoneScale = new Vector3[parts.Bones.Length];
+                for (int i = 0; i < parts.Bones.Length; i++)
+                {
+                    var src = parts.Bones[i];
+                    var b = new GameObject(src ? src.name : "bone").transform;
+                    b.SetParent(boneRoot, false);
+                    c.Bones[i] = b;
+                    c.BoneScale[i] = src ? src.lossyScale : Vector3.one;
+                }
+                c.Parts = new Transform[parts.Rends.Length];
+                c.Rends = new Renderer[parts.Rends.Length];
+                for (int i = 0; i < parts.Rends.Length; i++)
+                {
+                    var r = parts.Rends[i];
+                    if (!r) continue;
+                    var go = new GameObject(r.name);
+                    go.transform.SetParent(c.Root.transform, false);
+                    Renderer made = null;
+                    if (r is SkinnedMeshRenderer smr)
+                    {
+                        var map = i < parts.BoneMap.Length ? parts.BoneMap[i] : null;
+                        if (map != null && smr.sharedMesh)
+                        {
+                            var skin = go.AddComponent<SkinnedMeshRenderer>();
+                            skin.sharedMesh = smr.sharedMesh;
+                            skin.sharedMaterials = smr.sharedMaterials;
+                            var bones = new Transform[map.Length];
+                            for (int j = 0; j < map.Length; j++) bones[j] = map[j] >= 0 ? c.Bones[map[j]] : boneRoot;
+                            skin.bones = bones;
+                            int rootIdx = smr.rootBone ? System.Array.IndexOf(smr.bones, smr.rootBone) : -1;
+                            skin.rootBone = rootIdx >= 0 && map[rootIdx] >= 0 ? c.Bones[map[rootIdx]] : (bones.Length > 0 ? bones[0] : boneRoot);
+                            skin.updateWhenOffscreen = true;
+                            skin.quality = smr.quality;
+                            made = skin;
+                        }
+                        else
+                        {
+                            var mesh = new Mesh();
+                            try { smr.BakeMesh(mesh); } catch (System.Exception) { Object.Destroy(mesh); Object.Destroy(go); continue; }
+                            c.Created.Add(mesh);
+                            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                            var mr = go.AddComponent<MeshRenderer>();
+                            mr.sharedMaterials = smr.sharedMaterials;
+                            made = mr;
+                        }
+                    }
+                    else
+                    {
+                        var mf = r.GetComponent<MeshFilter>();
+                        if (!mf || !mf.sharedMesh) { Object.Destroy(go); continue; }
+                        go.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+                        var mr = go.AddComponent<MeshRenderer>();
+                        mr.sharedMaterials = r.sharedMaterials;
+                        go.transform.localScale = r.transform.lossyScale;
+                        made = mr;
+                    }
+                    made.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    made.enabled = false;
+                    c.Parts[i] = go.transform;
+                    c.Rends[i] = made;
+                }
+                return c;
+            }
+
+            /// <summary>Poses parts and bones (local to Root) from a sample; false when the sample does not fit this copy.</summary>
+            public bool Pose(Recorder.RigSample s, Vector3 fix, bool hideAll)
+            {
+                if (!Root) return false;
+                if (!s.Valid || s.Pos.Length != Parts.Length || s.BonePos == null || s.BonePos.Length != Bones.Length) { Root.SetActive(false); return false; }
+                if (!Root.activeSelf) Root.SetActive(true);
+                for (int i = 0; i < Parts.Length; i++)
+                {
+                    var p = Parts[i];
+                    if (!p) continue;
+                    p.localPosition = s.Pos[i] + fix;
+                    p.localRotation = s.Rot[i];
+                    bool on = s.On != null && i < s.On.Length && s.On[i] && !hideAll;
+                    var r = Rends[i];
+                    if (r && r.enabled != on) r.enabled = on;
+                }
+                for (int i = 0; i < Bones.Length; i++)
+                {
+                    var b = Bones[i];
+                    if (!b) continue;
+                    b.localPosition = s.BonePos[i] + fix;
+                    b.localRotation = s.BoneRot[i];
+                    b.localScale = BoneScale[i];
+                }
+                return true;
+            }
+
+            public void SetActive(bool on) { if (Root && Root.activeSelf != on) Root.SetActive(on); }
+
+            public void Destroy()
+            {
+                if (Root) Object.Destroy(Root);
+                foreach (var o in Created) if (o) Object.Destroy(o);
+                Created.Clear();
+                Root = null;
+            }
+        }
+
+        // ------------------------------------------------------------------ entry points
 
         public static void Init()
         {
@@ -202,8 +330,9 @@ namespace HowToFish1v1.Match
 
             var killer = FindPlayer(_killerId);
             _remoteKiller = killer && killer.Owner != null && !killer.Owner.IsLocalClient;
-            HideKiller();
+            HideLiveWorld();
             HideLocalViewmodel();
+            _nextRehideScan = Time.unscaledTime + 0.5f;
             try { PlayerUI.ToggleMainCanvas(false); _hudHidden = true; } catch (System.Exception) { }
         }
 
@@ -216,20 +345,15 @@ namespace HowToFish1v1.Match
 
         private static Player FindPlayer(int ownerId) => PlayerManager.Players.FirstOrDefault(p => p && p.OwnerId == ownerId);
 
+        // ------------------------------------------------------------------ the killer's gun
+
         private static void DestroyViewGun()
         {
-            if (_viewGun) Object.Destroy(_viewGun);
-            _viewGun = null; _flash = null; _gunSource = null; _gunParts = null; _boneCopies = null; _boneScale = null;
-            _gunRenderers.Clear();
-            foreach (var o in _gunCreated) if (o) Object.Destroy(o);
-            _gunCreated.Clear();
+            _gun?.Destroy();
+            _gun = null; _flash = null; _gunSource = null;
         }
 
-        /// <summary>
-        /// A render-only copy of an item the killer held during the replay, one child per recorded part. The parts are
-        /// placed every frame from the recording, so the copy moves exactly as the real gun did (for the local player's own
-        /// replay this includes the game's sway, aim, recoil and animations; remote players' guns get a synthetic version).
-        /// </summary>
+        /// <summary>Builds the copy of an item the killer held during the replay and reads its weapon settings.</summary>
         private static void BuildViewGun(Item item)
         {
             DestroyViewGun();
@@ -237,72 +361,7 @@ namespace HowToFish1v1.Match
             if (!item) return;
             _tpOffset = 0f;
             try { if (item is Tool tool && _remoteKiller) _tpOffset = tool.ThirdPersonOffset; } catch (System.Exception) { }
-
-            _viewGun = new GameObject("HTF1v1_KillcamGun");
-            var parts = Recorder.PartsOf(item);
-            var rends = parts.Rends;
-            _gunParts = new Transform[rends.Length];
-            // One stand-in transform per recorded bone; the skinned copies are rigged to these and posed from the recording.
-            _boneCopies = new Transform[parts.Bones.Length];
-            _boneScale = new Vector3[parts.Bones.Length];
-            var boneRoot = new GameObject("Bones").transform;
-            boneRoot.SetParent(_viewGun.transform, false);
-            for (int i = 0; i < parts.Bones.Length; i++)
-            {
-                var b = new GameObject(parts.Bones[i] ? parts.Bones[i].name : "bone").transform;
-                b.SetParent(boneRoot, false);
-                _boneCopies[i] = b;
-                _boneScale[i] = parts.Bones[i] ? parts.Bones[i].lossyScale : Vector3.one;
-            }
-            for (int i = 0; i < rends.Length; i++)
-            {
-                var r = rends[i];
-                if (!r) continue;
-                var copy = new GameObject(r.name);
-                copy.transform.SetParent(_viewGun.transform, false);
-                Renderer made;
-                if (r is SkinnedMeshRenderer smr)
-                {
-                    int start = parts.BoneStart[i];
-                    if (start >= 0 && smr.sharedMesh && smr.bones != null && smr.bones.Length > 0)
-                    {
-                        // A live skinned copy: same mesh and bind poses, rigged to our stand-in bones.
-                        var skin = copy.AddComponent<SkinnedMeshRenderer>();
-                        skin.sharedMesh = smr.sharedMesh;
-                        skin.sharedMaterials = smr.sharedMaterials;
-                        var bones = new Transform[smr.bones.Length];
-                        for (int j = 0; j < bones.Length; j++) bones[j] = _boneCopies[start + j];
-                        skin.bones = bones;
-                        int rootIdx = System.Array.IndexOf(smr.bones, smr.rootBone);
-                        skin.rootBone = rootIdx >= 0 ? bones[rootIdx] : bones[0];
-                        skin.updateWhenOffscreen = true;
-                        skin.quality = smr.quality;
-                        made = skin;
-                    }
-                    else
-                    {
-                        var mesh = new Mesh();
-                        try { smr.BakeMesh(mesh); } catch (System.Exception) { Object.Destroy(mesh); Object.Destroy(copy); continue; }
-                        _gunCreated.Add(mesh);
-                        copy.AddComponent<MeshFilter>().sharedMesh = mesh;
-                        made = copy.AddComponent<MeshRenderer>();
-                        made.sharedMaterials = smr.sharedMaterials;
-                    }
-                }
-                else
-                {
-                    var mf = r.GetComponent<MeshFilter>();
-                    if (!mf || !mf.sharedMesh) { Object.Destroy(copy); continue; }
-                    copy.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
-                    made = copy.AddComponent<MeshRenderer>();
-                    made.sharedMaterials = r.sharedMaterials;
-                    copy.transform.localScale = r.transform.lossyScale;
-                }
-                made.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                made.enabled = false;
-                _gunParts[i] = copy.transform;
-                _gunRenderers.Add(made);
-            }
+            _gun = RigCopy.Build(Recorder.PartsOf(item), "HTF1v1_KillcamGun");
             _gunSource = item;
 
             if (item is Weapon w && w.Attachments)
@@ -327,10 +386,10 @@ namespace HowToFish1v1.Match
                 _flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _flash.name = "HTF1v1_MuzzleFlash";
                 Object.Destroy(_flash.GetComponent<Collider>());
-                _flash.transform.SetParent(_viewGun.transform, false);
+                _flash.transform.SetParent(_gun.Root.transform, false);
                 _flash.transform.localScale = new Vector3(0.07f, 0.07f, 0.16f);   // a short streak out of the barrel
                 var mat = new Material(Arena.ArenaMaterials.For(BoxKind.Yellow));
-                _gunCreated.Add(mat);
+                _gun.Created.Add(mat);
                 mat.EnableKeyword("_EMISSION");
                 if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.35f) * 4f);
                 _flash.GetComponent<MeshRenderer>().sharedMaterial = mat;
@@ -347,8 +406,7 @@ namespace HowToFish1v1.Match
 
         /// <summary>
         /// Remote players' guns are recorded without any first-person motion (the game draws them rigidly on the head), so
-        /// the copy gets a synthetic walk bob, turn sway, shot kick and slide towards the sight. Returns the head-space offset
-        /// and rotation to apply to the gun root.
+        /// the copy gets a synthetic walk bob, turn sway, shot kick and slide towards the sight.
         /// </summary>
         private static void SyntheticMotion(Vector3 eyePos, Quaternion eyeRot, out Vector3 offset, out Quaternion rot)
         {
@@ -381,47 +439,24 @@ namespace HowToFish1v1.Match
             rot = _sway * kickRot;
         }
 
-        /// <summary>Places the gun copy for the replay moment: rebuilds it when the killer swapped items, then poses every part from the recording.</summary>
+        /// <summary>Places the killer's gun copy for the replay moment: rebuilds it when they swapped items, then poses it from the recording.</summary>
         private static void PlaceViewGun(Vector3 eyePos, Quaternion eyeRot, float t)
         {
             if (!Recorder.TryGetGun(_killerId, t, out var gs))
             {
-                if (_viewGun) _viewGun.SetActive(false);
+                _gun?.SetActive(false);
                 return;
             }
             if (gs.Item != _gunSource) BuildViewGun(gs.Item);
-            if (!_viewGun) return;
-            bool ok = gs.Pos != null && _gunParts != null && gs.Pos.Length == _gunParts.Length;
-            _viewGun.SetActive(ok);
-            if (!ok) return;
+            if (_gun == null) return;
 
             Vector3 offset = Vector3.zero; Quaternion rot = Quaternion.identity;
             if (_remoteKiller) SyntheticMotion(eyePos, eyeRot, out offset, out rot);
-            _viewGun.transform.SetPositionAndRotation(eyePos + eyeRot * offset, eyeRot * rot);
+            _gun.Root.transform.SetPositionAndRotation(eyePos + eyeRot * offset, eyeRot * rot);
 
             Vector3 fix = _remoteKiller ? -Vector3.forward * _tpOffset : Vector3.zero;   // undo the third-person push
             bool hideGun = _sniperSight && _aimPercent > _sniperPct;
-            for (int i = 0; i < _gunParts.Length; i++)
-            {
-                var part = _gunParts[i];
-                if (!part) continue;
-                part.localPosition = gs.Pos[i] + fix;
-                part.localRotation = gs.Rot[i];
-                var r = part.GetComponent<Renderer>();
-                bool on = gs.On != null && i < gs.On.Length && gs.On[i] && !hideGun;
-                if (r && r.enabled != on) r.enabled = on;
-            }
-            if (_boneCopies != null && gs.BonePos != null && gs.BonePos.Length == _boneCopies.Length)
-            {
-                for (int i = 0; i < _boneCopies.Length; i++)
-                {
-                    var b = _boneCopies[i];
-                    if (!b) continue;
-                    b.localPosition = gs.BonePos[i] + fix;
-                    b.localRotation = gs.BoneRot[i];
-                    b.localScale = _boneScale[i];
-                }
-            }
+            if (!_gun.Pose(gs.Rig, fix, hideGun)) return;
             if (_flash)
             {
                 // The muzzle is recorded directly (head space), so scaling on the gun root cannot push the flash sideways.
@@ -455,6 +490,317 @@ namespace HowToFish1v1.Match
             }
             _lastShotCheck = _replayT;
         }
+
+        // ------------------------------------------------------------------ other players, victim, creatures
+
+        /// <summary>Recorded bodies and guns of every other player (the killer excepted: we are inside their head).</summary>
+        private static void UpdatePlayers(bool show, float t)
+        {
+            _victimShown = false;
+            if (!show)
+            {
+                foreach (var c in _bodyCopies.Values) c.SetActive(false);
+                foreach (var c in _otherGunCopies.Values) c.SetActive(false);
+                _mannequin?.SetActive(false);
+                return;
+            }
+            var seen = new HashSet<int>();
+            foreach (var p in PlayerManager.Players)
+            {
+                if (!p || p.OwnerId == _killerId || p.Owner == null || p.Owner.IsLocalClient) continue;
+                int id = p.OwnerId;
+                if (!Recorder.TryGetBody(id, t, out var rig)) continue;
+                var parts = Recorder.BodyPartsOf(id);
+                if (parts == null) continue;
+                if (!_bodyCopies.TryGetValue(id, out var copy) || copy.Root == null || !_bodyCopyParts.TryGetValue(id, out var used) || used != parts)
+                {
+                    copy?.Destroy();
+                    copy = RigCopy.Build(parts, "HTF1v1_Replay_" + p.SteamName);
+                    _bodyCopies[id] = copy;
+                    _bodyCopyParts[id] = parts;
+                }
+                copy.Root.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                if (copy.Pose(rig, Vector3.zero, false))
+                {
+                    seen.Add(id);
+                    if (id == _victimId) _victimShown = true;
+                }
+                // Their gun rides on their recorded head, exactly as this client saw it.
+                if (Recorder.TryGetGun(id, t, out var gs) && gs.Item && Recorder.TryGet(id, t, out var hp, out var hr))
+                {
+                    if (!_otherGunCopies.TryGetValue(id, out var gc) || gc.Root == null || !_otherGunSource.TryGetValue(id, out var src) || src != gs.Item)
+                    {
+                        gc?.Destroy();
+                        gc = RigCopy.Build(Recorder.PartsOf(gs.Item), "HTF1v1_ReplayGun_" + p.SteamName);
+                        _otherGunCopies[id] = gc;
+                        _otherGunSource[id] = gs.Item;
+                    }
+                    gc.Root.transform.SetPositionAndRotation(hp, hr);
+                    gc.Pose(gs.Rig, Vector3.zero, false);
+                }
+                else if (_otherGunCopies.TryGetValue(id, out var gc2)) gc2.SetActive(false);
+            }
+            foreach (var kv in _bodyCopies) if (!seen.Contains(kv.Key)) kv.Value.SetActive(false);
+            foreach (var kv in _otherGunCopies) if (!seen.Contains(kv.Key)) kv.Value.SetActive(false);
+
+            // The viewer as the victim: a mannequin in their colours at their recorded head.
+            var me = Player.LocalPlayer;
+            if (me && _victimId == me.OwnerId && Recorder.Mannequin != null && Recorder.TryGet(_victimId, t, out var vp, out var vr))
+            {
+                var m = Recorder.Mannequin;
+                if (_mannequin == null || _mannequin.Root == null || _mannequinData != m)
+                {
+                    _mannequin?.Destroy();
+                    _mannequin = RigCopy.Build(m.Parts, "HTF1v1_ReplayVictim");
+                    _mannequinData = m;
+                    ColorMannequin(_mannequin, m, me);
+                }
+                float floorY = Physics.Raycast(vp + Vector3.up * 0.1f, Vector3.down, out var hit, 3f, GameInfo.LevelLayer) ? hit.point.y : vp.y - m.HeadHeight;
+                Vector3 fwd = Vector3.ProjectOnPlane(vr * Vector3.forward, Vector3.up);
+                _mannequin.Root.transform.SetPositionAndRotation(new Vector3(vp.x, floorY, vp.z), fwd.sqrMagnitude > 0.001f ? Quaternion.LookRotation(fwd.normalized, Vector3.up) : Quaternion.identity);
+                if (_mannequin.Pose(m.Pose, Vector3.zero, false)) _victimShown = true;
+            }
+            else _mannequin?.SetActive(false);
+        }
+
+        /// <summary>Gives the mannequin the victim's skin, hat, outfit and accessory colours and meshes.</summary>
+        private static void ColorMannequin(RigCopy copy, Recorder.MannequinData m, Player victim)
+        {
+            try
+            {
+                var srcSkin = m.Source ? m.Source.Skin : null;
+                var vSkin = victim ? victim.Skin : null;
+                if (!srcSkin || !vSkin) return;
+                var ts = Traverse.Create(srcSkin);
+                var tv = Traverse.Create(vSkin);
+                Vector3 skin = Sync(tv, "_skinColor");
+                var slots = new[]
+                {
+                    ("_bodyRenderer", "", "", "", ""), ("_leftHand", "", "", "", ""), ("_rightHand", "", "", "", ""),
+                    ("_hatRenderer", "_hatColor", "_hatColor2", "_hatColor3", "GetHat"),
+                    ("_outfitRenderer", "_outfitColor", "_outfitColor2", "_outfitColor3", "GetOutfit"),
+                    ("_accessoryRenderer", "_accessoryColor", "_accessoryColor2", "_accessoryColor3", "GetAccessory")
+                };
+                foreach (var (field, c1, c2, c3, meshGetter) in slots)
+                {
+                    Renderer src = null;
+                    try { src = ts.Field<SkinnedMeshRenderer>(field).Value; } catch (System.Exception) { }
+                    if (!src) continue;
+                    int idx = System.Array.IndexOf(m.Parts.Rends, src);
+                    if (idx < 0 || idx >= copy.Rends.Length || !copy.Rends[idx]) continue;
+                    var cr = copy.Rends[idx];
+                    var mats = cr.materials;   // own instances so the source player keeps their colours
+                    foreach (var mat in mats)
+                    {
+                        if (!mat) continue;
+                        copy.Created.Add(mat);
+                        mat.SetVector(ShaderManager.PlayerSkinID, skin);
+                        mat.SetVector(ShaderManager.PlayerPrimaryColorID, c1 == "" ? Vector3.zero : Sync(tv, c1));
+                        mat.SetVector(ShaderManager.PlayerSecondColorID, c2 == "" ? Vector3.zero : Sync(tv, c2));
+                        mat.SetVector(ShaderManager.PlayerThirdColorID, c3 == "" ? Vector3.zero : Sync(tv, c3));
+                    }
+                    if (meshGetter != "" && cr is SkinnedMeshRenderer csm)
+                    {
+                        try
+                        {
+                            byte index = meshGetter == "GetHat" ? vSkin.HatMeshIndex : meshGetter == "GetOutfit" ? vSkin.OutfitMeshIndex : vSkin.AccessoryMeshIndex;
+                            var mi = typeof(SkinManager).GetMethod(meshGetter, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                            var mesh = mi?.Invoke(null, new object[] { index }) as Mesh;
+                            if (mesh) csm.sharedMesh = mesh;
+                        }
+                        catch (System.Exception) { }
+                    }
+                }
+            }
+            catch (System.Exception e) { Plugin.Log.LogDebug("Mannequin colours: " + e.Message); }
+        }
+
+        private static Vector3 Sync(Traverse skin, string field)
+        {
+            try
+            {
+                var sv = skin.Field(field).GetValue();
+                if (sv == null) return Vector3.zero;
+                return Traverse.Create(sv).Property("Value").GetValue<Vector3>();
+            }
+            catch (System.Exception) { return Vector3.zero; }
+        }
+
+        /// <summary>Recorded creatures at the replay moment, as static mesh copies posed from the recording.</summary>
+        private static void UpdateActors(bool show, float t)
+        {
+            if (!show)
+            {
+                foreach (var go in _actorCopies.Values) if (go && go.activeSelf) go.SetActive(false);
+                return;
+            }
+            var seen = new HashSet<int>();
+            foreach (var kv in Recorder.Actors)
+            {
+                if (!Recorder.TryGetActor(kv.Value, t, out var pos, out var rot)) continue;
+                seen.Add(kv.Key);
+                if (!_actorCopies.TryGetValue(kv.Key, out var go) || !go)
+                {
+                    go = BuildActor(kv.Value);
+                    _actorCopies[kv.Key] = go;
+                }
+                if (!go.activeSelf) go.SetActive(true);
+                go.transform.SetPositionAndRotation(pos, rot);
+            }
+            foreach (var kv in _actorCopies)
+                if (kv.Value && kv.Value.activeSelf && !seen.Contains(kv.Key)) kv.Value.SetActive(false);
+        }
+
+        private static GameObject BuildActor(Recorder.ActorTrack tr)
+        {
+            var root = new GameObject("HTF1v1_Replay_" + tr.Name);
+            foreach (var p in tr.Parts)
+            {
+                if (!p.Mesh) continue;
+                var go = new GameObject("part");
+                go.transform.SetParent(root.transform, false);
+                go.transform.localPosition = p.Pos;
+                go.transform.localRotation = p.Rot;
+                go.transform.localScale = p.Scale;
+                go.AddComponent<MeshFilter>().sharedMesh = p.Mesh;
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterials = p.Mats;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            return root;
+        }
+
+        /// <summary>Fallback stand-in for the victim when no body could be copied (solo preview, or nothing recorded).</summary>
+        private static void UpdateGhost(bool show, float t)
+        {
+            Vector3 headPos = Vector3.zero; Quaternion headRot = Quaternion.identity;
+            bool have = show && !_victimShown && (_victimId >= 0 ? Recorder.TryGet(_victimId, t, out headPos, out headRot) : PreviewGhost(out headPos, out headRot));
+            if (!have)
+            {
+                if (_ghost) _ghost.SetActive(false);
+                return;
+            }
+            if (!_ghost)
+            {
+                _ghost = new GameObject("HTF1v1_KillcamGhost");
+                var mat = new Material(Arena.ArenaMaterials.For(BoxKind.Yellow));
+                _created.Add(mat);
+                mat.EnableKeyword("_EMISSION");
+                if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(1f, 0.75f, 0.2f) * 1.5f);
+                GhostPart(PrimitiveType.Capsule, "Body", mat);
+                GhostPart(PrimitiveType.Cylinder, "Beam", mat);
+                GhostPart(PrimitiveType.Cube, "Face", mat);
+            }
+            _ghost.SetActive(true);
+            float floorY = Physics.Raycast(headPos + Vector3.up * 0.1f, Vector3.down, out var hit, 3f, GameInfo.LevelLayer) ? hit.point.y : headPos.y - 1.65f;
+            float height = Mathf.Clamp(headPos.y + 0.1f - floorY, 0.8f, 2.2f);
+            Vector3 fwd = Vector3.ProjectOnPlane(headRot * Vector3.forward, Vector3.up);
+            _ghost.transform.SetPositionAndRotation(new Vector3(headPos.x, floorY, headPos.z), fwd.sqrMagnitude > 0.001f ? Quaternion.LookRotation(fwd.normalized, Vector3.up) : Quaternion.identity);
+            var body = _ghost.transform.GetChild(0); body.localPosition = new Vector3(0f, height / 2f, 0f); body.localScale = new Vector3(0.7f, height / 2f, 0.7f);
+            var beam = _ghost.transform.GetChild(1); beam.localPosition = new Vector3(0f, height + 0.6f, 0f); beam.localScale = new Vector3(0.08f, 0.5f, 0.08f);
+            var face = _ghost.transform.GetChild(2); face.localPosition = new Vector3(0f, height - 0.15f, 0.35f); face.localScale = new Vector3(0.25f, 0.12f, 0.35f);
+        }
+
+        private static void GhostPart(PrimitiveType type, string name, Material mat)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            Object.Destroy(go.GetComponent<Collider>());
+            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            go.transform.SetParent(_ghost.transform, false);
+        }
+
+        private static bool PreviewGhost(out Vector3 pos, out Quaternion rot)
+        {
+            pos = _previewGhostPos; rot = _previewGhostRot;
+            return true;
+        }
+
+        // ------------------------------------------------------------------ hiding the live world
+
+        private static void HideRenderer(Renderer r)
+        {
+            if (!r || _hiddenRenderers.Contains(r)) return;
+            r.enabled = false;
+            _hiddenRenderers.Add(r);
+        }
+
+        private static void HideRenderers(Component root)
+        {
+            if (!root) return;
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true)) HideRenderer(r);
+        }
+
+        /// <summary>The player's own arm/hand meshes live on PlayerHands and are toggled by the game every frame.</summary>
+        private static void HideHandModels(Player p)
+        {
+            if (!p || !p.Hands) return;
+            try
+            {
+                var t = Traverse.Create(p.Hands);
+                HideRenderer(t.Field<Renderer>("_handModelLeft").Value);
+                HideRenderer(t.Field<Renderer>("_handModelRight").Value);
+            }
+            catch (System.Exception) { }
+        }
+
+        /// <summary>
+        /// Everything live that the replay redraws from the recording is hidden: every player's body, hands, gun and name
+        /// tag (the killer because we look through their eyes, the others because they are shown where they were), and
+        /// every creature. Re-run during the replay for weapon swaps, late ragdolls and new creatures.
+        /// </summary>
+        private static void HideLiveWorld()
+        {
+            foreach (var p in PlayerManager.Players)
+            {
+                if (!p) continue;
+                bool remote = p.Owner != null && !p.Owner.IsLocalClient;
+                if (!remote && p.OwnerId != _killerId) continue;   // the local viewer's own viewmodel is handled separately
+                if (p.Transform) HideRenderers(p.Transform);
+                HideHandModels(p);
+                if (p.Transform)
+                    foreach (var c in p.Transform.GetComponentsInChildren<Canvas>(true))
+                        if (c && c.enabled) { c.enabled = false; _hiddenCanvases.Add(c); }
+                var item = p.Holding ? p.Holding.HeldItem : null;
+                if (item) { _hiddenItems[p.OwnerId] = item; HideRenderers(item); }
+            }
+            foreach (var c in Recorder.LiveCreatures) if (c) HideRenderers(c);
+        }
+
+        private static void RehideDuringReplay(Player me)
+        {
+            RehideNow();
+            if (Time.unscaledTime >= _nextRehideScan)
+            {
+                _nextRehideScan = Time.unscaledTime + 0.5f;
+                HideLiveWorld();
+            }
+            if (me && _victimId == me.OwnerId && me.Dying && me.Dying.DeadPlayer && me.Dying.DeadPlayer != _hiddenCorpse)
+            {
+                _hiddenCorpse = me.Dying.DeadPlayer;
+                HideRenderers(_hiddenCorpse);
+            }
+        }
+
+        /// <summary>Watching while alive (final killcam, preview): our own hands and gun would otherwise follow the replay camera.</summary>
+        private static void HideLocalViewmodel()
+        {
+            var me = Player.LocalPlayer;
+            if (!me || me.Dying.IsDead || me.OwnerId == _killerId) return;   // as the killer we are already hidden
+            HideRenderers(me.Holding ? me.Holding.HeldItem : null);
+            HideHandModels(me);
+        }
+
+        private static void ShowLiveWorld()
+        {
+            foreach (var r in _hiddenRenderers) if (r) r.enabled = true;
+            _hiddenRenderers.Clear();
+            foreach (var c in _hiddenCanvases) if (c) c.enabled = true;
+            _hiddenCanvases.Clear();
+            _hiddenItems.Clear(); _hiddenCorpse = null;
+        }
+
+        // ------------------------------------------------------------------ lifecycle
 
         public static void Stop()
         {
@@ -506,13 +852,16 @@ namespace HowToFish1v1.Match
 
         private static void Cleanup()
         {
-            foreach (var r in _hiddenRenderers) if (r) r.enabled = true;
-            _hiddenRenderers.Clear();
-            foreach (var c in _hiddenCanvases) if (c) c.enabled = true;
-            _hiddenCanvases.Clear();
-            _hiddenItem = null; _hiddenCorpse = null;
+            ShowLiveWorld();
             if (_ghost) Object.Destroy(_ghost);
             _ghost = null;
+            foreach (var go in _actorCopies.Values) if (go) Object.Destroy(go);
+            _actorCopies.Clear();
+            foreach (var c in _bodyCopies.Values) c.Destroy();
+            _bodyCopies.Clear(); _bodyCopyParts.Clear();
+            foreach (var c in _otherGunCopies.Values) c.Destroy();
+            _otherGunCopies.Clear(); _otherGunSource.Clear();
+            _mannequin?.Destroy(); _mannequin = null; _mannequinData = null;
             DestroyViewGun();
             foreach (var o in _created) if (o) Object.Destroy(o);
             _created.Clear();
@@ -613,130 +962,7 @@ namespace HowToFish1v1.Match
             return t;
         }
 
-        private static void HideRenderer(Renderer r)
-        {
-            if (!r || _hiddenRenderers.Contains(r)) return;
-            r.enabled = false;
-            _hiddenRenderers.Add(r);
-        }
-
-        private static void HideRenderers(Component root)
-        {
-            if (!root) return;
-            foreach (var r in root.GetComponentsInChildren<Renderer>(true)) HideRenderer(r);
-        }
-
-        /// <summary>The player's own arm/hand meshes live on PlayerHands and are toggled by the game every frame.</summary>
-        private static void HideHandModels(Player p)
-        {
-            if (!p || !p.Hands) return;
-            try
-            {
-                var t = Traverse.Create(p.Hands);
-                HideRenderer(t.Field<Renderer>("_handModelLeft").Value);
-                HideRenderer(t.Field<Renderer>("_handModelRight").Value);
-            }
-            catch (System.Exception) { }
-        }
-
-        /// <summary>We look through the killer's eyes, so their body, hands, live gun and name tag must not be drawn.</summary>
-        private static void HideKiller()
-        {
-            var killer = FindPlayer(_killerId);
-            if (!killer || !killer.Transform) return;
-            HideRenderers(killer.Transform);
-            HideHandModels(killer);
-            foreach (var c in killer.Transform.GetComponentsInChildren<Canvas>(true))
-                if (c && c.enabled) { c.enabled = false; _hiddenCanvases.Add(c); }
-            _hiddenItem = killer.Holding ? killer.Holding.HeldItem : null;
-            HideRenderers(_hiddenItem);
-        }
-
-        /// <summary>
-        /// The game re-enables hand and tool meshes every frame, the killer may swap weapons mid-replay (fresh renderers)
-        /// and the victim's ragdoll may land after we start: keep everything hidden that should be hidden.
-        /// </summary>
-        private static void RehideDuringReplay(Player me)
-        {
-            foreach (var r in _hiddenRenderers) if (r && r.enabled) r.enabled = false;
-            foreach (var c in _hiddenCanvases) if (c && c.enabled) c.enabled = false;
-            var killer = FindPlayer(_killerId);
-            if (killer && killer.Holding)
-            {
-                var item = killer.Holding.HeldItem;
-                if (item && item != _hiddenItem) { _hiddenItem = item; HideRenderers(item); }
-            }
-            if (me && _victimId == me.OwnerId && me.Dying && me.Dying.DeadPlayer && me.Dying.DeadPlayer != _hiddenCorpse)
-            {
-                _hiddenCorpse = me.Dying.DeadPlayer;
-                HideRenderers(_hiddenCorpse);
-            }
-        }
-
-        /// <summary>Watching while alive (final killcam, preview): our own hands and gun would otherwise follow the replay camera.</summary>
-        private static void HideLocalViewmodel()
-        {
-            var me = Player.LocalPlayer;
-            if (!me || me.Dying.IsDead || me.OwnerId == _killerId) return;   // as the killer we are already hidden
-            HideRenderers(me.Holding ? me.Holding.HeldItem : null);
-            HideHandModels(me);
-        }
-
-        private static void ShowKiller()
-        {
-            foreach (var r in _hiddenRenderers) if (r) r.enabled = true;
-            _hiddenRenderers.Clear();
-            foreach (var c in _hiddenCanvases) if (c) c.enabled = true;
-            _hiddenCanvases.Clear();
-            _hiddenItem = null; _hiddenCorpse = null;
-        }
-
-        /// <summary>A glowing stand-in for the victim at their recorded position, sized from their eye height and snapped to the floor.</summary>
-        private static void UpdateGhost(bool show, float t)
-        {
-            Vector3 headPos = Vector3.zero; Quaternion headRot = Quaternion.identity;
-            bool have = show && (_victimId >= 0 ? Recorder.TryGet(_victimId, t, out headPos, out headRot) : PreviewGhost(out headPos, out headRot));
-            if (!have)
-            {
-                if (_ghost) _ghost.SetActive(false);
-                return;
-            }
-            if (!_ghost)
-            {
-                _ghost = new GameObject("HTF1v1_KillcamGhost");
-                // Same proven material path as the arena (URP Lit), bright gold with emission so it reads at any distance.
-                var mat = new Material(Arena.ArenaMaterials.For(BoxKind.Yellow));
-                _created.Add(mat);
-                mat.EnableKeyword("_EMISSION");
-                if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(1f, 0.75f, 0.2f) * 1.5f);
-                GhostPart(PrimitiveType.Capsule, "Body", mat);
-                GhostPart(PrimitiveType.Cylinder, "Beam", mat);
-                GhostPart(PrimitiveType.Cube, "Face", mat);
-            }
-            _ghost.SetActive(true);
-            float floorY = Physics.Raycast(headPos + Vector3.up * 0.1f, Vector3.down, out var hit, 3f, GameInfo.LevelLayer) ? hit.point.y : headPos.y - 1.65f;
-            float height = Mathf.Clamp(headPos.y + 0.1f - floorY, 0.8f, 2.2f);
-            Vector3 fwd = Vector3.ProjectOnPlane(headRot * Vector3.forward, Vector3.up);
-            _ghost.transform.SetPositionAndRotation(new Vector3(headPos.x, floorY, headPos.z), fwd.sqrMagnitude > 0.001f ? Quaternion.LookRotation(fwd.normalized, Vector3.up) : Quaternion.identity);
-            var body = _ghost.transform.GetChild(0); body.localPosition = new Vector3(0f, height / 2f, 0f); body.localScale = new Vector3(0.7f, height / 2f, 0.7f);
-            var beam = _ghost.transform.GetChild(1); beam.localPosition = new Vector3(0f, height + 0.6f, 0f); beam.localScale = new Vector3(0.08f, 0.5f, 0.08f);
-            var face = _ghost.transform.GetChild(2); face.localPosition = new Vector3(0f, height - 0.15f, 0.35f); face.localScale = new Vector3(0.25f, 0.12f, 0.35f);
-        }
-
-        private static void GhostPart(PrimitiveType type, string name, Material mat)
-        {
-            var go = GameObject.CreatePrimitive(type);
-            go.name = name;
-            Object.Destroy(go.GetComponent<Collider>());
-            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            go.transform.SetParent(_ghost.transform, false);
-        }
-
-        private static bool PreviewGhost(out Vector3 pos, out Quaternion rot)
-        {
-            pos = _previewGhostPos; rot = _previewGhostRot;
-            return true;
-        }
+        // ------------------------------------------------------------------ camera
 
         /// <summary>Camera pose for this frame, or false when the killcam is not running.</summary>
         private static bool Pose(Camera cam, float baseFov, out Vector3 pos, out Quaternion rot)
@@ -766,14 +992,12 @@ namespace HowToFish1v1.Match
                     }
                     else
                     {
-                        UpdateGhost(false, 0f);
-                        if (_viewGun) _viewGun.SetActive(false);
+                        EndReplayVisuals();
                         _mode = Mode.LiveFollow;
                         _startedAt = Time.unscaledTime;
                         _budget = remaining;
                         _snapped = false;
                         _fade = 1f;
-                        ShowKiller();
                     }
                 }
                 if (_mode == Mode.Replay || _mode == Mode.Hold)
@@ -787,6 +1011,8 @@ namespace HowToFish1v1.Match
                             _clipCam = cam; _savedNearClip = cam.nearClipPlane; cam.nearClipPlane = 0.04f;
                         }
                         RehideDuringReplay(me);
+                        UpdatePlayers(true, t);
+                        UpdateActors(true, t);
                         UpdateGhost(true, t);
                         ApplyAim(cam, baseFov);
                         PlaceViewGun(rp, rr, t);
@@ -796,11 +1022,10 @@ namespace HowToFish1v1.Match
                         return true;
                     }
                     if (_final || _preview) { Stop(); return false; }
-                    UpdateGhost(false, 0f);
+                    EndReplayVisuals();
                     _mode = Mode.LiveFollow;
                     _startedAt = Time.unscaledTime;
                     _fade = 1f;
-                    ShowKiller();
                 }
             }
 
@@ -826,6 +1051,16 @@ namespace HowToFish1v1.Match
             _rot = Quaternion.Slerp(_rot, wantedRot, k);
             pos = _pos; rot = _rot;
             return true;
+        }
+
+        /// <summary>Leaving the replay for the live follow: the world comes back, the copies go away.</summary>
+        private static void EndReplayVisuals()
+        {
+            UpdatePlayers(false, 0f);
+            UpdateActors(false, 0f);
+            UpdateGhost(false, 0f);
+            _gun?.SetActive(false);
+            ShowLiveWorld();
         }
 
         /// <summary>From the death camera's LateUpdate (Harmony postfix) while the local player is dead.</summary>

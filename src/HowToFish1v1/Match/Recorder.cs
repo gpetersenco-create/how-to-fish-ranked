@@ -6,42 +6,83 @@ using UnityEngine;
 namespace HowToFish1v1.Match
 {
     /// <summary>
-    /// Keeps the last seconds of every player's head pose, held gun (which item and where each of its parts sat relative
-    /// to the head), shots and aim state so a kill can be replayed from the killer's eyes.
+    /// Keeps the last seconds of everything a killcam needs: every player's head pose, held gun and (for other players)
+    /// body rig, every creature's pose, shots and aim state. Rigs are recorded as the poses of their mesh parts and bones,
+    /// so a replay copy rigged to stand-in bones moves exactly as the original did.
     /// </summary>
     public static class Recorder
     {
         public struct Sample { public float T; public Vector3 Pos; public Quaternion Rot; }
 
-        /// <summary>Held item and its parts, in head space, so the replay reproduces sway, aim, recoil, reloads and swaps.</summary>
+        /// <summary>The mesh parts of a hierarchy plus the distinct bones of its skinned parts, in a stable order shared with the replay copy.</summary>
+        public sealed class RigParts
+        {
+            public Renderer[] Rends = Array.Empty<Renderer>();
+            public Transform[] Bones = Array.Empty<Transform>();
+            public int[][] BoneMap = Array.Empty<int[]>();   // per renderer: indices into Bones, or null when not skinned
+        }
+
+        /// <summary>Poses of a rig's parts and bones in some space (head space for guns, world for bodies).</summary>
+        public struct RigSample
+        {
+            public Vector3[] Pos; public Quaternion[] Rot; public bool[] On;
+            public Vector3[] BonePos; public Quaternion[] BoneRot;
+            public bool Valid => Pos != null;
+        }
+
         public struct GunSample
         {
             public float T;
             public Item Item;
             public Vector3 RootPos; public Quaternion RootRot;
-            /// <summary>Muzzle (head space); valid when HasFire.</summary>
             public Vector3 FirePos; public Quaternion FireRot; public bool HasFire;
-            public Vector3[] Pos; public Quaternion[] Rot; public bool[] On;
-            /// <summary>Bones of the item's skinned meshes (hands, gun body), so their animation replays too.</summary>
-            public Vector3[] BonePos; public Quaternion[] BoneRot;
+            public RigSample Rig;
         }
 
-        /// <summary>The mesh parts of an item plus the bones of its skinned parts, in a stable order shared with the replay copy.</summary>
-        public sealed class ItemParts
+        public struct BodySample { public float T; public RigSample Rig; }
+
+        /// <summary>One mesh part of a creature snapshot, relative to the creature's root.</summary>
+        public struct ActorPart { public Mesh Mesh; public Material[] Mats; public Vector3 Pos; public Quaternion Rot; public Vector3 Scale; public bool Owned; }
+
+        /// <summary>A creature (bird, fish...) seen during the match: its pose over time plus a one-time mesh snapshot.</summary>
+        public sealed class ActorTrack
         {
-            public Renderer[] Rends = System.Array.Empty<Renderer>();
-            public Transform[] Bones = System.Array.Empty<Transform>();
-            public int[] BoneStart = System.Array.Empty<int>();   // per renderer: first index into Bones (-1 when not skinned)
+            public string Name = "";
+            public readonly List<Sample> Samples = new List<Sample>(512);
+            public List<ActorPart> Parts = new List<ActorPart>();
         }
 
-        public const int MaxBones = 240;
+        /// <summary>A standing player body captured from another player, used to stand in for the local player (who has no third-person body).</summary>
+        public sealed class MannequinData
+        {
+            public RigParts Parts;
+            public RigSample Pose;       // in the body root's space
+            public float HeadHeight;     // head above the body root
+            public Player Source;
+        }
 
         public const float KeepSeconds = 20f;
+        public const int MaxBones = 240;
+
         private static readonly Dictionary<int, List<Sample>> _tracks = new Dictionary<int, List<Sample>>();
         private static readonly Dictionary<int, List<GunSample>> _guns = new Dictionary<int, List<GunSample>>();
+        private static readonly Dictionary<int, List<BodySample>> _bodies = new Dictionary<int, List<BodySample>>();
+        private static readonly Dictionary<int, RigParts> _bodyParts = new Dictionary<int, RigParts>();
         private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
-        private static readonly Dictionary<Item, ItemParts> _rendCache = new Dictionary<Item, ItemParts>();
+        private static readonly Dictionary<int, List<(float t, bool ads)>> _aim = new Dictionary<int, List<(float, bool)>>();
+        private static readonly Dictionary<Component, RigParts> _rigCache = new Dictionary<Component, RigParts>();
         private static float _nextCacheClear;
+        private static readonly Dictionary<int, ActorTrack> _actors = new Dictionary<int, ActorTrack>();
+        private static Creature[] _creatures = Array.Empty<Creature>();
+        private static float _nextCreatureScan, _nextMannequin;
+
+        public static IEnumerable<KeyValuePair<int, ActorTrack>> Actors => _actors;
+        /// <summary>Creatures currently in the world (refreshed twice a second).</summary>
+        public static Creature[] LiveCreatures => _creatures;
+        public static MannequinData Mannequin { get; private set; }
+        public static RigParts BodyPartsOf(int ownerId) => _bodyParts.TryGetValue(ownerId, out var p) ? p : null;
+
+        // ------------------------------------------------------------------ shots / aim
 
         /// <summary>A weapon held by this player fired (seen on every client through the game's shoot effects).</summary>
         public static void RecordShot(int ownerId)
@@ -51,8 +92,6 @@ namespace HowToFish1v1.Match
             list.Add(Time.unscaledTime);
             while (list.Count > 0 && Time.unscaledTime - list[0] > KeepSeconds) list.RemoveAt(0);
         }
-
-        private static readonly Dictionary<int, List<(float t, bool ads)>> _aim = new Dictionary<int, List<(float, bool)>>();
 
         public static void RecordAim(int ownerId, bool ads)
         {
@@ -87,40 +126,91 @@ namespace HowToFish1v1.Match
             return false;
         }
 
-        public static ItemParts PartsOf(Item item)
+        // ------------------------------------------------------------------ rigs
+
+        public static RigParts PartsOf(Component root)
         {
-            if (!item) return new ItemParts();
-            if (!_rendCache.TryGetValue(item, out var parts) || parts == null)
+            if (!root) return new RigParts();
+            if (!_rigCache.TryGetValue(root, out var parts) || parts == null)
             {
-                parts = new ItemParts();
-                parts.Rends = item.GetComponentsInChildren<Renderer>(true).Where(r => r is MeshRenderer || r is SkinnedMeshRenderer).ToArray();
+                parts = new RigParts();
+                parts.Rends = root.GetComponentsInChildren<Renderer>(true).Where(r => r is MeshRenderer || r is SkinnedMeshRenderer).ToArray();
                 var bones = new List<Transform>();
-                parts.BoneStart = new int[parts.Rends.Length];
+                var index = new Dictionary<Transform, int>();
+                parts.BoneMap = new int[parts.Rends.Length][];
                 for (int i = 0; i < parts.Rends.Length; i++)
                 {
-                    parts.BoneStart[i] = -1;
-                    if (parts.Rends[i] is SkinnedMeshRenderer smr && smr.bones != null && smr.bones.Length > 0 && bones.Count + smr.bones.Length <= MaxBones)
+                    if (!(parts.Rends[i] is SkinnedMeshRenderer smr) || smr.bones == null || smr.bones.Length == 0) continue;
+                    var map = new int[smr.bones.Length];
+                    bool ok = true;
+                    for (int j = 0; j < map.Length; j++)
                     {
-                        parts.BoneStart[i] = bones.Count;
-                        bones.AddRange(smr.bones);
+                        var b = smr.bones[j];
+                        if (!b) { map[j] = -1; continue; }
+                        if (!index.TryGetValue(b, out int k))
+                        {
+                            if (bones.Count >= MaxBones) { ok = false; break; }
+                            k = bones.Count; bones.Add(b); index[b] = k;
+                        }
+                        map[j] = k;
                     }
+                    parts.BoneMap[i] = ok ? map : null;
                 }
                 parts.Bones = bones.ToArray();
-                _rendCache[item] = parts;
+                _rigCache[root] = parts;
             }
             return parts;
         }
+
+        /// <summary>Current poses of a rig's parts and bones, relative to <paramref name="space"/> (or the world when null).</summary>
+        public static RigSample Capture(RigParts parts, Transform space)
+        {
+            int n = parts.Rends.Length, nb = parts.Bones.Length;
+            var s = new RigSample { Pos = new Vector3[n], Rot = new Quaternion[n], On = new bool[n], BonePos = new Vector3[nb], BoneRot = new Quaternion[nb] };
+            Quaternion inv = space ? Quaternion.Inverse(space.rotation) : Quaternion.identity;
+            Vector3 origin = space ? space.position : Vector3.zero;
+            for (int i = 0; i < n; i++)
+            {
+                var r = parts.Rends[i];
+                if (!r) continue;
+                s.Pos[i] = inv * (r.transform.position - origin);
+                s.Rot[i] = inv * r.transform.rotation;
+                s.On[i] = r.enabled && r.gameObject.activeInHierarchy;
+            }
+            for (int i = 0; i < nb; i++)
+            {
+                var b = parts.Bones[i];
+                if (!b) continue;
+                s.BonePos[i] = inv * (b.position - origin);
+                s.BoneRot[i] = inv * b.rotation;
+            }
+            return s;
+        }
+
+        private static RigSample Lerp(RigSample a, RigSample b, float f)
+        {
+            if (!a.Valid || !b.Valid || a.Pos.Length != b.Pos.Length || a.BonePos.Length != b.BonePos.Length) return a;
+            int n = a.Pos.Length, nb = a.BonePos.Length;
+            var m = new RigSample { Pos = new Vector3[n], Rot = new Quaternion[n], On = a.On, BonePos = new Vector3[nb], BoneRot = new Quaternion[nb] };
+            for (int i = 0; i < n; i++) { m.Pos[i] = Vector3.Lerp(a.Pos[i], b.Pos[i], f); m.Rot[i] = Quaternion.Slerp(a.Rot[i], b.Rot[i], f); }
+            for (int i = 0; i < nb; i++) { m.BonePos[i] = Vector3.Lerp(a.BonePos[i], b.BonePos[i], f); m.BoneRot[i] = Quaternion.Slerp(a.BoneRot[i], b.BoneRot[i], f); }
+            return m;
+        }
+
+        // ------------------------------------------------------------------ per frame
 
         /// <summary>Call every frame.</summary>
         public static void Update()
         {
             if (!ModState.IsActive)
             {
-                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _aim.Clear(); _guns.Clear(); _rendCache.Clear(); }
+                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
+                if (_actors.Count > 0) { foreach (var tr in _actors.Values) DestroyParts(tr); _actors.Clear(); _creatures = Array.Empty<Creature>(); }
                 return;
             }
             float now = Time.unscaledTime;
-            if (now >= _nextCacheClear) { _nextCacheClear = now + 2f; _rendCache.Clear(); }   // attachments can change the part list
+            if (now >= _nextCacheClear) { _nextCacheClear = now + 2f; _rigCache.Clear(); }   // attachments / outfits can change the part list
+            RecordCreatures(now);
             foreach (var p in PlayerManager.Players)
             {
                 if (!p) continue;
@@ -130,14 +220,12 @@ namespace HowToFish1v1.Match
                 list.Add(new Sample { T = now, Pos = head.position, Rot = head.rotation });
                 Prune(list, now, s => s.T);
 
+                // Held gun, in head space.
                 if (!_guns.TryGetValue(p.OwnerId, out var glist)) { glist = new List<GunSample>(1024); _guns[p.OwnerId] = glist; }
                 var item = p.Holding ? p.Holding.HeldItem : null;
                 var gs = new GunSample { T = now, Item = item };
                 if (item)
                 {
-                    var parts = PartsOf(item);
-                    var rends = parts.Rends;
-                    int n = rends.Length;
                     gs.RootPos = head.InverseTransformPoint(item.transform.position);
                     gs.RootRot = Quaternion.Inverse(head.rotation) * item.transform.rotation;
                     Transform fp = null;
@@ -148,28 +236,113 @@ namespace HowToFish1v1.Match
                         gs.FirePos = head.InverseTransformPoint(fp.position);
                         gs.FireRot = Quaternion.Inverse(head.rotation) * fp.rotation;
                     }
-                    gs.Pos = new Vector3[n]; gs.Rot = new Quaternion[n]; gs.On = new bool[n];
-                    for (int i = 0; i < n; i++)
-                    {
-                        var r = rends[i];
-                        if (!r) continue;
-                        gs.Pos[i] = head.InverseTransformPoint(r.transform.position);
-                        gs.Rot[i] = Quaternion.Inverse(head.rotation) * r.transform.rotation;
-                        gs.On[i] = r.enabled && r.gameObject.activeInHierarchy;
-                    }
-                    int nb = parts.Bones.Length;
-                    gs.BonePos = new Vector3[nb]; gs.BoneRot = new Quaternion[nb];
-                    for (int i = 0; i < nb; i++)
-                    {
-                        var b = parts.Bones[i];
-                        if (!b) continue;
-                        gs.BonePos[i] = head.InverseTransformPoint(b.position);
-                        gs.BoneRot[i] = Quaternion.Inverse(head.rotation) * b.rotation;
-                    }
+                    gs.Rig = Capture(PartsOf(item), head);
                 }
                 glist.Add(gs);
                 Prune(glist, now, s => s.T);
+
+                // Other players' bodies, in world space (the local player has no third-person body).
+                bool remote = p.Owner != null && !p.Owner.IsLocalClient && p.Transform;
+                if (remote)
+                {
+                    var parts = PartsOf(p.Transform);
+                    _bodyParts[p.OwnerId] = parts;
+                    if (!_bodies.TryGetValue(p.OwnerId, out var blist)) { blist = new List<BodySample>(1024); _bodies[p.OwnerId] = blist; }
+                    blist.Add(new BodySample { T = now, Rig = Capture(parts, null) });
+                    Prune(blist, now, s => s.T);
+                }
             }
+            if (now >= _nextMannequin) { _nextMannequin = now + 4f; CaptureMannequin(); }
+        }
+
+        /// <summary>Snapshot a standing other player in their root's space; preferably one who is not moving.</summary>
+        private static void CaptureMannequin()
+        {
+            Player best = null; float bestSpeed = float.MaxValue;
+            foreach (var p in PlayerManager.Players)
+            {
+                if (!p || p.Owner == null || p.Owner.IsLocalClient || !p.Transform || p.Dying.IsDead) continue;
+                float speed = 0f;
+                if (_tracks.TryGetValue(p.OwnerId, out var list) && list.Count >= 2)
+                {
+                    var a = list[list.Count - 2]; var b = list[list.Count - 1];
+                    speed = b.T > a.T ? (b.Pos - a.Pos).magnitude / (b.T - a.T) : 0f;
+                }
+                if (speed < bestSpeed) { bestSpeed = speed; best = p; }
+            }
+            if (!best) return;
+            if (Mannequin != null && Mannequin.Source == best && bestSpeed > 0.5f) return;   // keep the calmer earlier capture
+            var parts = PartsOf(best.Transform);
+            if (parts.Rends.Length == 0) return;
+            var head = best.CamObject ? best.CamObject : best.Transform;
+            Mannequin = new MannequinData { Parts = parts, Pose = Capture(parts, best.Transform), HeadHeight = head.position.y - best.Transform.position.y, Source = best };
+        }
+
+        /// <summary>Birds and fish are what people shoot at besides each other; without this they are missing from the replay.</summary>
+        private static void RecordCreatures(float now)
+        {
+            if (now >= _nextCreatureScan)
+            {
+                _nextCreatureScan = now + 0.5f;
+                try { _creatures = UnityEngine.Object.FindObjectsByType<Creature>(FindObjectsSortMode.None); } catch (Exception) { _creatures = Array.Empty<Creature>(); }
+            }
+            foreach (var c in _creatures)
+            {
+                if (!c || !c.gameObject.activeInHierarchy) continue;
+                int id = c.GetInstanceID();
+                if (!_actors.TryGetValue(id, out var tr))
+                {
+                    tr = new ActorTrack { Name = c.name };
+                    Snapshot(c, tr);
+                    if (tr.Parts.Count == 0) continue;
+                    _actors[id] = tr;
+                }
+                tr.Samples.Add(new Sample { T = now, Pos = c.transform.position, Rot = c.transform.rotation });
+                Prune(tr.Samples, now, s => s.T);
+            }
+            List<int> dead = null;
+            foreach (var kv in _actors)
+            {
+                var s = kv.Value.Samples;
+                if (s.Count == 0 || now - s[s.Count - 1].T > KeepSeconds) { (dead ??= new List<int>()).Add(kv.Key); }
+            }
+            if (dead != null) foreach (var id in dead) { DestroyParts(_actors[id]); _actors.Remove(id); }
+        }
+
+        private static void Snapshot(Creature c, ActorTrack tr)
+        {
+            var root = c.transform;
+            foreach (var r in c.GetComponentsInChildren<Renderer>(false))
+            {
+                if (!r || !r.enabled) continue;
+                var part = new ActorPart
+                {
+                    Mats = r.sharedMaterials,
+                    Pos = Quaternion.Inverse(root.rotation) * (r.transform.position - root.position),
+                    Rot = Quaternion.Inverse(root.rotation) * r.transform.rotation,
+                    Scale = r.transform.lossyScale
+                };
+                if (r is SkinnedMeshRenderer smr)
+                {
+                    var mesh = new Mesh();
+                    try { smr.BakeMesh(mesh); } catch (Exception) { UnityEngine.Object.Destroy(mesh); continue; }
+                    part.Mesh = mesh; part.Owned = true; part.Scale = Vector3.one;
+                }
+                else if (r is MeshRenderer)
+                {
+                    var mf = r.GetComponent<MeshFilter>();
+                    if (!mf || !mf.sharedMesh) continue;
+                    part.Mesh = mf.sharedMesh;
+                }
+                else continue;
+                tr.Parts.Add(part);
+            }
+        }
+
+        private static void DestroyParts(ActorTrack tr)
+        {
+            foreach (var p in tr.Parts) if (p.Owned && p.Mesh) UnityEngine.Object.Destroy(p.Mesh);
+            tr.Parts.Clear();
         }
 
         private static void Prune<T>(List<T> list, float now, Func<T, float> time)
@@ -178,6 +351,19 @@ namespace HowToFish1v1.Match
             while (drop < list.Count && now - time(list[drop]) > KeepSeconds) drop++;
             if (drop > 0) list.RemoveRange(0, drop);
         }
+
+        private static int Lower<T>(List<T> list, float t, Func<T, float> time)
+        {
+            int lo = 0, hi = list.Count - 1;
+            while (hi - lo > 1)
+            {
+                int mid = (lo + hi) / 2;
+                if (time(list[mid]) <= t) lo = mid; else hi = mid;
+            }
+            return lo;
+        }
+
+        // ------------------------------------------------------------------ queries
 
         /// <summary>Interpolated head pose of a player at an unscaled time; false if nothing recorded around that time.</summary>
         public static bool TryGet(int ownerId, float t, out Vector3 pos, out Quaternion rot)
@@ -195,7 +381,7 @@ namespace HowToFish1v1.Match
             return true;
         }
 
-        /// <summary>Held item and part poses (head space) at time t; parts are interpolated when the neighbouring samples hold the same item.</summary>
+        /// <summary>Held item and its rig (head space) at time t; interpolated when the neighbouring samples hold the same item.</summary>
         public static bool TryGetGun(int ownerId, float t, out GunSample result)
         {
             result = default;
@@ -206,45 +392,50 @@ namespace HowToFish1v1.Match
             int lo = Lower(list, t, s => s.T);
             var a = list[lo]; var b = list[lo + 1];
             result = a;
-            if (a.Item != b.Item || a.Pos == null || b.Pos == null || a.Pos.Length != b.Pos.Length) return true;
+            if (a.Item != b.Item) return true;
             float f = Mathf.InverseLerp(a.T, b.T, t);
-            int n = a.Pos.Length;
-            var mixed = new GunSample
+            result = new GunSample
             {
                 T = t, Item = a.Item,
                 RootPos = Vector3.Lerp(a.RootPos, b.RootPos, f), RootRot = Quaternion.Slerp(a.RootRot, b.RootRot, f),
                 HasFire = a.HasFire && b.HasFire, FirePos = Vector3.Lerp(a.FirePos, b.FirePos, f), FireRot = Quaternion.Slerp(a.FireRot, b.FireRot, f),
-                Pos = new Vector3[n], Rot = new Quaternion[n], On = a.On
+                Rig = Lerp(a.Rig, b.Rig, f)
             };
-            for (int i = 0; i < n; i++)
-            {
-                mixed.Pos[i] = Vector3.Lerp(a.Pos[i], b.Pos[i], f);
-                mixed.Rot[i] = Quaternion.Slerp(a.Rot[i], b.Rot[i], f);
-            }
-            if (a.BonePos != null && b.BonePos != null && a.BonePos.Length == b.BonePos.Length)
-            {
-                int nb = a.BonePos.Length;
-                mixed.BonePos = new Vector3[nb]; mixed.BoneRot = new Quaternion[nb];
-                for (int i = 0; i < nb; i++)
-                {
-                    mixed.BonePos[i] = Vector3.Lerp(a.BonePos[i], b.BonePos[i], f);
-                    mixed.BoneRot[i] = Quaternion.Slerp(a.BoneRot[i], b.BoneRot[i], f);
-                }
-            }
-            else { mixed.BonePos = a.BonePos; mixed.BoneRot = a.BoneRot; }
-            result = mixed;
             return true;
         }
 
-        private static int Lower<T>(List<T> list, float t, Func<T, float> time)
+        /// <summary>World-space body rig of another player at time t.</summary>
+        public static bool TryGetBody(int ownerId, float t, out RigSample rig)
         {
-            int lo = 0, hi = list.Count - 1;
-            while (hi - lo > 1)
-            {
-                int mid = (lo + hi) / 2;
-                if (time(list[mid]) <= t) lo = mid; else hi = mid;
-            }
-            return lo;
+            rig = default;
+            if (!_bodies.TryGetValue(ownerId, out var list) || list.Count == 0) return false;
+            if (t < list[0].T - 0.05f || t > list[list.Count - 1].T + 0.15f) return false;
+            if (t <= list[0].T) { rig = list[0].Rig; return true; }
+            var last = list[list.Count - 1];
+            if (t >= last.T) { rig = last.Rig; return true; }
+            int lo = Lower(list, t, s => s.T);
+            var a = list[lo]; var b = list[lo + 1];
+            rig = Lerp(a.Rig, b.Rig, Mathf.InverseLerp(a.T, b.T, t));
+            return true;
+        }
+
+        /// <summary>Pose of a recorded creature at time t; false when it was not in the world then.</summary>
+        public static bool TryGetActor(ActorTrack tr, float t, out Vector3 pos, out Quaternion rot)
+        {
+            pos = Vector3.zero; rot = Quaternion.identity;
+            var list = tr.Samples;
+            if (list.Count == 0) return false;
+            if (t < list[0].T - 0.05f || t > list[list.Count - 1].T + 0.15f) return false;
+            if (t <= list[0].T) { pos = list[0].Pos; rot = list[0].Rot; return true; }
+            var last = list[list.Count - 1];
+            if (t >= last.T) { pos = last.Pos; rot = last.Rot; return true; }
+            int lo = Lower(list, t, s => s.T);
+            var a = list[lo]; var b = list[lo + 1];
+            if (b.T - a.T > 0.5f) { pos = a.Pos; rot = a.Rot; return true; }   // gap: creature was hidden / off-screen, hold
+            float f = Mathf.InverseLerp(a.T, b.T, t);
+            pos = Vector3.Lerp(a.Pos, b.Pos, f);
+            rot = Quaternion.Slerp(a.Rot, b.Rot, f);
+            return true;
         }
     }
 }
