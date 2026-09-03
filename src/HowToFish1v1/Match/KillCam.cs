@@ -323,14 +323,12 @@ namespace HowToFish1v1.Match
                     _sniperPct = w.Attachments.SniperUiAimPercent;
                 }
                 catch (System.Exception) { _adsFov = 40f; _sniperSight = false; }
-                Transform fp = null;
-                try { fp = w.Attachments.FirePoint; } catch (System.Exception) { }
-                _flashLocal = fp ? item.transform.InverseTransformPoint(fp.position) : new Vector3(0f, 0f, 0.7f);
+                _flashLocal = new Vector3(0f, 0f, 0.7f);   // only used when no muzzle was recorded
                 _flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _flash.name = "HTF1v1_MuzzleFlash";
                 Object.Destroy(_flash.GetComponent<Collider>());
                 _flash.transform.SetParent(_viewGun.transform, false);
-                _flash.transform.localScale = Vector3.one * 0.14f;
+                _flash.transform.localScale = new Vector3(0.07f, 0.07f, 0.16f);   // a short streak out of the barrel
                 var mat = new Material(Arena.ArenaMaterials.For(BoxKind.Yellow));
                 _gunCreated.Add(mat);
                 mat.EnableKeyword("_EMISSION");
@@ -426,8 +424,17 @@ namespace HowToFish1v1.Match
             }
             if (_flash)
             {
-                _flash.transform.localPosition = gs.RootPos + gs.RootRot * _flashLocal + fix;
-                _flash.transform.localRotation = gs.RootRot;
+                // The muzzle is recorded directly (head space), so scaling on the gun root cannot push the flash sideways.
+                if (gs.HasFire)
+                {
+                    _flash.transform.localPosition = gs.FirePos + gs.FireRot * new Vector3(0f, 0f, 0.09f) + fix;
+                    _flash.transform.localRotation = gs.FireRot;
+                }
+                else
+                {
+                    _flash.transform.localPosition = gs.RootPos + gs.RootRot * _flashLocal + fix;
+                    _flash.transform.localRotation = gs.RootRot;
+                }
                 if (_flash.activeSelf && Time.unscaledTime > _flashUntil) _flash.SetActive(false);
             }
         }

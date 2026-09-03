@@ -19,6 +19,8 @@ namespace HowToFish1v1.Match
             public float T;
             public Item Item;
             public Vector3 RootPos; public Quaternion RootRot;
+            /// <summary>Muzzle (head space); valid when HasFire.</summary>
+            public Vector3 FirePos; public Quaternion FireRot; public bool HasFire;
             public Vector3[] Pos; public Quaternion[] Rot; public bool[] On;
             /// <summary>Bones of the item's skinned meshes (hands, gun body), so their animation replays too.</summary>
             public Vector3[] BonePos; public Quaternion[] BoneRot;
@@ -138,6 +140,14 @@ namespace HowToFish1v1.Match
                     int n = rends.Length;
                     gs.RootPos = head.InverseTransformPoint(item.transform.position);
                     gs.RootRot = Quaternion.Inverse(head.rotation) * item.transform.rotation;
+                    Transform fp = null;
+                    try { if (item is Weapon w && w.Attachments) fp = w.Attachments.FirePoint; } catch (Exception) { }
+                    if (fp)
+                    {
+                        gs.HasFire = true;
+                        gs.FirePos = head.InverseTransformPoint(fp.position);
+                        gs.FireRot = Quaternion.Inverse(head.rotation) * fp.rotation;
+                    }
                     gs.Pos = new Vector3[n]; gs.Rot = new Quaternion[n]; gs.On = new bool[n];
                     for (int i = 0; i < n; i++)
                     {
@@ -203,6 +213,7 @@ namespace HowToFish1v1.Match
             {
                 T = t, Item = a.Item,
                 RootPos = Vector3.Lerp(a.RootPos, b.RootPos, f), RootRot = Quaternion.Slerp(a.RootRot, b.RootRot, f),
+                HasFire = a.HasFire && b.HasFire, FirePos = Vector3.Lerp(a.FirePos, b.FirePos, f), FireRot = Quaternion.Slerp(a.FireRot, b.FireRot, f),
                 Pos = new Vector3[n], Rot = new Quaternion[n], On = a.On
             };
             for (int i = 0; i < n; i++)
