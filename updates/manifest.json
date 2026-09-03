@@ -1,14 +1,22 @@
 ﻿{
-    "version":  "0.2.24",
-    "notes":  "Custom sounds: drop knife.wav (or .ogg/.mp3) and/or hitmarker.wav into BepInEx/plugins/HowToFish1v1 and the mod uses them instead of its built-in sounds.",
+    "version":  "0.2.25",
+    "notes":  "Ships Gavin\u0027s knife swing and hitmarker sounds (knife.mp3, hitmarker.mp3) with the mod; the updater installs them for everyone.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.24/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.25/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.24/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.25/HowToFish1v1.Core.dll"
+                  },
+                  {
+                      "name":  "knife.mp3",
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.25/knife.mp3"
+                  },
+                  {
+                      "name":  "hitmarker.mp3",
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.25/hitmarker.mp3"
                   }
               ]
 }
