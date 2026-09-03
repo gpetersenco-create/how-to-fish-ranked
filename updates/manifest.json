@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.18",
-    "notes":  "Knife on V: a Black Ops 2 style lunge-slash with a knife viewmodel, one-hit kill in reach (birds and fish too), with its own skin picked in the lobby. New hitmarker sound: a sharp Call of Duty style tick replaces the game\u0027s during matches (volume in config).",
+    "version":  "0.2.19",
+    "notes":  "Killcam: no drawn crosshair in replays (the sniper scope overlay stays).",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.18/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.19/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.18/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.19/HowToFish1v1.Core.dll"
                   }
               ]
 }
