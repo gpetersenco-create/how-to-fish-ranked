@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.3.0",
-    "notes":  "Three new free-for-all variants: One in the Chamber (pistols, one bullet, every hit kills, a kill earns a bullet, no reloads), Sniper Only and Knife Only. Killstreaks: 3 gives a UAV radar for 12 s, 5 a fresh magazine, 7 one-shot kills until you die. Medals: First Blood, Comeback, Firehorn (ricochet kill), Shank, Airborne, Double/Triple Kill, Rampage, shown as popups and in the kill feed. End-of-match results screen with everyone\u0027s kills, deaths, best streak, medals and your rank change. Hit reactions: damage direction indicator, low-health vignette, camera kick. Announcer chimes (drop announcer_\u003ckey\u003e.mp3 files for your own lines). Vote for the next map in the lobby. Custom crosshair and hit marker styles picked in the lobby. Lobby mode picker is now an arrow selector; Gameplay tab shows all eight modes.",
+    "version":  "0.3.1",
+    "notes":  "Search \u0026 Destroy: one life per round, attackers plant a bomb at the map\u0027s centre site (hold F for 4 s), defenders defuse (6 s), 40 s fuse, 90 s to plant, teams swap roles every round, first to 6. Site marker, planted bomb with blinking light and accelerating beep, explosion. Round and bomb timers, plant/defuse prompts and progress on the HUD. Spectate: dead players in team modes follow living teammates over the shoulder after the killcam (click or Space to switch).",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.0/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.0/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.0/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.0/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/hitmarker.mp3"
                   }
               ]
 }
