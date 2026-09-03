@@ -41,6 +41,7 @@
   <Target Name="CopyToPlugins" AfterTargets="Build" Condition="Exists('$(GameDir)\BepInEx')">
     <MakeDir Directories="$(PluginOutDir)" />
     <Copy SourceFiles="$(TargetDir)HowToFish1v1.dll;$(TargetDir)HowToFish1v1.Core.dll" DestinationFolder="$(PluginOutDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\sounds\knife.mp3;$(MSBuildProjectDirectory)\sounds\hitmarker.mp3" DestinationFolder="$(PluginOutDir)" />
     <Message Importance="high" Text="Copied plugin to $(PluginOutDir)" />
   </Target>
 </Project>

@@ -31,6 +31,9 @@ Copy-Item "$GameDir\BepInEx\core\*" "$stage\BepInEx\core\" -Recurse
 # The mod
 Copy-Item "$dllDir\HowToFish1v1.dll" "$stage\BepInEx\plugins\HowToFish1v1\"
 Copy-Item "$dllDir\HowToFish1v1.Core.dll" "$stage\BepInEx\plugins\HowToFish1v1\"
+$soundDir = "$root\src\HowToFish1v1\sounds"
+Copy-Item "$soundDir\knife.mp3" "$stage\BepInEx\plugins\HowToFish1v1\"
+Copy-Item "$soundDir\hitmarker.mp3" "$stage\BepInEx\plugins\HowToFish1v1\"
 
 @"
 HOW TO FISH - RANKED MOD  v$version
@@ -77,9 +80,9 @@ if ([string]::IsNullOrWhiteSpace($Notes)) { $Notes = "How to Fish Ranked $versio
 $exists = $false
 try { gh release view $tag --repo $Repo 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { $exists = $true } } catch {}
 if ($exists) {
-    gh release upload $tag $zip "$dllDir\HowToFish1v1.dll" "$dllDir\HowToFish1v1.Core.dll" --repo $Repo --clobber
+    gh release upload $tag $zip "$dllDir\HowToFish1v1.dll" "$dllDir\HowToFish1v1.Core.dll" "$soundDir\knife.mp3" "$soundDir\hitmarker.mp3" --repo $Repo --clobber
 } else {
-    gh release create $tag $zip "$dllDir\HowToFish1v1.dll" "$dllDir\HowToFish1v1.Core.dll" --repo $Repo --title "How to Fish Ranked $version" --notes $Notes
+    gh release create $tag $zip "$dllDir\HowToFish1v1.dll" "$dllDir\HowToFish1v1.Core.dll" "$soundDir\knife.mp3" "$soundDir\hitmarker.mp3" --repo $Repo --title "How to Fish Ranked $version" --notes $Notes
 }
 if ($LASTEXITCODE -ne 0) { throw "gh release failed" }
 
@@ -89,7 +92,9 @@ $manifest = [ordered]@{
     notes = $Notes
     files = @(
         [ordered]@{ name = "HowToFish1v1.dll"; url = "$base/HowToFish1v1.dll" },
-        [ordered]@{ name = "HowToFish1v1.Core.dll"; url = "$base/HowToFish1v1.Core.dll" }
+        [ordered]@{ name = "HowToFish1v1.Core.dll"; url = "$base/HowToFish1v1.Core.dll" },
+        [ordered]@{ name = "knife.mp3"; url = "$base/knife.mp3" },
+        [ordered]@{ name = "hitmarker.mp3"; url = "$base/hitmarker.mp3" }
     )
 }
 New-Item -ItemType Directory -Force "$root\updates" | Out-Null
