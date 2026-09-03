@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using HowToFish1v1.Core;
 using HowToFish1v1.Match;
@@ -289,6 +289,14 @@ namespace HowToFish1v1.UI
                 GUI.enabled = canStart;
                 if (S.Btn(new Rect(S.DesignW - 420, S.DesignH - 84, 380, 60), "START MATCH", S.BigButton)) Plugin.Host.Start();
                 GUI.enabled = true;
+                // Alone in the lobby: allow a solo run to try maps, guns and the killcam (F8 replays your own last seconds).
+                var mach = Plugin.Host.Machine;
+                if (inLobby && mach != null && mach.State.PresentCount == 1 && !mach.Rules.SoloDebug
+                    && S.Btn(new Rect(S.DesignW - 760, S.DesignH - 84, 320, 60), "SOLO TEST (no friends)", S.Button))
+                {
+                    mach.Rules.SoloDebug = true;
+                    mach.Dirty = true;
+                }
             }
             else
             {

@@ -80,5 +80,9 @@ namespace HowToFish1v1.Net.Proto2
         public int KillsToWin;
         public int RoundsToWin;
         public PlayerEntry[] Players;
+        /// <summary>Timing rules so clients can fit the killcam into the time they have (0 when the host predates them).</summary>
+        public float RespawnSeconds;
+        public float RoundEndSeconds;
+        public float MatchEndSeconds;
     }
 }

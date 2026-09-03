@@ -105,6 +105,9 @@ namespace HowToFish1v1.Net
                     b.WriteUInt8ArrayAndSize(p.Loadout ?? Array.Empty<byte>());
                     b.WriteString(p.ModVersion ?? "");
                 }
+                b.WriteSingle(v.RespawnSeconds);
+                b.WriteSingle(v.RoundEndSeconds);
+                b.WriteSingle(v.MatchEndSeconds);
             }));
             GenericReader<MatchStateBroadcast>.SetRead(r => Open(r, b =>
             {
@@ -143,6 +146,13 @@ namespace HowToFish1v1.Net
                         Loadout = b.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
                         ModVersion = b.ReadStringAllocated() ?? ""
                     };
+                }
+                // Timing rules were added in 0.2.12; older hosts stop here.
+                if (b.Remaining >= 12)
+                {
+                    s.RespawnSeconds = b.ReadSingle();
+                    s.RoundEndSeconds = b.ReadSingle();
+                    s.MatchEndSeconds = b.ReadSingle();
                 }
                 return s;
             }));

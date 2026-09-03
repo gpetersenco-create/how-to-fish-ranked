@@ -109,9 +109,14 @@ namespace HowToFish1v1.UI
             TrackLive();
             if (KillCam.Active)
             {
-                string head = KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? (KillCam.SlowMotion ? "KILLCAM  <size=60%>(slow motion)</size>" : "KILLCAM") : "KILLED BY");
+                string head = KillCam.IsPreview ? "KILLCAM PREVIEW" : KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? (KillCam.SlowMotion ? "KILLCAM  <size=60%>(slow motion)</size>" : "KILLCAM") : "KILLED BY");
                 string who = KillCam.IsFinal ? $"{KillCam.KillerName}  killed  {KillCam.VictimName}" : KillCam.KillerName;
-                _banner.text = $"<size=60%>{head}</size>\n{who}\n<size=45%>{KillCam.KillerInfo}</size>";
+                string tail;
+                if (KillCam.IsPreview) tail = "your own last seconds  |  F8 again to stop";
+                else if (ModState.Phase == MatchPhase.RoundEnd || ModState.Phase == MatchPhase.MatchEnd) tail = s.StatusText ?? "";
+                else if (ClientMatchView.IsFfa) tail = $"Respawning in {System.Math.Max(1, (int)System.Math.Ceiling(KillCam.SecondsLeft))}";
+                else tail = "";
+                _banner.text = $"<size=60%>{head}</size>\n{who}\n<size=45%>{KillCam.KillerInfo}</size>" + (tail.Length > 0 ? $"\n<size=50%>{tail}</size>" : "");
                 return;
             }
             switch (ModState.Phase)

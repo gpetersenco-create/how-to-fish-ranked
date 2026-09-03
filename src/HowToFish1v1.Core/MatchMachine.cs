@@ -237,6 +237,15 @@ namespace HowToFish1v1.Core
                 State.TeamScore[winner]++;
                 State.LastRoundWinnerTeam = winner;
                 State.StatusText = TeamLabel(winner) + " wins the round";
+                if (State.TeamScore[winner] >= Rules.RoundsToWin)
+                {
+                    // The deciding kill ends the match right away so the final killcam plays while it is still fresh.
+                    State.Phase = MatchPhase.MatchEnd;
+                    State.MatchWinnerTeam = winner;
+                    State.PhaseEndsAt = now + Rules.MatchEndSeconds;
+                    State.StatusText = TeamLabel(winner) + " wins the match";
+                    return true;
+                }
             }
             else
             {

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using FishNet;
@@ -51,6 +51,7 @@ namespace HowToFish1v1.Match
             CountdownSeconds = Mathf.Max(0f, Plugin.Cfg.CountdownSeconds.Value),
             FfaRespawnSeconds = Mathf.Max(0f, Plugin.Cfg.FfaRespawnSeconds.Value),
             RoundEndSeconds = Mathf.Max(0f, Plugin.Cfg.RoundEndSeconds.Value),
+            MatchEndSeconds = Mathf.Max(3f, Plugin.Cfg.MatchEndSeconds.Value),
             MaxLoadoutGuns = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value),
             SoloDebug = Plugin.Cfg.SoloDebug.Value
         };
@@ -275,7 +276,8 @@ namespace HowToFish1v1.Match
                 TeamScoreA = s.TeamScore[0], TeamScoreB = s.TeamScore[1], TeamAIsLeft = s.TeamAIsLeft,
                 PhaseEndsAtTick = endTick, LastRoundWinnerTeam = s.LastRoundWinnerTeam,
                 MatchWinnerTeam = s.MatchWinnerTeam, MatchWinnerId = s.MatchWinnerId, StatusText = s.StatusText ?? "",
-                MapIndex = (byte)s.MapIndex, KillsToWin = rules.KillsToWin, RoundsToWin = rules.RoundsToWin, Players = entries
+                MapIndex = (byte)s.MapIndex, KillsToWin = rules.KillsToWin, RoundsToWin = rules.RoundsToWin, Players = entries,
+                RespawnSeconds = (float)rules.FfaRespawnSeconds, RoundEndSeconds = (float)rules.RoundEndSeconds, MatchEndSeconds = (float)rules.MatchEndSeconds
             };
         }
     }

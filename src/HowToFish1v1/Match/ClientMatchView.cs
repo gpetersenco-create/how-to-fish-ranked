@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Linq;
 using FishNet;
@@ -27,7 +27,8 @@ namespace HowToFish1v1.Match
             ModNet.StateReceived += OnState;
             ModNet.ArenaReceived += OnArena;
             ModNet.ClientStopped += OnStopped;
-            ModNet.AimStateReceived += a => Recorder.RecordAim(a.OwnerId, a.Ads);
+            // Our own aim state is recorded the moment it changes (below); the relayed copy would arrive a round trip late.
+            ModNet.AimStateReceived += a => { if (a.OwnerId != ModState.LocalOwnerId) Recorder.RecordAim(a.OwnerId, a.Ads); };
         }
 
         private static bool _lastAds;
@@ -42,7 +43,7 @@ namespace HowToFish1v1.Match
             if (ModState.IsActive)
             {
                 bool ads = lp.Holding && lp.Holding.HeldItem is Weapon w && w.IsAds;
-                if (ads != _lastAds) { _lastAds = ads; ModNet.SendAim(ads); }
+                if (ads != _lastAds) { _lastAds = ads; Recorder.RecordAim(lp.OwnerId, ads); ModNet.SendAim(ads); }
             }
         }
 
@@ -110,6 +111,7 @@ namespace HowToFish1v1.Match
             if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live) LoadoutService.RefillLocalAmmo();
             if (phase == MatchPhase.MatchEnd && _prevPhase != MatchPhase.MatchEnd) KillCam.StartFinal();
             if (phase != MatchPhase.MatchEnd && _prevPhase == MatchPhase.MatchEnd) KillCam.OnMatchLeftEndPhase();
+            if ((phase == MatchPhase.Inactive || phase == MatchPhase.Lobby) && phase != _prevPhase) KillCam.Stop();
             if (phase == MatchPhase.MatchEnd && s.MatchNumber != _lastRankedMatch) ApplyRank(s);
             // Ranked sessions: the lobby screen shows itself whenever the match is in the lobby and hides when a match starts.
             if (ModState.RankedSession)
@@ -175,6 +177,7 @@ namespace HowToFish1v1.Match
         {
             HasState = false;
             _prevPhase = MatchPhase.Inactive;
+            KillCam.Stop();
             ModState.Reset();
             ArenaBuilder.Destroy();
         }

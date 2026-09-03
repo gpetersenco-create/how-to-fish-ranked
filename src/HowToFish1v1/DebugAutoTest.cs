@@ -71,6 +71,9 @@ namespace HowToFish1v1
                 case Step.WaitLive1:
                     if (Time.time >= _nextTrace) { _nextTrace = Time.time + 0.5f; TraceAmmo(); }
                     if (Time.time < _at) return;
+                    // Exercise the killcam path without a second player: replay our own last seconds, then die on top of it.
+                    try { Match.KillCam.StartPreview(); Plugin.Log.LogInfo($"AutoTest: killcam preview active={Match.KillCam.Active}"); }
+                    catch (System.Exception e) { Plugin.Log.LogError("AutoTest: killcam preview threw " + e); }
                     LogPlayer("before self-kill");
                     Plugin.Log.LogInfo("AutoTest: killing local player");
                     Player.LocalPlayer.Vitals.TakeDamage(1000, Vector3.zero, Vector3.zero, true);

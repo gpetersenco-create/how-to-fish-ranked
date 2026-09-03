@@ -271,10 +271,13 @@ namespace HowToFish1v1.Tests
             double t = 5;
             m.Kill(1, 2, t); t += 2; m.Tick(t);
             t += 3; m.Tick(t);
-            m.Kill(1, 2, t); t += 2; m.Tick(t);
+            m.Kill(1, 2, t);                      // deciding kill: straight to MatchEnd, no RoundEnd pause
             Assert.Equal(MatchPhase.MatchEnd, m.State.Phase);
             Assert.Equal(1, m.State.MatchWinnerTeam);
             Assert.Equal(t + 5, m.State.PhaseEndsAt);
+            t += 2; m.Tick(t);
+            Assert.Equal(MatchPhase.MatchEnd, m.State.Phase);
+            t -= 2;
             m.Tick(t + 5);
             Assert.Equal(MatchPhase.Lobby, m.State.Phase);
             Assert.Equal(0, m.State.TeamScore[1]);

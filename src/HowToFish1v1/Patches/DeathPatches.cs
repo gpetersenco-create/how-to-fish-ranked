@@ -46,7 +46,7 @@ namespace HowToFish1v1.Patches
         [HarmonyPostfix]
         private static void KillCamFollow(PlayerDeathCam __instance)
         {
-            if (ModState.IsActive) Match.KillCam.ApplyDeathCam(__instance);
+            if (Match.KillCam.Active) Match.KillCam.ApplyDeathCam(__instance);
         }
 
         // Final killcam while alive: override the player camera after it has positioned itself.
@@ -54,7 +54,24 @@ namespace HowToFish1v1.Patches
         [HarmonyPostfix]
         private static void FinalKillCam(PlayerCamera __instance)
         {
-            if (ModState.IsActive && Match.KillCam.IsFinal && __instance.Owner.IsLocalClient) Match.KillCam.ApplyPlayerCam(__instance);
+            if (Match.KillCam.UsesPlayerCam && __instance.Owner.IsLocalClient) Match.KillCam.ApplyPlayerCam(__instance);
+        }
+
+        // The "hold to give up" death panel would sit on top of the killcam; keep it hidden during matches.
+        [HarmonyPatch(typeof(DeathUI), nameof(DeathUI.ToggleDeathUI))]
+        [HarmonyPostfix]
+        private static void HideDeathPanel(DeathUI __instance, bool to)
+        {
+            if (!ModState.IsActive || !to) return;
+            try
+            {
+                var t = Traverse.Create(__instance);
+                var canvas = t.Field<CanvasGroup>("_deathCanvas").Value;
+                if (canvas) { LeanTween.cancel(canvas.gameObject); canvas.alpha = 0f; }
+                var help = t.Field<GameObject>("_friendsHelpText").Value;
+                if (help) help.SetActive(false);
+            }
+            catch (System.Exception) { }
         }
 
         // Every shot a held gun fires plays effects on all clients; remember who fired when, for the killcam.

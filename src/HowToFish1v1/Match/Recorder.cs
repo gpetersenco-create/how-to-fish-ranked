@@ -8,7 +8,7 @@ namespace HowToFish1v1.Match
     {
         public struct Sample { public float T; public Vector3 Pos; public Quaternion Rot; }
 
-        private const float KeepSeconds = 12f;
+        public const float KeepSeconds = 20f;
         private static readonly Dictionary<int, List<Sample>> _tracks = new Dictionary<int, List<Sample>>();
         private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
 
