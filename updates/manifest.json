@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.2.28",
-    "notes":  "Ranked UI overhaul: gradient background with drifting light, layered cards with shadows and hairlines, animated glowing buttons, tab pills, a player chip in the header, glowing rank bar, redesigned rank emblems (bevelled metal shields, gems per tier, laurels from gold up, a crown for the top tier). Rank charms: your rank emblem hangs off the side of your gun on a chain with real pendulum physics (a pink DEV tag for the mod author). Anti-cheat (host): silent aim, aimbot snaps, rapid fire, damage and speed hacks are announced to everyone as CAUGHT BY THE FIREHORN... stop cheating, and the cheater is kicked.",
+    "version":  "0.2.29",
+    "notes":  "Gun charms hang off the left side and are equipped in the lobby: a Charm row (None / Rank emblem / DEV tag) under the knife row; the choice travels with your loadout so everyone sees it.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.28/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.29/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.28/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.29/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.28/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.29/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.28/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.29/hitmarker.mp3"
                   }
               ]
 }
