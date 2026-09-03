@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.3.1",
-    "notes":  "Search \u0026 Destroy: one life per round, attackers plant a bomb at the map\u0027s centre site (hold F for 4 s), defenders defuse (6 s), 40 s fuse, 90 s to plant, teams swap roles every round, first to 6. Site marker, planted bomb with blinking light and accelerating beep, explosion. Round and bomb timers, plant/defuse prompts and progress on the HUD. Spectate: dead players in team modes follow living teammates over the shoulder after the killcam (click or Space to switch).",
+    "version":  "0.3.2",
+    "notes":  "Grenades: frag on G (hold to cook, release to throw along the previewed arc, 7 m blast with cover checks, host-applied damage and kill credit) and flashbang on H (whiteout and ringing when you were looking at it), one of each per life. New attachments on every gun: Grip (less spread and kick), Fast mag (quicker reloads), Flashlight. Seasons: four-week ranked seasons; rank points archive and reset at the start of each, the emblem shows the season, last season\u0027s podium appears on the Leaderboard tab. Party codes: the lobby shows a code, friends type it into the ranked menu to join without an invite.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.1/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/hitmarker.mp3"
                   }
               ]
 }
