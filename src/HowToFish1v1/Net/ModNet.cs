@@ -3,6 +3,7 @@ using FishNet;
 using FishNet.Connection;
 using FishNet.Managing;
 using FishNet.Transporting;
+using HowToFish1v1.Net.Proto2;
 using UnityEngine;
 
 namespace HowToFish1v1.Net
@@ -24,6 +25,17 @@ namespace HowToFish1v1.Net
         public static bool IsHost => InstanceFinder.IsServerStarted;
         public static bool IsClient => InstanceFinder.IsClientStarted;
 
+        /// <summary>True once FishNet has authenticated our client connection; sending mod traffic earlier would get us kicked.</summary>
+        public static bool ClientAuthenticated
+        {
+            get
+            {
+                if (!IsClient) return false;
+                var conn = InstanceFinder.ClientManager?.Connection;
+                return conn != null && conn.IsAuthenticated;
+            }
+        }
+
         public static void Init() => ModSerializers.Register();
 
         /// <summary>Call every frame; binds to the NetworkManager the first time it appears.</summary>
@@ -33,7 +45,8 @@ namespace HowToFish1v1.Net
             var nm = InstanceFinder.NetworkManager;
             if (nm == null) return;
             _nm = nm;
-            nm.ServerManager.RegisterBroadcast<HelloBroadcast>((conn, msg, ch) => HelloReceived?.Invoke(conn, msg));
+            // Hello may arrive before authentication finishes; it carries nothing sensitive.
+            nm.ServerManager.RegisterBroadcast<HelloBroadcast>((conn, msg, ch) => HelloReceived?.Invoke(conn, msg), requireAuthentication: false);
             nm.ServerManager.RegisterBroadcast<LoadoutBroadcast>((conn, msg, ch) => LoadoutReceived?.Invoke(conn, msg));
             nm.ServerManager.OnRemoteConnectionState += (conn, args) =>
             {
@@ -53,7 +66,7 @@ namespace HowToFish1v1.Net
         /// <summary>Repeats the hello every few seconds until the host reports that we have the mod. Call every frame.</summary>
         public static void KeepHelloAlive(bool hostKnowsUs)
         {
-            if (!IsClient || hostKnowsUs) return;
+            if (!ClientAuthenticated || hostKnowsUs) return;
             if (Time.unscaledTime < _nextHello) return;
             _nextHello = Time.unscaledTime + 3f;
             SendHello();
@@ -61,13 +74,13 @@ namespace HowToFish1v1.Net
 
         public static void SendHello()
         {
-            if (!IsClient) return;
+            if (!ClientAuthenticated) return;
             InstanceFinder.ClientManager.Broadcast(new HelloBroadcast { ModVersion = Plugin.Version });
         }
 
         public static void SendLoadout(byte[] ids, bool ready, int rankPoints)
         {
-            if (!IsClient) return;
+            if (!ClientAuthenticated) return;
             InstanceFinder.ClientManager.Broadcast(new LoadoutBroadcast { ItemIds = ids ?? Array.Empty<byte>(), Ready = ready, RankPoints = rankPoints, ModVersion = Plugin.Version });
         }
 

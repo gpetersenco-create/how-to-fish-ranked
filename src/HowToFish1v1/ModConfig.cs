@@ -15,6 +15,8 @@ namespace HowToFish1v1
         public ConfigEntry<int> MaxLoadoutGuns;
         public ConfigEntry<string> RankNames;
         public ConfigEntry<int> RankPointsPerTier;
+        public ConfigEntry<bool> AutoUpdate;
+        public ConfigEntry<string> UpdateManifestUrl;
         public ConfigEntry<bool> SoloDebug;
         public ConfigEntry<bool> AutoHostOffline;
         public ConfigEntry<bool> AutoSoloMatch;
@@ -33,6 +35,8 @@ namespace HowToFish1v1
             MaxLoadoutGuns = file.Bind("Rules", "MaxLoadoutGuns", 2, "How many guns each player may pick.");
             RankNames = file.Bind("Ranks", "RankNames", RankLadder.DefaultNames, "Comma-separated rank names from lowest to highest.");
             RankPointsPerTier = file.Bind("Ranks", "PointsPerTier", 100, "Points per rank tier. Win +20, loss -10 (free-for-all loss -5).");
+            AutoUpdate = file.Bind("Updates", "AutoUpdate", false, "Check for a newer mod version at startup and install it for the next launch. (Not enabled yet.)");
+            UpdateManifestUrl = file.Bind("Updates", "ManifestUrl", "https://raw.githubusercontent.com/gpetersenco-create/how-to-fish-ranked/main/updates/manifest.json", "Where the updater looks for the latest version.");
             SoloDebug = file.Bind("Debug", "SoloDebug", false, "Allow starting a match with only one player, for testing.");
             AutoHostOffline = file.Bind("Debug", "AutoHostOffline", false, "Testing only: automatically host an offline session a few seconds after the main menu appears.");
             AutoSoloMatch = file.Bind("Debug", "AutoSoloMatch", false, "Testing only (needs SoloDebug): script a solo match on the host and log every step.");

@@ -1,6 +1,8 @@
 using FishNet.Broadcast;
 
-namespace HowToFish1v1.Net
+// FishNet keys broadcasts by the type's full name. Bumping this namespace whenever the wire layout changes makes
+// older builds skip our packets cleanly (unknown key) instead of mis-parsing them and disconnecting the sender.
+namespace HowToFish1v1.Net.Proto2
 {
     public struct HelloBroadcast : IBroadcast
     {

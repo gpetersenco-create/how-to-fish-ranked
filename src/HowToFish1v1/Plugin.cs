@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using HowToFish1v1.Match;
@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.1";
+        public const string Version = "0.2.2";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }

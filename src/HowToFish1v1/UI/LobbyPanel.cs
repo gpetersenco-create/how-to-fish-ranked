@@ -1,8 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using HowToFish1v1.Core;
 using HowToFish1v1.Match;
 using HowToFish1v1.Net;
+using HowToFish1v1.Net.Proto2;
 using Steamworks;
 using UnityEngine;
 using S = HowToFish1v1.UI.RankedStyles;
@@ -145,7 +146,7 @@ namespace HowToFish1v1.UI
             GUI.Label(new Rect(x + 120, y + 12, w - 260, 36), p.Name + (me ? "  (you)" : ""), S.H1);
             GUI.Label(new Rect(x + 120, y + 48, w - 260, 28), RankService.Ladder.TierName(p.RankPoints).ToUpperInvariant() + $"   {p.RankPoints} RP", S.GoldText);
             GUI.Label(new Rect(x + 120, y + 78, w - 260, 28), (showKills ? $"{p.Kills} kills   " : "") + LoadoutService.Summary(p.Loadout), S.Small);
-            string badge = !p.HasMod ? "NO MOD" : (p.Ready ? "READY" : "NOT READY");
+            string badge = !p.HasMod ? "NO MOD / OLD VER" : (p.Ready ? "READY" : "NOT READY");
             GUI.DrawTexture(new Rect(x + w - 130, y + 14, 116, 34), !p.HasMod ? S.Red : (p.Ready ? S.Green : S.BarBg));
             GUI.Label(new Rect(x + w - 130, y + 14, 116, 34), badge, S.SmallCenter);
             if (canMove && GUI.Button(new Rect(x + w - 130, y + 62, 116, 40), "MOVE", S.ToggleButton)) Plugin.Host.MoveTeam(p.Id);

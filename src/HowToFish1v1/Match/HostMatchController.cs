@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using FishNet;
@@ -6,6 +6,7 @@ using FishNet.Connection;
 using HowToFish1v1.Arena;
 using HowToFish1v1.Core;
 using HowToFish1v1.Net;
+using HowToFish1v1.Net.Proto2;
 using HowToFish1v1.Patches;
 using UnityEngine;
 

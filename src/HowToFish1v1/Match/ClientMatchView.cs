@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Linq;
 using FishNet;
 using HowToFish1v1.Arena;
 using HowToFish1v1.Core;
 using HowToFish1v1.Net;
+using HowToFish1v1.Net.Proto2;
 using HowToFish1v1.UI;
 using UnityEngine;
 
