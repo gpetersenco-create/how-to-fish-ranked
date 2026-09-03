@@ -16,6 +16,8 @@ namespace HowToFish1v1.Net
         public static event Action<MatchStateBroadcast> StateReceived;
         public static event Action<ArenaBroadcast> ArenaReceived;
         public static event Action<KillFeedBroadcast> KillFeedReceived;
+        public static event Action<NetworkConnection, AimBroadcast> AimReceived;
+        public static event Action<AimStateBroadcast> AimStateReceived;
         public static event Action ClientStopped;
         /// <summary>Host side: a remote connection dropped (its client id may be reused later).</summary>
         public static event Action<int> RemoteDisconnected;
@@ -56,6 +58,8 @@ namespace HowToFish1v1.Net
             nm.ClientManager.RegisterBroadcast<MatchStateBroadcast>((msg, ch) => StateReceived?.Invoke(msg));
             nm.ClientManager.RegisterBroadcast<ArenaBroadcast>((msg, ch) => ArenaReceived?.Invoke(msg));
             nm.ClientManager.RegisterBroadcast<KillFeedBroadcast>((msg, ch) => KillFeedReceived?.Invoke(msg));
+            nm.ServerManager.RegisterBroadcast<AimBroadcast>((conn, msg, ch) => AimReceived?.Invoke(conn, msg));
+            nm.ClientManager.RegisterBroadcast<AimStateBroadcast>((msg, ch) => AimStateReceived?.Invoke(msg));
             nm.ClientManager.OnAuthenticated += SendHello;
             nm.ClientManager.OnClientConnectionState += args =>
             {
@@ -90,6 +94,18 @@ namespace HowToFish1v1.Net
         {
             if (!IsHost) return;
             InstanceFinder.ServerManager.Broadcast(s);
+        }
+
+        public static void SendAim(bool ads)
+        {
+            if (!ClientAuthenticated) return;
+            InstanceFinder.ClientManager.Broadcast(new AimBroadcast { Ads = ads }, Channel.Reliable);
+        }
+
+        public static void BroadcastAimState(int ownerId, bool ads)
+        {
+            if (!IsHost) return;
+            InstanceFinder.ServerManager.Broadcast(new AimStateBroadcast { OwnerId = ownerId, Ads = ads });
         }
 
         public static void BroadcastKill(KillFeedBroadcast k)

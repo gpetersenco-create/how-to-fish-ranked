@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace HowToFish1v1.Core
 {
-    /// <summary>One gun in a loadout with its attachment choices (indices into the gun's own option lists).</summary>
+    /// <summary>One gun in a loadout with its attachment and skin choices (indices into the gun's own option lists).</summary>
     public struct LoadoutGun
     {
         public byte ItemId;
@@ -12,16 +12,17 @@ namespace HowToFish1v1.Core
         public byte Bullets;
         public bool ExtendedMag;
         public bool Laser;
+        public byte Skin;
 
-        public LoadoutGun(byte itemId) { ItemId = itemId; Sight = 0; Barrel = 0; Bullets = 0; ExtendedMag = false; Laser = false; }
+        public LoadoutGun(byte itemId) { ItemId = itemId; Sight = 0; Barrel = 0; Bullets = 0; ExtendedMag = false; Laser = false; Skin = 0; }
 
         public int ModCount => (Sight > 0 ? 1 : 0) + (Barrel > 0 ? 1 : 0) + (Bullets > 0 ? 1 : 0) + (ExtendedMag ? 1 : 0) + (Laser ? 1 : 0);
     }
 
-    /// <summary>Packs guns into the byte array carried by the loadout messages: 5 bytes per gun.</summary>
+    /// <summary>Packs guns into the byte array carried by the loadout messages: 6 bytes per gun.</summary>
     public static class LoadoutCodec
     {
-        public const int Stride = 5;
+        public const int Stride = 6;
 
         public static byte[] Encode(IReadOnlyList<LoadoutGun> guns)
         {
@@ -36,6 +37,7 @@ namespace HowToFish1v1.Core
                 bytes[o + 2] = g.Barrel;
                 bytes[o + 3] = g.Bullets;
                 bytes[o + 4] = (byte)((g.ExtendedMag ? 1 : 0) | (g.Laser ? 2 : 0));
+                bytes[o + 5] = g.Skin;
             }
             return bytes;
         }
@@ -49,7 +51,7 @@ namespace HowToFish1v1.Core
                 list.Add(new LoadoutGun
                 {
                     ItemId = bytes[o], Sight = bytes[o + 1], Barrel = bytes[o + 2], Bullets = bytes[o + 3],
-                    ExtendedMag = (bytes[o + 4] & 1) != 0, Laser = (bytes[o + 4] & 2) != 0
+                    ExtendedMag = (bytes[o + 4] & 1) != 0, Laser = (bytes[o + 4] & 2) != 0, Skin = bytes[o + 5]
                 });
             }
             return list;

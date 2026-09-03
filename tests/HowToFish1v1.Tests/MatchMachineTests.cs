@@ -157,12 +157,12 @@ namespace HowToFish1v1.Tests
         [Fact]
         public void LoadoutCodecRoundTripsAndIgnoresPartialBytes()
         {
-            var guns = new[] { new LoadoutGun(54) { Sight = 2, Barrel = 1, Bullets = 3, ExtendedMag = true, Laser = false } };
+            var guns = new[] { new LoadoutGun(54) { Sight = 2, Barrel = 1, Bullets = 3, ExtendedMag = true, Laser = false, Skin = 7 } };
             var bytes = LoadoutCodec.Encode(guns);
-            Assert.Equal(5, bytes.Length);
+            Assert.Equal(6, bytes.Length);
             var back = LoadoutCodec.Decode(bytes);
             Assert.Single(back);
-            Assert.Equal((54, 2, 1, 3, true, false), (back[0].ItemId, (int)back[0].Sight, (int)back[0].Barrel, (int)back[0].Bullets, back[0].ExtendedMag, back[0].Laser));
+            Assert.Equal((54, 2, 1, 3, true, false, 7), (back[0].ItemId, (int)back[0].Sight, (int)back[0].Barrel, (int)back[0].Bullets, back[0].ExtendedMag, back[0].Laser, (int)back[0].Skin));
             Assert.Equal(4, back[0].ModCount);
             Assert.Empty(LoadoutCodec.Decode(new byte[] { 1, 2, 3 }));
             Assert.Empty(LoadoutCodec.Encode(null));

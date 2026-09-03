@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using FishNet;
@@ -95,7 +95,7 @@ namespace HowToFish1v1.Match
         {
             var guns = LoadoutCodec.Decode(loadout);
             if (guns.Count == 0) return "fists";
-            return string.Join(", ", guns.Select(g => DisplayName(GameInfo.IDToItem(g.ItemId)) + (g.ModCount > 0 ? $" (+{g.ModCount})" : "")));
+            return string.Join(", ", guns.Select(g => DisplayName(GameInfo.IDToItem(g.ItemId)) + (g.ModCount > 0 ? $" (+{g.ModCount})" : "") + (g.Skin > 0 && g.Skin < WeaponSkins.Count ? $" [{WeaponSkins.Names[g.Skin]}]" : "")));
         }
 
         /// <summary>Server only. Destroys the held item, everything in the inventory, and the death ragdoll.</summary>

@@ -27,14 +27,23 @@ namespace HowToFish1v1.Match
             ModNet.StateReceived += OnState;
             ModNet.ArenaReceived += OnArena;
             ModNet.ClientStopped += OnStopped;
+            ModNet.AimStateReceived += a => Recorder.RecordAim(a.OwnerId, a.Ads);
         }
 
-        /// <summary>Call every frame: keeps re-sending our hello until the host lists us with the mod.</summary>
+        private static bool _lastAds;
+
+        /// <summary>Call every frame: keeps re-sending our hello until the host lists us with the mod, and reports aim changes.</summary>
         public static void Update()
         {
-            if (!Player.LocalPlayer) return;
+            var lp = Player.LocalPlayer;
+            if (!lp) return;
             bool known = HasState && Me is PlayerEntry me && me.HasMod;
             ModNet.KeepHelloAlive(known);
+            if (ModState.IsActive)
+            {
+                bool ads = lp.Holding && lp.Holding.HeldItem is Weapon w && w.IsAds;
+                if (ads != _lastAds) { _lastAds = ads; ModNet.SendAim(ads); }
+            }
         }
 
         public static PlayerEntry[] Players => HasState && Latest.Players != null ? Latest.Players : Array.Empty<PlayerEntry>();

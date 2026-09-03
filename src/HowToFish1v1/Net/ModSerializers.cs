@@ -38,6 +38,11 @@ namespace HowToFish1v1.Net
                 ModVersion = b.ReadStringAllocated() ?? ""
             }));
 
+            GenericWriter<AimBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteBoolean(v.Ads)));
+            GenericReader<AimBroadcast>.SetRead(r => Open(r, b => new AimBroadcast { Ads = b.ReadBoolean() }));
+            GenericWriter<AimStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteBoolean(v.Ads); }));
+            GenericReader<AimStateBroadcast>.SetRead(r => Open(r, b => new AimStateBroadcast { OwnerId = b.ReadInt32(), Ads = b.ReadBoolean() }));
+
             GenericWriter<KillFeedBroadcast>.SetWrite((w, v) => Envelope(w, b =>
             {
                 b.WriteString(v.Killer ?? "");

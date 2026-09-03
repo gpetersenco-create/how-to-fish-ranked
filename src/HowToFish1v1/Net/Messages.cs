@@ -18,6 +18,19 @@ namespace HowToFish1v1.Net.Proto2
         public string ModVersion;
     }
 
+    /// <summary>Client to host: my aim-down-sights state changed.</summary>
+    public struct AimBroadcast : IBroadcast
+    {
+        public bool Ads;
+    }
+
+    /// <summary>Host to all: a player's aim-down-sights state (for killcam replays).</summary>
+    public struct AimStateBroadcast : IBroadcast
+    {
+        public int OwnerId;
+        public bool Ads;
+    }
+
     public struct KillFeedBroadcast : IBroadcast
     {
         public string Killer;

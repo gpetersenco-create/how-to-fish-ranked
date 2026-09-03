@@ -172,7 +172,7 @@ namespace HowToFish1v1.UI
             GUI.enabled = inLobby;
             // Scrollable area: gun toggles, then an attachment block per chosen gun.
             float areaTop = y + 66, areaH = S.DesignH - 130 - areaTop - 90;
-            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * 236 + 40;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * 278 + 40;
             _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
             float gy = 0;
             foreach (var item in LoadoutService.Weapons())
@@ -210,14 +210,15 @@ namespace HowToFish1v1.UI
         {
             var g = _guns[gunIndex];
             var o = LoadoutService.Options(g.ItemId);
-            GUI.DrawTexture(new Rect(x, y, w, 224), S.Panel);
-            GUI.DrawTexture(new Rect(x, y, 6, 224), S.GoldDim);
-            GUI.Label(new Rect(x + 16, y + 8, w - 32, 30), $"{o.Name.ToUpperInvariant()}  ATTACHMENTS", S.H2);
+            GUI.DrawTexture(new Rect(x, y, w, 266), S.Panel);
+            GUI.DrawTexture(new Rect(x, y, 6, 266), S.GoldDim);
+            GUI.Label(new Rect(x + 16, y + 8, w - 32, 30), $"{o.Name.ToUpperInvariant()}  ATTACHMENTS & SKIN", S.H2);
             bool changed = false;
             float ry = y + 44;
             changed |= Cycle(x + 16, ry, w - 32, "Sight", o.Sights, ref g.Sight); ry += 42;
             changed |= Cycle(x + 16, ry, w - 32, "Barrel", o.Barrels, ref g.Barrel); ry += 42;
             changed |= Cycle(x + 16, ry, w - 32, "Bullets", o.Bullets, ref g.Bullets); ry += 42;
+            changed |= Cycle(x + 16, ry, w - 32, "Skin", _skinNames, ref g.Skin); ry += 42;
             float half = (w - 40) / 2f;
             GUI.enabled = GUI.enabled && o.HasExtendedMag;
             if (GUI.Button(new Rect(x + 16, ry, half, 38), o.HasExtendedMag ? (g.ExtendedMag ? "[x] Extended mag" : "[ ] Extended mag") : "No extended mag", g.ExtendedMag ? S.ToggleButtonOn : S.ToggleButton))
@@ -227,8 +228,10 @@ namespace HowToFish1v1.UI
             { g.Laser = !g.Laser; changed = true; }
             GUI.enabled = ModState.Phase == MatchPhase.Lobby;
             if (changed) { _guns[gunIndex] = g; SendLoadout(false); }
-            return y + 224;
+            return y + 266;
         }
+
+        private static readonly List<string> _skinNames = WeaponSkins.Names.ToList();
 
         private static bool Cycle(float x, float y, float w, string label, List<string> options, ref byte index)
         {

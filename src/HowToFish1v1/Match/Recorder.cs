@@ -21,6 +21,24 @@ namespace HowToFish1v1.Match
             while (list.Count > 0 && Time.unscaledTime - list[0] > KeepSeconds) list.RemoveAt(0);
         }
 
+        private static readonly Dictionary<int, List<(float t, bool ads)>> _aim = new Dictionary<int, List<(float, bool)>>();
+
+        public static void RecordAim(int ownerId, bool ads)
+        {
+            if (!_aim.TryGetValue(ownerId, out var list)) { list = new List<(float, bool)>(); _aim[ownerId] = list; }
+            list.Add((Time.unscaledTime, ads));
+            while (list.Count > 64) list.RemoveAt(0);
+        }
+
+        /// <summary>Was the player aiming down sights at time t? (last reported state before t)</summary>
+        public static bool AdsAt(int ownerId, float t)
+        {
+            if (!_aim.TryGetValue(ownerId, out var list)) return false;
+            bool ads = false;
+            foreach (var e in list) { if (e.t <= t) ads = e.ads; else break; }
+            return ads;
+        }
+
         /// <summary>True if the player fired in the (t0, t1] window.</summary>
         public static bool FiredBetween(int ownerId, float t0, float t1)
         {
@@ -32,7 +50,7 @@ namespace HowToFish1v1.Match
         /// <summary>Call every frame.</summary>
         public static void Update()
         {
-            if (!ModState.IsActive) { if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); } return; }
+            if (!ModState.IsActive) { if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _aim.Clear(); } return; }
             float now = Time.unscaledTime;
             foreach (var p in PlayerManager.Players)
             {

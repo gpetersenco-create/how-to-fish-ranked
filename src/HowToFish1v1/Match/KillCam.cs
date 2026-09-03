@@ -34,6 +34,18 @@ namespace HowToFish1v1.Match
         private static Quaternion _rot;
         private static bool _snapped;
 
+        private static int _lastAdvanceFrame = -1;
+        private static float _adsFov = 40f;
+        private static bool _sniperSight;
+        private static Camera _fovCam;
+        private static float _savedFov = -1f;
+        private static Texture2D _scopeTex, _dotTex;
+
+        /// <summary>The killer was aiming down sights at the current replay moment.</summary>
+        public static bool ReplayAds { get; private set; }
+        public static bool ShowScope => IsReplay && ReplayAds && _sniperSight;
+        public static bool ShowCrosshair => IsReplay && ReplayAds && !_sniperSight;
+
         private static GameObject _ghost;
         private static GameObject _viewGun;
         private static GameObject _flash;
@@ -139,6 +151,7 @@ namespace HowToFish1v1.Match
             if (item is Weapon w && w.Attachments)
             {
                 _fireSound = w.Attachments.FireSound ?? "";
+                try { _adsFov = w.Attachments.AdsFov; _sniperSight = w.Attachments.UseSniperUi; } catch (System.Exception) { _adsFov = 40f; _sniperSight = false; }
                 var fp = w.Attachments.FirePoint;
                 _flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _flash.name = "HTF1v1_MuzzleFlash";
@@ -196,6 +209,77 @@ namespace HowToFish1v1.Match
             _viewGun = null; _flash = null;
             if (_clipCam && _savedNearClip > 0f) _clipCam.nearClipPlane = _savedNearClip;
             _clipCam = null; _savedNearClip = -1f;
+            RestoreFov();
+            ReplayAds = false;
+        }
+
+        private static void RestoreFov()
+        {
+            if (_fovCam && _savedFov > 0f) _fovCam.fieldOfView = _savedFov;
+            _fovCam = null; _savedFov = -1f;
+        }
+
+        /// <summary>Zoom the replay camera while the killer was aiming; the gun copy hides so the sight reads as scoped.</summary>
+        private static void ApplyAim(Camera cam)
+        {
+            ReplayAds = Recorder.AdsAt(_killerId, _replayT);
+            if (!cam) return;
+            if (_fovCam != cam) { RestoreFov(); _fovCam = cam; _savedFov = cam.fieldOfView; }
+            float target = ReplayAds ? Mathf.Clamp(_adsFov, 5f, 120f) : _savedFov;
+            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, target, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 12f));
+            if (_viewGun) _viewGun.SetActive(!ReplayAds);
+        }
+
+        /// <summary>IMGUI overlay: sniper scope or a simple crosshair while the replayed killer was aiming.</summary>
+        public static void DrawOverlay()
+        {
+            if (!ShowScope && !ShowCrosshair) return;
+            float w = Screen.width, h = Screen.height;
+            if (ShowScope)
+            {
+                if (!_scopeTex) _scopeTex = MakeScopeTexture(512);
+                float size = Mathf.Min(w, h);
+                float x = (w - size) / 2f, y = (h - size) / 2f;
+                UnityEngine.GUI.color = Color.black;
+                if (x > 0) { UnityEngine.GUI.DrawTexture(new Rect(0, 0, x, h), Texture2D.whiteTexture); UnityEngine.GUI.DrawTexture(new Rect(x + size, 0, w - x - size, h), Texture2D.whiteTexture); }
+                if (y > 0) { UnityEngine.GUI.DrawTexture(new Rect(0, 0, w, y), Texture2D.whiteTexture); UnityEngine.GUI.DrawTexture(new Rect(0, y + size, w, h - y - size), Texture2D.whiteTexture); }
+                UnityEngine.GUI.color = Color.white;
+                UnityEngine.GUI.DrawTexture(new Rect(x, y, size, size), _scopeTex);
+            }
+            else
+            {
+                UnityEngine.GUI.color = new Color(1f, 1f, 1f, 0.9f);
+                float cx = w / 2f, cy = h / 2f, len = 14f, gap = 6f, th = 2f;
+                UnityEngine.GUI.DrawTexture(new Rect(cx - gap - len, cy - th / 2, len, th), Texture2D.whiteTexture);
+                UnityEngine.GUI.DrawTexture(new Rect(cx + gap, cy - th / 2, len, th), Texture2D.whiteTexture);
+                UnityEngine.GUI.DrawTexture(new Rect(cx - th / 2, cy - gap - len, th, len), Texture2D.whiteTexture);
+                UnityEngine.GUI.DrawTexture(new Rect(cx - th / 2, cy + gap, th, len), Texture2D.whiteTexture);
+                UnityEngine.GUI.color = Color.white;
+            }
+        }
+
+        private static Texture2D MakeScopeTexture(int n)
+        {
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            var px = new Color[n * n];
+            float c = (n - 1) / 2f, r = n * 0.46f;
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                    Color col;
+                    if (d > r) col = Color.black;
+                    else if (d > r - 6) col = new Color(0, 0, 0, 0.85f);
+                    else
+                    {
+                        bool line = Mathf.Abs(x - c) < 1.2f || Mathf.Abs(y - c) < 1.2f;
+                        bool tick = (Mathf.Abs(x - c) < 1.2f || Mathf.Abs(y - c) < 1.2f) && ((int)(d / 24f)) % 2 == 0 && d > 10 && (Mathf.Abs(x - c) < 6f || Mathf.Abs(y - c) < 6f);
+                        col = line ? new Color(0, 0, 0, 0.95f) : (tick ? new Color(0, 0, 0, 0.6f) : new Color(0, 0, 0, Mathf.Clamp01((d / r - 0.75f) * 1.2f) * 0.5f));
+                    }
+                    px[y * n + x] = col;
+                }
+            t.SetPixels(px); t.Apply(); t.wrapMode = TextureWrapMode.Clamp;
+            return t;
         }
 
         /// <summary>We look through the killer's eyes, so their own body must not be drawn during the replay.</summary>
@@ -252,8 +336,13 @@ namespace HowToFish1v1.Match
 
             if (_mode == Mode.Replay)
             {
-                float speed = (_killTime - _replayT < SlowWindow) ? SlowSpeed : 1f;
-                _replayT += Time.unscaledDeltaTime * speed;
+                // Advance the replay clock once per frame even if more than one camera hook asks for the pose.
+                if (_lastAdvanceFrame != Time.frameCount)
+                {
+                    _lastAdvanceFrame = Time.frameCount;
+                    float speed = (_killTime - _replayT < SlowWindow) ? SlowSpeed : 1f;
+                    _replayT += Time.unscaledDeltaTime * speed;
+                }
                 if (_replayT > _killTime + ReplayTail)
                 {
                     UpdateGhost(false);
@@ -269,6 +358,7 @@ namespace HowToFish1v1.Match
                     if (cam && _clipCam != cam) { if (_clipCam && _savedNearClip > 0f) _clipCam.nearClipPlane = _savedNearClip; _clipCam = cam; _savedNearClip = cam.nearClipPlane; cam.nearClipPlane = 0.04f; }
                     UpdateGhost(true);
                     PlaceViewGun(rp, rr);
+                    ApplyAim(cam);
                     ReplayShots();
                     pos = rp + rr * Vector3.forward * EyeForward;
                     rot = rr;
@@ -285,6 +375,8 @@ namespace HowToFish1v1.Match
 
             // Live follow: behind the killer's shoulder.
             if (_clipCam && _savedNearClip > 0f) { _clipCam.nearClipPlane = _savedNearClip; _clipCam = null; _savedNearClip = -1f; }
+            RestoreFov();
+            ReplayAds = false;
             if (Time.unscaledTime - _startedAt > LiveFollowMax) { Stop(); return false; }
             var killer = PlayerManager.Players.FirstOrDefault(p => p && p.OwnerId == _killerId);
             if (!killer || killer.Dying.IsDead || !killer.Transform || !killer.Transform.gameObject.activeInHierarchy) { Stop(); return false; }
