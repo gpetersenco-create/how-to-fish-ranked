@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.2.33",
-    "notes":  "Charm: anchor built only from gun parts that really sit on the gun (a stray far-away renderer was placing it off-map). F9 previews the anti-cheat caught screen on your own screen.",
+    "version":  "0.2.34",
+    "notes":  "Charm: anchored on the gun\u0027s real left flank using an oriented box in the gun\u0027s own axes (it was hanging from the eye position).",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.33/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.33/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.33/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.33/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/hitmarker.mp3"
                   }
               ]
 }
