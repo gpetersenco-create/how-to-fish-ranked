@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.2.40",
-    "notes":  "Ricochet chance is 10% (saved 35% configs are migrated).",
+    "version":  "0.2.41",
+    "notes":  "Three new large maps: Harbor (72x48 m: crane tower with two decks and ramps, stacked container yard, warehouses with a corridor), Refinery (76x52 m: four storage tanks, a 44 m catwalk with side stairs, head-height pipe runs, control rooms) and Terminal (80x44 m: a long hall with doorways, pillars and a railed roof reached by ramps, lanes of cars, a bus, planters and kiosks). Maps tab shows them in a grid with sizes.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.40/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.41/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.40/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.41/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.40/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.41/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.40/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.41/hitmarker.mp3"
                   }
               ]
 }
