@@ -109,26 +109,39 @@ namespace HowToFish1v1.Match
             root.transform.SetParent(item.transform, false);
             var c = new Charm { Root = root, Item = item, Tier = tier, Dev = dev };
 
-            // Anchor: on the left-hand side of the gun's body, a little back from the middle, slightly below centre.
-            var rends = item.GetComponentsInChildren<Renderer>(false).Where(r => r && r.enabled && !r.name.StartsWith("HTF1v1_")).ToArray();
-            // Same layer as the gun's own meshes: first-person guns are drawn by their own camera, and anything on another
-            // layer this close to the eye is clipped by the main camera's near plane.
-            root.layer = rends.Length > 0 ? rends[0].gameObject.layer : item.gameObject.layer;
+            // Anchor: on the left flank of the gun's body. The gun is measured in its own axes (mesh bounds turned into
+            // the root's frame), because a world-aligned box around a diagonal gun is far too wide.
+            Renderer hands = null;
+            try { hands = item is Tool tool ? tool.HandsMesh : null; } catch (System.Exception) { }
+            var rends = item.GetComponentsInChildren<Renderer>(false).Where(r => r && r.enabled && r != hands && !r.name.StartsWith("HTF1v1_")).ToArray();
             var t = item.transform;
             Vector3 anchor;
-            // Only parts that actually sit on the gun count; some renderers report bounds far away (unposed skinned parts).
-            var near = rends.Where(r => Vector3.Distance(r.bounds.center, t.position) < 1.5f && r.bounds.extents.magnitude < 1.5f).ToArray();
-            string dbg = $"root {t.position} rends {rends.Length} near {near.Length}";
-            if (near.Length > 0)
+            Vector3 mn = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue), mx = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            int used = 0;
+            foreach (var r in rends)
             {
-                rends = near;
-                var b = rends[0].bounds;
-                foreach (var r in rends) b.Encapsulate(r.bounds);
-                dbg += $" bounds {b.center} ext {b.extents}";
-                float w = Mathf.Abs(b.extents.x * t.right.x) + Mathf.Abs(b.extents.y * t.right.y) + Mathf.Abs(b.extents.z * t.right.z);
-                float h = Mathf.Abs(b.extents.x * t.up.x) + Mathf.Abs(b.extents.y * t.up.y) + Mathf.Abs(b.extents.z * t.up.z);
-                float l = Mathf.Abs(b.extents.x * t.forward.x) + Mathf.Abs(b.extents.y * t.forward.y) + Mathf.Abs(b.extents.z * t.forward.z);
-                anchor = b.center - t.right * (w * 0.55f + 0.004f) - t.up * (h * 0.15f) - t.forward * (l * 0.25f);   // left side
+                Bounds lb; Transform space = r.transform;
+                if (r is SkinnedMeshRenderer smr) { if (!smr.sharedMesh) continue; lb = smr.localBounds; }
+                else { var mf = r.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue; lb = mf.sharedMesh.bounds; }
+                if (Vector3.Distance(r.transform.position, t.position) > 1.5f) continue;   // stray, unposed part
+                bool any = false;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = lb.center + Vector3.Scale(lb.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    var w = space.TransformPoint(corner) - t.position;
+                    var p = new Vector3(Vector3.Dot(w, t.right), Vector3.Dot(w, t.up), Vector3.Dot(w, t.forward));
+                    if (p.magnitude > 2f) { any = false; break; }
+                    mn = Vector3.Min(mn, p); mx = Vector3.Max(mx, p); any = true;
+                }
+                if (any) used++;
+            }
+            string dbg = $"root {t.position} rends {rends.Length} used {used}";
+            if (used > 0)
+            {
+                Vector3 c0 = (mn + mx) * 0.5f, ext = (mx - mn) * 0.5f;
+                dbg += $" gun-frame centre {c0} ext {ext}";
+                // Left flank, a touch below the middle, a quarter of the way back from the middle.
+                anchor = t.position + t.right * (mn.x - 0.006f) + t.up * (c0.y - ext.y * 0.2f) + t.forward * (c0.z - ext.z * 0.25f);
             }
             else anchor = t.position - t.right * 0.05f - t.up * 0.03f + t.forward * 0.12f;
             c.AnchorLocal = t.InverseTransformPoint(anchor);
