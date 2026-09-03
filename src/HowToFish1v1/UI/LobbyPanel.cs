@@ -227,7 +227,7 @@ namespace HowToFish1v1.UI
             GUI.enabled = inLobby;
             // Scrollable area: gun toggles, then an attachment block per chosen gun.
             float areaTop = y + 66 + PreviewH + 10, areaH = S.DesignH - 130 - areaTop - 90;
-            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52 + 104;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52;
             _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
             float gy = 0;
             // The knife: always carried, one key, its own skin (local only: nobody else sees your knife).
@@ -242,19 +242,6 @@ namespace HowToFish1v1.UI
                 }
                 GUI.enabled = was;
                 gy += 52;
-            }
-            // Crosshair and hit marker styles (yours only).
-            {
-                bool was = GUI.enabled; GUI.enabled = true;
-                S.Box(new Rect(0, gy, w, 44), S.Panel, 8f);
-                byte ch = (byte)Mathf.Clamp(Plugin.Cfg.Crosshair.Value, 0, HitReactions.Crosshairs.Count - 1);
-                if (Cycle(8, gy + 3, w - 16, "Crosshair", HitReactions.Crosshairs.ToList(), ref ch)) Plugin.Cfg.Crosshair.Value = ch;
-                gy += 52;
-                S.Box(new Rect(0, gy, w, 44), S.Panel, 8f);
-                byte hm = (byte)Mathf.Clamp(Plugin.Cfg.HitmarkerStyle.Value, 0, HitReactions.Markers.Count - 1);
-                if (Cycle(8, gy + 3, w - 16, "Hit marker", HitReactions.Markers.ToList(), ref hm)) Plugin.Cfg.HitmarkerStyle.Value = hm;
-                gy += 52;
-                GUI.enabled = was;
             }
             foreach (var item in LoadoutService.Weapons())
             {
