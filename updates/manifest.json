@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.16",
-    "notes":  "Killcam replays the world, not just the killer: birds and fish are recorded and shown where they were (the live ones are hidden), other players\u0027 bodies and guns are recorded bone-by-bone and replayed as animated copies, and when you are the victim a mannequin in your colours stands where you were instead of the orange blob. Solo preview keeps the marker since there is no body to copy.",
+    "version":  "0.2.17",
+    "notes":  "Create-a-class: the lobby shows the chosen gun turning in 3D with its sight, barrel, laser and skin. New attachments: drum magazine (SMG, pistol; 2.5x rounds) and The Switch (pistol full auto). Six new skins: Diamond (BO2 style), Carbon Fiber, Galaxy, Frost, Bloodshot, and a locked Dragon sniper skin that breathes fire from the barrel. Killcam text moved into a calling card along the bottom (emblem, name, rank, gun); the yellow marker is gone from the solo preview.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.16/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.17/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.16/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.17/HowToFish1v1.Core.dll"
                   }
               ]
 }
