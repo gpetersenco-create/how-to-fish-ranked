@@ -14,7 +14,7 @@ namespace HowToFish1v1.Match
     public static class Knife
     {
         public const float SwingSeconds = 0.42f;
-        private const float HitAt = 0.38f;          // fraction of the swing at which the blade connects
+        private const float HitAt = 0.36f;          // fraction of the swing at which the blade crosses the centre
         private const float Reach = 2.3f;
         private const float Radius = 0.4f;
         private const int Damage = 150;
@@ -107,15 +107,24 @@ namespace HowToFish1v1.Match
             if (!_hitDone && t >= HitAt) { _hitDone = true; TryHit(me, cam); }
         }
 
-        /// <summary>The swing in camera space: the knife starts low right, lunges up and across to the left with a twist, then snaps back.</summary>
+        /// <summary>
+        /// The swing in camera space: a slash. The blade is held sideways (point to the left, edge leading), cocked back on
+        /// the right, then sweeps across the screen from right to left in a shallow downward arc, follows through past the
+        /// left edge and comes back. The knife stays roughly the same distance from the eye the whole way.
+        /// </summary>
         public static void SwingPose(float t, out Vector3 pos, out Quaternion rot)
         {
-            Vector3 p0 = new Vector3(0.32f, -0.30f, 0.45f), p1 = new Vector3(0.10f, -0.06f, 0.62f), p2 = new Vector3(-0.30f, 0.04f, 0.55f);
-            Vector3 r0 = new Vector3(20f, -60f, 70f), r1 = new Vector3(-10f, -20f, 20f), r2 = new Vector3(-25f, 40f, -30f);
+            // Rest / cocked back (right, low, blade pointing left-forward), mid-slash (centre), follow-through (far left).
+            Vector3 p0 = new Vector3(0.40f, -0.26f, 0.42f), pc = new Vector3(0.44f, -0.16f, 0.36f), p1 = new Vector3(0.02f, -0.10f, 0.52f), p2 = new Vector3(-0.42f, -0.20f, 0.40f);
+            Vector3 r0 = new Vector3(10f, -55f, 95f), rc = new Vector3(5f, -80f, 100f), r1 = new Vector3(-8f, -85f, 90f), r2 = new Vector3(-20f, -120f, 70f);
             Vector3 e;
-            if (t < 0.45f) { float k = Mathf.SmoothStep(0f, 1f, t / 0.45f); pos = Vector3.Lerp(p0, p1, k); e = Vector3.Lerp(r0, r1, k); }
-            else if (t < 0.7f) { float k = (t - 0.45f) / 0.25f; pos = Vector3.Lerp(p1, p2, k); e = Vector3.Lerp(r1, r2, k); }
-            else { float k = Mathf.SmoothStep(0f, 1f, (t - 0.7f) / 0.3f); pos = Vector3.Lerp(p2, p0, k); e = Vector3.Lerp(r2, r0, k); }
+            if (t < 0.18f) { float k = Mathf.SmoothStep(0f, 1f, t / 0.18f); pos = Vector3.Lerp(p0, pc, k); e = Vector3.Lerp(r0, rc, k); }                 // cock back
+            else if (t < 0.36f) { float k = (t - 0.18f) / 0.18f; k = k * k; pos = Vector3.Lerp(pc, p1, k); e = Vector3.Lerp(rc, r1, k); }                  // accelerate across
+            else if (t < 0.52f) { float k = (t - 0.36f) / 0.16f; pos = Vector3.Lerp(p1, p2, k); e = Vector3.Lerp(r1, r2, k); }                              // through the target
+            else { float k = Mathf.SmoothStep(0f, 1f, (t - 0.52f) / 0.48f); pos = Vector3.Lerp(p2, p0, k); e = Vector3.Lerp(r2, r0, k); }                  // recover
+            // A little dip through the middle of the arc so the slash reads as diagonal, not a flat wipe.
+            float mid = Mathf.Clamp01(1f - Mathf.Abs((t - 0.36f) / 0.2f));
+            pos.y -= 0.05f * mid;
             rot = Quaternion.Euler(e);
         }
 
@@ -220,10 +229,26 @@ namespace HowToFish1v1.Match
     /// </summary>
     public static class HitSounds
     {
-        private static AudioSource _source;
+        private static AudioSource _source, _knifeSource;
         private static AudioClip _hitmarker, _swoosh;
+        private static float _knifeTrim;
         private const int Rate = 44100;
         private static bool _filesRequested;
+
+        /// <summary>Seconds of near-silence at the start of a clip (so a file with a quiet lead-in still snaps to the swing).</summary>
+        private static float LeadingSilence(AudioClip clip)
+        {
+            try
+            {
+                int n = Mathf.Min(clip.samples, clip.frequency * 2) * clip.channels;
+                var data = new float[n];
+                if (!clip.GetData(data, 0)) return 0f;
+                for (int i = 0; i < n; i++)
+                    if (Mathf.Abs(data[i]) > 0.035f) return Mathf.Max(0f, (float)(i / clip.channels) / clip.frequency - 0.005f);
+            }
+            catch (System.Exception) { }
+            return 0f;
+        }
 
         /// <summary>Starts loading knife/hitmarker sound files from the plugin folder, if any exist.</summary>
         public static System.Collections.IEnumerator LoadFiles()
@@ -244,7 +269,12 @@ namespace HowToFish1v1.Match
                         if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
                         {
                             var clip = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(req);
-                            if (clip && clip.length > 0f) { Ensure(); apply(clip); Plugin.Log.LogInfo($"Loaded custom sound {name}{ext} ({clip.length:0.00} s)"); }
+                            if (clip && clip.length > 0f)
+                            {
+                                Ensure(); apply(clip);
+                                if (name == "knife") _knifeTrim = LeadingSilence(clip);
+                                Plugin.Log.LogInfo($"Loaded custom sound {name}{ext} ({clip.length:0.00} s{(name == "knife" ? $", lead-in {_knifeTrim:0.000} s" : "")})");
+                            }
                         }
                         else Plugin.Log.LogWarning($"Could not load {path}: {req.error}");
                     }
@@ -262,10 +292,14 @@ namespace HowToFish1v1.Match
             _source.spatialBlend = 0f;
             _source.playOnAwake = false;
             _source.priority = 0;
+            _knifeSource = go.AddComponent<AudioSource>();
+            _knifeSource.spatialBlend = 0f;
+            _knifeSource.playOnAwake = false;
+            _knifeSource.priority = 0;
             try
             {
                 var global = Traverse.Create(typeof(AudioManager)).Field<AudioSource>("_globalSource").Value;
-                if (global) _source.outputAudioMixerGroup = global.outputAudioMixerGroup;
+                if (global) { _source.outputAudioMixerGroup = global.outputAudioMixerGroup; _knifeSource.outputAudioMixerGroup = global.outputAudioMixerGroup; }
             }
             catch (System.Exception) { }
             _hitmarker = MakeHitmarker();
@@ -282,8 +316,14 @@ namespace HowToFish1v1.Match
         public static void PlaySwoosh()
         {
             Ensure();
-            _source.pitch = Random.Range(0.96f, 1.06f);
-            _source.PlayOneShot(_swoosh, 0.8f);
+            // Start a little into the clip: its own lead-in silence plus the configured trim.
+            float trim = Mathf.Clamp(_knifeTrim + Plugin.Cfg.KnifeSoundTrim.Value, 0f, Mathf.Max(0f, _swoosh.length - 0.05f));
+            _knifeSource.Stop();
+            _knifeSource.clip = _swoosh;
+            _knifeSource.volume = 0.85f;
+            _knifeSource.pitch = Random.Range(0.97f, 1.04f);
+            _knifeSource.time = trim;
+            _knifeSource.Play();
         }
 
         /// <summary>The classic Call of Duty hitmarker: a sharp metallic tick, about a tenth of a second.</summary>
