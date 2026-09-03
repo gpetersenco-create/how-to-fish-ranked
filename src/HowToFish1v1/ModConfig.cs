@@ -14,6 +14,9 @@ namespace HowToFish1v1
         public ConfigEntry<float> RoundEndSeconds;
         public ConfigEntry<float> MatchEndSeconds;
         public ConfigEntry<KeyCode> KillcamPreviewKey;
+        public ConfigEntry<KeyCode> KnifeKey;
+        public ConfigEntry<int> KnifeSkin;
+        public ConfigEntry<float> HitmarkerVolume;
         public ConfigEntry<float> DamageMultiplier;
         public ConfigEntry<int> MaxLoadoutGuns;
         public ConfigEntry<string> RankNames;
@@ -40,6 +43,9 @@ namespace HowToFish1v1
             RoundEndSeconds = file.Bind("Rules", "RoundEndSeconds", 7f, "Pause after a round ends before the next countdown (the killcam plays during this).");
             MatchEndSeconds = file.Bind("Rules", "MatchEndSeconds", 9f, "Pause after the match is decided before returning to the lobby (the final killcam plays during this; keep it at 8 or more).");
             KillcamPreviewKey = file.Bind("General", "KillcamPreviewKey", KeyCode.F8, "During a match, replays your own last few seconds as a killcam so the killcam can be tested alone.");
+            KnifeKey = file.Bind("General", "KnifeKey", KeyCode.V, "Knife slash during matches (one-hit kill in reach).");
+            KnifeSkin = file.Bind("General", "KnifeSkin", 0, "Skin index for the knife (picked in the lobby).");
+            HitmarkerVolume = file.Bind("General", "HitmarkerVolume", 1f, "Volume of the mod's hitmarker sound (0-2).");
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");
             MaxLoadoutGuns = file.Bind("Rules", "MaxLoadoutGuns", 2, "How many guns each player may pick.");
             RankNames = file.Bind("Ranks", "RankNames", RankLadder.DefaultNames, "Comma-separated rank names from lowest to highest.");

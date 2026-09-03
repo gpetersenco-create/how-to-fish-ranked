@@ -187,9 +187,22 @@ namespace HowToFish1v1.UI
             GUI.enabled = inLobby;
             // Scrollable area: gun toggles, then an attachment block per chosen gun.
             float areaTop = y + 66 + PreviewH + 10, areaH = S.DesignH - 130 - areaTop - 90;
-            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40 + 52;
             _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
             float gy = 0;
+            // The knife: always carried, one key, its own skin (local only: nobody else sees your knife).
+            {
+                S.Box(new Rect(0, gy, w, 44), S.Panel, 8f);
+                byte ks = (byte)Mathf.Clamp(Plugin.Cfg.KnifeSkin.Value, 0, WeaponSkins.Count - 1);
+                bool was = GUI.enabled; GUI.enabled = true;
+                if (Cycle(8, gy + 3, w - 16, $"Knife ({Plugin.Cfg.KnifeKey.Value})", _skinNames, ref ks))
+                {
+                    if (!WeaponSkins.CanPick(ks)) ks = 0;
+                    Plugin.Cfg.KnifeSkin.Value = ks;
+                }
+                GUI.enabled = was;
+                gy += 52;
+            }
             foreach (var item in LoadoutService.Weapons())
             {
                 int idx = _guns.FindIndex(g => g.ItemId == item.ID);
