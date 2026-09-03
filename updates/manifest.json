@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.21",
-    "notes":  "New Trickshot mode (solo): spawn on a 22 m tower over a field of bot targets, some standing, some patrolling; a mid-air hit ends the run and the final killcam replays it, landing without one puts you straight back on top. Maps rebuilt with real surfaces: concrete, asphalt, rusted corrugated steel, riveted steel, planks, bricks and worn painted metal, all with bump maps and world-scaled tiling. Bullet tracers in killcam replays. Diamond camo reverted to the earlier look.",
+    "version":  "0.2.22",
+    "notes":  "Trickshot: bots are now real character models copied from the game\u0027s own prefabs (random skin and outfit colours), six of them hover at different heights (two drift up and down), and four birds circle overhead; the miss counter moved to a small label bottom-right. Knife: a hand and forearm now hold the knife and the game\u0027s arms hide during the swing, swings are announced so killcam replays show the knife with its skin and sound, and the swing sound is a sharper Black Ops 2 style shwiff.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.21/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.22/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.21/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.22/HowToFish1v1.Core.dll"
                   }
               ]
 }
