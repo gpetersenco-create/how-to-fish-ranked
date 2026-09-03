@@ -7,7 +7,7 @@ using UnityEngine;
 namespace HowToFish1v1.Match
 {
     /// <summary>
-    /// A charm hanging off the side of every held gun: the owner's rank emblem on a small card at the end of a short chain,
+    /// A charm hanging off the left side of every held gun: the owner's rank emblem on a small card at the end of a short chain,
     /// swinging with real pendulum physics as the gun moves. One account gets a pink DEV tag instead. Charms live under the
     /// item, so every client sees them and killcam replays record them like any other part of the gun.
     /// </summary>
@@ -26,6 +26,8 @@ namespace HowToFish1v1.Match
         }
 
         private const float Length = 0.07f;
+        /// <summary>Only the mod author's account may wear the DEV tag.</summary>
+        public static bool CanUseDev => RankService.LocalId == WeaponSkins.DragonOwner.ToString();
         private static readonly Dictionary<Item, Charm> _charms = new Dictionary<Item, Charm>();
         private static readonly Dictionary<int, Material> _tierMats = new Dictionary<int, Material>();
         private static Material _devMat, _chainMat;
@@ -58,10 +60,11 @@ namespace HowToFish1v1.Match
                 var item = p.Holding.HeldItem;
                 if (!item || !(item is Weapon)) continue;
                 live.Add(item);
-                int tier = 0;
-                foreach (var e in ClientMatchView.Players) if (e.Id == p.OwnerId) { tier = RankService.Ladder.TierIndex(e.RankPoints); break; }
+                int tier = 0; byte choice = 1;
+                foreach (var e in ClientMatchView.Players) if (e.Id == p.OwnerId) { tier = RankService.Ladder.TierIndex(e.RankPoints); choice = e.Charm; break; }
                 bool dev = false;
-                try { dev = p._steamID.Value == WeaponSkins.DragonOwner; } catch (System.Exception) { }
+                if (choice == 2) { try { dev = p._steamID.Value == WeaponSkins.DragonOwner; } catch (System.Exception) { } if (!dev) choice = 1; }
+                if (choice == 0) { if (_charms.TryGetValue(item, out var old) && old.Root) Object.Destroy(old.Root); _charms.Remove(item); continue; }
                 if (_charms.TryGetValue(item, out var c) && c.Root && c.Tier == tier && c.Dev == dev) continue;
                 if (c != null && c.Root) Object.Destroy(c.Root);
                 _charms[item] = Build(item, tier, dev);
@@ -90,7 +93,7 @@ namespace HowToFish1v1.Match
                 c.Pos = anchor + d / dist * Length;
                 Vector3 down = (c.Pos - anchor) / Length;
                 // The card faces out from the gun's side, kept perpendicular to the chain.
-                Vector3 n = Vector3.ProjectOnPlane(root.right, down);
+                Vector3 n = Vector3.ProjectOnPlane(-root.right, down);
                 if (n.sqrMagnitude < 1e-4f) n = Vector3.ProjectOnPlane(root.forward, down);
                 var rot = Quaternion.LookRotation(n.normalized, -down);
                 c.Root.transform.SetPositionAndRotation(anchor, rot);
@@ -115,9 +118,9 @@ namespace HowToFish1v1.Match
                 float w = Mathf.Abs(b.extents.x * t.right.x) + Mathf.Abs(b.extents.y * t.right.y) + Mathf.Abs(b.extents.z * t.right.z);
                 float h = Mathf.Abs(b.extents.x * t.up.x) + Mathf.Abs(b.extents.y * t.up.y) + Mathf.Abs(b.extents.z * t.up.z);
                 float l = Mathf.Abs(b.extents.x * t.forward.x) + Mathf.Abs(b.extents.y * t.forward.y) + Mathf.Abs(b.extents.z * t.forward.z);
-                anchor = b.center + t.right * (w * 0.55f + 0.004f) - t.up * (h * 0.15f) - t.forward * (l * 0.25f);
+                anchor = b.center - t.right * (w * 0.55f + 0.004f) - t.up * (h * 0.15f) - t.forward * (l * 0.25f);   // left side
             }
-            else anchor = t.position + t.right * 0.03f;
+            else anchor = t.position - t.right * 0.03f;
             c.AnchorLocal = t.InverseTransformPoint(anchor);
 
             EnsureMaterials();

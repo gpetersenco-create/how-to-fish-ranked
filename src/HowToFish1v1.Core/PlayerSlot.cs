@@ -15,6 +15,8 @@ namespace HowToFish1v1.Core
         public int Deaths;
         public bool DeadThisRound;
         public int RankPoints;
+        /// <summary>Charm hanging off the gun: 0 none, 1 rank emblem, 2 DEV tag.</summary>
+        public byte Charm = 1;
 
         public bool IsPresent => Id != -1;
     }

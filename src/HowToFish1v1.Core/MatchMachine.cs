@@ -70,13 +70,14 @@ namespace HowToFish1v1.Core
             Dirty = true;
         }
 
-        public void SetLoadout(int id, byte[] itemIds, bool ready, int rankPoints = -1)
+        public void SetLoadout(int id, byte[] itemIds, bool ready, int rankPoints = -1, int charm = -1)
         {
             var slot = State.Slot(id);
             if (slot == null) return;
             slot.Loadout = LoadoutCodec.Truncate(itemIds ?? Array.Empty<byte>(), Rules.MaxLoadoutGuns);
             slot.Ready = ready;
             if (rankPoints >= 0) slot.RankPoints = rankPoints;
+            if (charm >= 0) slot.Charm = (byte)charm;
             Dirty = true;
         }
 

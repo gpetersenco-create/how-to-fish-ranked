@@ -14,6 +14,7 @@ namespace HowToFish1v1.Net.Proto2
         public byte[] ItemIds;
         public bool Ready;
         public int RankPoints;
+        public byte Charm;
         /// <summary>Doubles as a hello: any loadout message proves the sender runs this mod version.</summary>
         public string ModVersion;
     }
@@ -66,6 +67,7 @@ namespace HowToFish1v1.Net.Proto2
         public bool Ready;
         public bool HasMod;
         public int RankPoints;
+        public byte Charm;
         public byte[] Loadout;
         /// <summary>Mod version this player reported ("" if none), so the lobby can say who needs to update.</summary>
         public string ModVersion;

@@ -29,13 +29,15 @@ namespace HowToFish1v1.Net
                 b.WriteBoolean(v.Ready);
                 b.WriteInt32(v.RankPoints);
                 b.WriteString(v.ModVersion ?? "");
+                b.WriteUInt8Unpacked(v.Charm);
             }));
             GenericReader<LoadoutBroadcast>.SetRead(r => Open(r, b => new LoadoutBroadcast
             {
                 ItemIds = b.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
                 Ready = b.ReadBoolean(),
                 RankPoints = b.ReadInt32(),
-                ModVersion = b.ReadStringAllocated() ?? ""
+                ModVersion = b.ReadStringAllocated() ?? "",
+                Charm = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)1
             }));
 
             GenericWriter<AimBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteBoolean(v.Ads)));
@@ -114,6 +116,7 @@ namespace HowToFish1v1.Net
                 b.WriteSingle(v.RespawnSeconds);
                 b.WriteSingle(v.RoundEndSeconds);
                 b.WriteSingle(v.MatchEndSeconds);
+                foreach (var p in players) b.WriteUInt8Unpacked(p.Charm);
             }));
             GenericReader<MatchStateBroadcast>.SetRead(r => Open(r, b =>
             {
@@ -160,6 +163,7 @@ namespace HowToFish1v1.Net
                     s.RoundEndSeconds = b.ReadSingle();
                     s.MatchEndSeconds = b.ReadSingle();
                 }
+                for (int i = 0; i < n; i++) s.Players[i].Charm = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)1;
                 return s;
             }));
         }

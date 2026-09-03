@@ -90,10 +90,10 @@ namespace HowToFish1v1.Net
             InstanceFinder.ClientManager.Broadcast(new HelloBroadcast { ModVersion = Plugin.Version });
         }
 
-        public static void SendLoadout(byte[] ids, bool ready, int rankPoints)
+        public static void SendLoadout(byte[] ids, bool ready, int rankPoints, byte charm = 1)
         {
             if (!ClientAuthenticated) return;
-            InstanceFinder.ClientManager.Broadcast(new LoadoutBroadcast { ItemIds = ids ?? Array.Empty<byte>(), Ready = ready, RankPoints = rankPoints, ModVersion = Plugin.Version });
+            InstanceFinder.ClientManager.Broadcast(new LoadoutBroadcast { ItemIds = ids ?? Array.Empty<byte>(), Ready = ready, RankPoints = rankPoints, ModVersion = Plugin.Version, Charm = charm });
         }
 
         public static void BroadcastState(MatchStateBroadcast s)

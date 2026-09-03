@@ -18,6 +18,7 @@ namespace HowToFish1v1
         public ConfigEntry<int> KnifeSkin;
         public ConfigEntry<float> HitmarkerVolume;
         public ConfigEntry<bool> AntiCheat;
+        public ConfigEntry<int> Charm;
         public ConfigEntry<float> KnifeSoundTrim;
         public ConfigEntry<float> DamageMultiplier;
         public ConfigEntry<int> MaxLoadoutGuns;
@@ -48,6 +49,7 @@ namespace HowToFish1v1
             KnifeKey = file.Bind("General", "KnifeKey", KeyCode.V, "Knife slash during matches (one-hit kill in reach).");
             KnifeSkin = file.Bind("General", "KnifeSkin", 0, "Skin index for the knife (picked in the lobby).");
             KnifeSoundTrim = file.Bind("General", "KnifeSoundTrim", 0.05f, "Extra seconds cut from the start of the knife swing sound (its silent lead-in is removed automatically).");
+            Charm = file.Bind("General", "Charm", 1, "Gun charm: 0 none, 1 rank emblem, 2 DEV tag (author only). Picked in the lobby.");
             AntiCheat = file.Bind("General", "AntiCheat", true, "Host only: detect silent aim, aimbot snaps, rapid fire, damage and speed hacks; announce and kick the cheater.");
             HitmarkerVolume = file.Bind("General", "HitmarkerVolume", 1f, "Volume of the mod's hitmarker sound (0-2).");
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");

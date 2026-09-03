@@ -95,10 +95,10 @@ namespace HowToFish1v1.Match
         public void SetMode(MatchMode mode) { if (Machine != null) { Machine.SetMode(mode); Flush(); } }
         public void MoveTeam(int ownerId) { if (Machine != null) { Machine.MoveTeam(ownerId); Flush(); } }
 
-        public void SetLocalLoadout(byte[] ids, bool ready, int rankPoints)
+        public void SetLocalLoadout(byte[] ids, bool ready, int rankPoints, byte charm = 1)
         {
             if (Machine == null || Player.LocalPlayer == null) return;
-            Machine.SetLoadout(Player.LocalPlayer.OwnerId, ids, ready, rankPoints);
+            Machine.SetLoadout(Player.LocalPlayer.OwnerId, ids, ready, rankPoints, charm);
             Flush();
         }
 
@@ -130,7 +130,7 @@ namespace HowToFish1v1.Match
             if (!string.IsNullOrEmpty(msg.ModVersion)) _helloVersions[conn.ClientId] = msg.ModVersion;
             if (Machine == null) return;
             ApplyKnownVersions();
-            Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready, msg.RankPoints);
+            Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready, msg.RankPoints, msg.Charm);
             Flush();
         }
 
@@ -280,7 +280,7 @@ namespace HowToFish1v1.Match
             var entries = s.Players.Select(p => new PlayerEntry
             {
                 Id = p.Id, Name = p.Name ?? "", Team = (byte)p.Team, Kills = p.Kills, Deaths = p.Deaths, Ready = p.Ready, HasMod = p.HasMod,
-                RankPoints = p.RankPoints, Loadout = p.Loadout, ModVersion = _helloVersions.TryGetValue(p.Id, out var v) ? v : ""
+                RankPoints = p.RankPoints, Loadout = p.Loadout, Charm = p.Charm, ModVersion = _helloVersions.TryGetValue(p.Id, out var v) ? v : ""
             }).ToArray();
             return new MatchStateBroadcast
             {
