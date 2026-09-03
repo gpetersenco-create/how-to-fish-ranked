@@ -213,14 +213,45 @@ namespace HowToFish1v1.Match
     }
 
     /// <summary>
-    /// Mod sounds made in code (no audio files to ship): the hitmarker "tick" that replaces the game's during matches,
-    /// and the knife swing. Played through the game's sound mixer group so the volume slider still applies.
+    /// Mod sounds: the hitmarker "tick" that replaces the game's during matches, and the knife swing. Both are made in
+    /// code, but a sound file dropped next to the plugin overrides them: knife.wav / knife.ogg / knife.mp3 and
+    /// hitmarker.wav / .ogg / .mp3 in BepInEx/plugins/HowToFish1v1. Played through the game's sound mixer group so the
+    /// volume slider still applies.
     /// </summary>
     public static class HitSounds
     {
         private static AudioSource _source;
         private static AudioClip _hitmarker, _swoosh;
         private const int Rate = 44100;
+        private static bool _filesRequested;
+
+        /// <summary>Starts loading knife/hitmarker sound files from the plugin folder, if any exist.</summary>
+        public static System.Collections.IEnumerator LoadFiles()
+        {
+            if (_filesRequested) yield break;
+            _filesRequested = true;
+            string dir = System.IO.Path.GetDirectoryName(typeof(HitSounds).Assembly.Location);
+            foreach (var (name, apply) in new (string, System.Action<AudioClip>)[] { ("knife", c => _swoosh = c), ("hitmarker", c => _hitmarker = c) })
+            {
+                foreach (var ext in new[] { ".wav", ".ogg", ".mp3" })
+                {
+                    string path = System.IO.Path.Combine(dir, name + ext);
+                    if (!System.IO.File.Exists(path)) continue;
+                    var type = ext == ".wav" ? AudioType.WAV : ext == ".ogg" ? AudioType.OGGVORBIS : AudioType.MPEG;
+                    using (var req = UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip("file:///" + path.Replace(System.IO.Path.DirectorySeparatorChar, '/'), type))
+                    {
+                        yield return req.SendWebRequest();
+                        if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                        {
+                            var clip = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(req);
+                            if (clip && clip.length > 0f) { Ensure(); apply(clip); Plugin.Log.LogInfo($"Loaded custom sound {name}{ext} ({clip.length:0.00} s)"); }
+                        }
+                        else Plugin.Log.LogWarning($"Could not load {path}: {req.error}");
+                    }
+                    break;
+                }
+            }
+        }
 
         private static void Ensure()
         {
