@@ -91,7 +91,7 @@ namespace HowToFish1v1.Match
         private static GameObject _knifeCopy;
         private static byte _knifeCopySkin = 255;
         private static readonly List<Object> _knifeCreated = new List<Object>();
-        private static float _knifeSoundedAt = -1f;
+        private static float _knifeSoundedAt = -1f, _knifeShownAt = -1f;
 
         // Bullet tracers: a bright streak flying from the muzzle to where the shot landed, in replay time.
         private sealed class Tracer { public GameObject Go; public Vector3 From, To; public float T0, Dur; }
@@ -471,7 +471,6 @@ namespace HowToFish1v1.Match
             Vector3 fix = _remoteKiller ? -Vector3.forward * _tpOffset : Vector3.zero;   // undo the third-person push
             bool hideGun = _sniperSight && _aimPercent > _sniperPct;
             if (!_gun.Pose(gs.Rig, fix, hideGun)) return;
-            ReplayKnife(eyePos, eyeRot, t);
             if (_flash)
             {
                 // The muzzle is recorded directly (head space), so scaling on the gun root cannot push the flash sideways.
@@ -497,6 +496,7 @@ namespace HowToFish1v1.Match
                 if (_knifeCopy && _knifeCopy.activeSelf) { _knifeCopy.SetActive(false); _gun?.SetActive(true); }
                 return;
             }
+            if (Mathf.Abs(_knifeShownAt - swing.T) > 0.01f) { _knifeShownAt = swing.T; Plugin.Log.LogInfo($"Killcam: replaying knife swing of player {_killerId} at t={swing.T:0.00} (replay t={t:0.00})"); }
             if (!_knifeCopy || _knifeCopySkin != swing.Skin)
             {
                 if (_knifeCopy) Object.Destroy(_knifeCopy);
@@ -952,7 +952,7 @@ namespace HowToFish1v1.Match
             _actorCopies.Clear();
             ClearTracers();
             if (_knifeCopy) Object.Destroy(_knifeCopy);
-            _knifeCopy = null; _knifeCopySkin = 255; _knifeSoundedAt = -1f;
+            _knifeCopy = null; _knifeCopySkin = 255; _knifeSoundedAt = -1f; _knifeShownAt = -1f;
             foreach (var o in _knifeCreated) if (o) Object.Destroy(o);
             _knifeCreated.Clear();
             foreach (var c in _bodyCopies.Values) c.Destroy();
@@ -1104,6 +1104,7 @@ namespace HowToFish1v1.Match
                         UpdateGhost(true, t);
                         ApplyAim(cam, baseFov);
                         PlaceViewGun(rp, rr, t);
+                        ReplayKnife(rp, rr, t);
                         if (_mode == Mode.Replay) ReplayShots();
                         pos = _remoteKiller ? rp + rr * Vector3.forward * EyeForward : rp;
                         rot = rr;

@@ -79,6 +79,7 @@ namespace HowToFish1v1.Match
             if (!_knives.TryGetValue(ownerId, out var list)) { list = new List<KnifeSwing>(); _knives[ownerId] = list; }
             list.Add(new KnifeSwing { T = Time.unscaledTime, Skin = skin });
             while (list.Count > 0 && Time.unscaledTime - list[0].T > KeepSeconds) list.RemoveAt(0);
+            Plugin.Log.LogInfo($"Recorder: knife swing by player {ownerId} at t={Time.unscaledTime:0.00}");
         }
 
         /// <summary>The knife swing in progress at time t, if any.</summary>
@@ -86,7 +87,7 @@ namespace HowToFish1v1.Match
         {
             swing = default;
             if (!_knives.TryGetValue(ownerId, out var list)) return false;
-            foreach (var s in list) if (t >= s.T && t <= s.T + swingSeconds) { swing = s; return true; }
+            foreach (var s in list) if (t >= s.T - 0.02f && t <= s.T + swingSeconds + 0.02f) { swing = s; return true; }
             return false;
         }
         private static readonly Dictionary<int, List<Shot>> _shotHits = new Dictionary<int, List<Shot>>();
