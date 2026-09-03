@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.2.34",
-    "notes":  "Charm: anchored on the gun\u0027s real left flank using an oriented box in the gun\u0027s own axes (it was hanging from the eye position).",
+    "version":  "0.2.35",
+    "notes":  "Ricochets: bullets bounce once off arena surfaces and can hit players, bots and birds for 75% damage, with a bright tracer along the bounce (live for everyone and in killcam replays) and a ping on the wall. Gun balance is now host-authoritative: sniper 100 (one shot), pistol 30, assault rifle 24, shotgun 25 per pellet, SMG 16; knife 150 in reach; bullet-tier upgrades removed; client damage settings no longer matter.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.35/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.35/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.35/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.34/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.35/hitmarker.mp3"
                   }
               ]
 }
