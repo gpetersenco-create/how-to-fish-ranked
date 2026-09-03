@@ -1,0 +1,14 @@
+﻿{
+    "version":  "0.2.8",
+    "notes":  "First-person killcam with scope/crosshair and slow motion, glowing weapon skins, auto-updates",
+    "files":  [
+                  {
+                      "name":  "HowToFish1v1.dll",
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.8/HowToFish1v1.dll"
+                  },
+                  {
+                      "name":  "HowToFish1v1.Core.dll",
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.8/HowToFish1v1.Core.dll"
+                  }
+              ]
+}
