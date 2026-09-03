@@ -31,6 +31,9 @@ namespace HowToFish1v1.Net.Proto2
     /// <summary>Host to everyone: this player swung the knife.</summary>
     public struct KnifeStateBroadcast : IBroadcast { public int OwnerId; public byte Skin; }
 
+    /// <summary>Host to everyone: a player was caught cheating.</summary>
+    public struct CheatBroadcast : IBroadcast { public int OwnerId; public string Name; public string Reason; }
+
     public struct AimStateBroadcast : IBroadcast
     {
         public int OwnerId;

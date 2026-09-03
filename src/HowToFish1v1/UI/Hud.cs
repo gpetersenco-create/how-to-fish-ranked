@@ -189,6 +189,38 @@ namespace HowToFish1v1.UI
         private static float _cardShownAt;
         private static bool _cardWasActive;
 
+        private static string _announce = "";
+        private static float _announceUntil = -1f, _announceStart;
+        private static bool _announceRed;
+
+        /// <summary>A big centre-screen announcement for a few seconds (red flash when it is about you).</summary>
+        public static void Announce(string text, float seconds, bool red = false)
+        {
+            _announce = text; _announceStart = Time.unscaledTime; _announceUntil = Time.unscaledTime + seconds; _announceRed = red;
+        }
+
+        public static void DrawAnnouncement()
+        {
+            if (Time.unscaledTime > _announceUntil || string.IsNullOrEmpty(_announce)) return;
+            float age = Time.unscaledTime - _announceStart;
+            float a = Mathf.Clamp01(age * 4f) * Mathf.Clamp01((_announceUntil - Time.unscaledTime) * 2f);
+            var saved = RankedStyles.BeginCanvas();
+            if (_announceRed)
+            {
+                GUI.color = new Color(0.6f, 0f, 0f, 0.35f * a * (0.7f + 0.3f * Mathf.Sin(age * 9f)));
+                GUI.DrawTexture(new Rect(0, 0, RankedStyles.DesignW, RankedStyles.DesignH), RankedStyles.White);
+            }
+            GUI.color = new Color(1f, 1f, 1f, a);
+            float w = 1100f, h = 180f, x = (RankedStyles.DesignW - w) / 2f, y = 300f + (1f - Mathf.Clamp01(age * 4f)) * 40f;
+            RankedStyles.Box(new Rect(x, y, w, h), RankedStyles.PanelColor, 18f);
+            RankedStyles.Outline(new Rect(x, y, w, h), RankedStyles.RedColor, 3f, 18f);
+            var style = new GUIStyle(RankedStyles.H1Center) { fontSize = 40, richText = true };
+            style.normal.textColor = new Color(1f, 0.35f, 0.3f);
+            GUI.Label(new Rect(x, y, w, h), _announce, style);
+            GUI.color = Color.white;
+            GUI.matrix = saved;
+        }
+
         /// <summary>Resets the card's slide-in when the killcam ends.</summary>
         public static void TrackCard() { if (!KillCam.Active) _cardWasActive = false; }
 

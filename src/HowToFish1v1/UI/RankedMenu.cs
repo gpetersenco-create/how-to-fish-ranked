@@ -109,9 +109,7 @@ namespace HowToFish1v1.UI
             if (!IsOpen) return;
             float open = S.Ease(PageKey, 0.35f);
             var saved = S.BeginCanvas();
-            GUI.DrawTexture(new Rect(0, 0, S.DesignW, S.DesignH), S.Bg);
-            GUI.color = new Color(1f, 1f, 1f, 0.05f);
-            GUI.DrawTexture(new Rect(1100 + (1f - open) * 300f, -200, 500, 1600), S.White);
+            S.DrawBackground(open);
             GUI.color = new Color(1f, 1f, 1f, open);
 
             DrawTabBar();
@@ -146,23 +144,38 @@ namespace HowToFish1v1.UI
 
         private static void DrawTabBar()
         {
-            S.Box(new Rect(0, -20, S.DesignW, 112), S.PanelColor, 18f);
+            S.Box(new Rect(-20, -30, S.DesignW + 40, 122), S.PanelColor, 22f);
+            S.Rule(0, 91, S.DesignW);
             if (S.Btn(new Rect(24, 22, 60, 48), "<", S.Button)) ClosePage();
             float x = 120;
             float targetX = -1f;
+            // The active tab sits in a gold-dim pill that glides between tabs; the others brighten on hover.
+            if (_underlineX < 0f) _underlineX = 120 + (int)_tab * TabW;
+            if (Event.current.type == EventType.Repaint) _underlineX = Mathf.Lerp(_underlineX, 120 + (int)_tab * TabW, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+            S.Box(new Rect(_underlineX + 10, 22, TabW - 20, 48), new Color(0.52f, 0.42f, 0.16f, 0.55f), 24f);
+            S.Outline(new Rect(_underlineX + 10, 22, TabW - 20, 48), new Color(1f, 0.85f, 0.4f, 0.5f), 1.5f, 24f);
             for (int i = 0; i < TabNames.Length; i++)
             {
                 bool on = (int)_tab == i;
                 var r = new Rect(x, 0, TabW, 92);
                 if (GUI.Button(r, TabNames[i], on ? S.TabOn : S.Tab)) SetTab((Tab)i);
-                if (on) targetX = x + 25;
+                if (on) targetX = x;
                 x += TabW;
             }
-            // Gold underline glides to the active tab.
-            if (_underlineX < 0f) _underlineX = targetX;
-            if (Event.current.type == EventType.Repaint) _underlineX = Mathf.Lerp(_underlineX, targetX, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
-            S.Box(new Rect(_underlineX, 86, TabW - 50, 4), S.GoldColor, 2f);
-            GUI.Label(new Rect(S.DesignW - 420, 26, 400, 40), "HOW TO FISH  |  RANKED", S.Small);
+            // Player chip: emblem, name, rank and RP.
+            var ladder = RankService.Ladder;
+            int tier = ladder.TierIndex(RankService.Points);
+            string me = Player.LocalPlayer ? Player.LocalPlayer.SteamName : (SteamManagerName());
+            float cx = S.DesignW - 440;
+            S.Box(new Rect(cx, 14, 420, 64), S.PanelLightColor, 32f);
+            S.Emblem(cx + 34, 18, 56, tier);
+            GUI.Label(new Rect(cx + 72, 18, 330, 30), me, S.H2);
+            GUI.Label(new Rect(cx + 72, 46, 330, 26), $"{ladder.TierName(RankService.Points).ToUpperInvariant()}   {RankService.Points} RP", S.GoldText);
+        }
+
+        private static string SteamManagerName()
+        {
+            try { return Steamworks.SteamFriends.GetPersonaName(); } catch (System.Exception) { return "You"; }
         }
 
         private static void DrawFooter()
@@ -212,9 +225,7 @@ namespace HowToFish1v1.UI
             frac *= e;
             GUI.Label(new Rect(bx, by - 34, 200, 30), "0", S.Small);
             GUI.Label(new Rect(bx + bw - 200, by - 34, 200, 30), ladder.PointsPerTier.ToString(), S.SmallRight);
-            S.Box(new Rect(bx, by, bw, 14), _texBar, 7f);
-            if (frac > 0.01f) S.Box(new Rect(bx, by, bw * frac, 14), S.GoldColor, 7f);
-            S.Box(new Rect(bx + bw * frac - 3, by - 6, 6, 26), S.GoldColor, 3f);
+            S.Bar(new Rect(bx, by, bw, 16), frac, S.GoldColor);
             GUI.Label(new Rect(bx, by + 22, bw, 30), $"{Mathf.RoundToInt(inTier * e)} RP", S.Body);
             GUI.Label(new Rect(bx - 100, by + 60, bw + 200, 60),
                 $"RANK POINTS: earn Rank Points (RP) by winning ranked matches (+{ladder.WinPoints}) and rank up every {ladder.PointsPerTier} RP. Losses cost {ladder.LossPoints} RP.", S.GoldText);
@@ -248,8 +259,10 @@ namespace HowToFish1v1.UI
 
         private static void Stat(float x, float y, string label, string value)
         {
-            GUI.Label(new Rect(x, y, 200, 34), label, S.StatLabel);
-            GUI.Label(new Rect(x, y + 30, 200, 60), value, S.Stat);
+            S.Box(new Rect(x - 12, y - 6, 200, 96), new Color(1f, 1f, 1f, 0.05f), 12f);
+            S.Box(new Rect(x - 12, y - 6, 4, 96), S.GoldDimColor, 2f);
+            GUI.Label(new Rect(x, y, 190, 34), label.ToUpperInvariant(), S.StatLabel);
+            GUI.Label(new Rect(x, y + 30, 190, 60), value, S.Stat);
         }
 
         // ---------------------------------------------------------------- LEADERBOARD
@@ -258,7 +271,7 @@ namespace HowToFish1v1.UI
         {
             var ladder = RankService.Ladder;
             var top = Leaderboard.Top(25);
-            GUI.Label(new Rect(60, 130, 900, 50), "LEADERBOARD  <size=55%>top 25</size>", S.Title);
+            S.Shadowed(new Rect(60, 130, 900, 50), "LEADERBOARD  <size=55%>top 25</size>", S.Title); S.Rule(60, 184, 240);
             if (Leaderboard.IsGlobal)
                 GUI.Label(new Rect(60, 180, 1200, 40), "Global standings of everyone running the mod. Your own rank is reported after each match." + (string.IsNullOrEmpty(CloudRanks.Status) ? "" : "   " + CloudRanks.Status), S.Small);
             else
@@ -299,7 +312,7 @@ namespace HowToFish1v1.UI
         private static void DrawOverview()
         {
             var ladder = RankService.Ladder;
-            GUI.Label(new Rect(60, 130, 900, 50), "RANKED PLAY", S.Title);
+            S.Shadowed(new Rect(60, 130, 900, 50), "RANKED PLAY", S.Title); S.Rule(60, 184, 240);
             GUI.Label(new Rect(60, 200, 820, 200),
                 "Fight friends in round-based 1v1, 2v2 and 3v3 or a free-for-all on small arenas built for duels. " +
                 "Every match moves your Rank Points; climb from Master Baiter to Poseidon. Pick a mode in GAMEPLAY, a map in MAPS, then hit MATCHMAKE.", S.Body);
@@ -314,7 +327,7 @@ namespace HowToFish1v1.UI
         {
             var ladder = RankService.Ladder;
             int cur = ladder.TierIndex(RankService.Points);
-            GUI.Label(new Rect(60, 130, 900, 50), "RANK LADDER", S.Title);
+            S.Shadowed(new Rect(60, 130, 900, 50), "RANK LADDER", S.Title); S.Rule(60, 184, 240);
             int n = ladder.Names.Length;
             float slot = Mathf.Min(180f, (S.DesignW - 120f) / n);
             for (int i = 0; i < n; i++)
@@ -330,19 +343,21 @@ namespace HowToFish1v1.UI
 
         private static void DrawGameplay()
         {
-            GUI.Label(new Rect(60, 130, 900, 50), "GAMEPLAY", S.Title);
+            S.Shadowed(new Rect(60, 130, 900, 50), "GAMEPLAY", S.Title); S.Rule(60, 184, 240);
             string[] blurbs =
             {
                 "One kill wins the round.\nFirst to 6 rounds.",
                 "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 4 players.",
                 "A round ends when a whole team is down.\nFirst to 6 rounds. 2 to 6 players.",
-                "2 to 8 players. First to 10 kills.\nRespawn after a short killcam."
+                "2 to 8 players. First to 10 kills.\nRespawn after a short killcam.",
+                "Solo practice. Jump off the tower and\nhit a bot mid-air. Miss and you go back up."
             };
             for (int i = 0; i < MatchModes.All.Length; i++)
             {
                 var m = MatchModes.All[i];
                 float ce = S.Ease(TabKey, 0.3f, 0.06f * i);
-                var r = new Rect(60 + i * 450, 220 + (1f - ce) * 40f, 420, 300);
+                float cardW = Mathf.Min(420f, (S.DesignW - 120f - 30f * (MatchModes.All.Length - 1)) / MatchModes.All.Length);
+                var r = new Rect(60 + i * (cardW + 30f), 220 + (1f - ce) * 40f, cardW, 300);
                 bool on = m == _mode;
                 var saved = GUI.color; GUI.color = new Color(1f, 1f, 1f, saved.a * ce);
                 S.Box(r, on ? S.PanelLightColor : S.PanelColor, 16f);
@@ -357,7 +372,7 @@ namespace HowToFish1v1.UI
         private static void DrawMatchFormat()
         {
             var c = Plugin.Cfg;
-            GUI.Label(new Rect(60, 130, 900, 50), "MATCH FORMAT", S.Title);
+            S.Shadowed(new Rect(60, 130, 900, 50), "MATCH FORMAT", S.Title); S.Rule(60, 184, 240);
             string[][] rows =
             {
                 new[] { "Rounds to win (1v1, 2v2, 3v3)", c.RoundsToWin.Value.ToString() },
@@ -386,7 +401,7 @@ namespace HowToFish1v1.UI
 
         private static void DrawMaps()
         {
-            GUI.Label(new Rect(60, 130, 900, 50), "MAPS", S.Title);
+            S.Shadowed(new Rect(60, 130, 900, 50), "MAPS", S.Title); S.Rule(60, 184, 240);
             for (int i = 0; i < ArenaLayout.MapCount; i++)
             {
                 float ce = S.Ease(TabKey, 0.3f, 0.06f * i);

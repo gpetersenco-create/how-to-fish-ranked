@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using HowToFish1v1.Core;
 using HowToFish1v1.Match;
 using UnityEngine;
@@ -20,8 +20,8 @@ namespace HowToFish1v1.UI
             float w = 1100, x = (S.DesignW - w) / 2f, y = 120;
             int rows = ClientMatchView.Players.Length + (ffa ? 1 : 2);
             float h = 110 + rows * 52 + 40;
-            S.Box(new Rect(x, y, w, h), S.Bg);
-            GUI.DrawTexture(new Rect(x, y, w, 6), S.Gold);
+            S.Card(new Rect(x, y, w, h), S.PanelColor, 18f);
+            S.Rule(x + 24, y + 62, w - 48);
 
             string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];
             string title = ffa ? $"FREE-FOR-ALL   first to {s.KillsToWin}" : $"{MatchModes.Name((MatchMode)s.Mode).ToUpperInvariant()}   round {s.Round}   {s.TeamScoreA} - {s.TeamScoreB}";

@@ -102,6 +102,7 @@ namespace HowToFish1v1.Patches
             }
             Match.WeaponSkins.OnShot(__instance);
             Match.Trickshot.OnShot(__instance);
+            Match.AntiCheat.OnShot(__instance);
         }
 
         // Tab opens the fish journal in the base game; during matches Tab is the scoreboard.

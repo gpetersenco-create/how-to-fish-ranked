@@ -48,9 +48,7 @@ namespace HowToFish1v1.UI
             if (!IsOpen) return;
             float open = S.Ease("lobby", 0.35f);
             var saved = S.BeginCanvas((1f - open) * 24f);
-            GUI.DrawTexture(new Rect(0, -40, S.DesignW, S.DesignH + 80), S.Bg);
-            GUI.color = new Color(1f, 1f, 1f, 0.05f);
-            GUI.DrawTexture(new Rect(1100 + (1f - open) * 300f, -200, 500, 1600), S.White);
+            S.DrawBackground(open);
             GUI.color = new Color(1f, 1f, 1f, open);
 
             bool host = ModNet.IsHost;
@@ -81,8 +79,9 @@ namespace HowToFish1v1.UI
 
         private static void DrawHeader(bool host, bool has, MatchStateBroadcast s)
         {
-            S.Box(new Rect(0, 0, S.DesignW, 92), S.Panel);
-            GUI.Label(new Rect(40, 20, 500, 52), "RANKED LOBBY", S.Title);
+            S.Box(new Rect(-20, -30, S.DesignW + 40, 122), S.PanelColor, 22f);
+            S.Rule(0, 91, S.DesignW);
+            S.Shadowed(new Rect(40, 20, 500, 52), "RANKED LOBBY", S.Title);
             if (has)
             {
                 var mode = (MatchMode)s.Mode;
@@ -151,8 +150,9 @@ namespace HowToFish1v1.UI
             float ce = S.Ease("lobby", 0.3f, 0.05f * (_cardIndex++ % 8));
             x += (1f - ce) * 40f;
             bool me = p.Id == ModState.LocalOwnerId;
-            GUI.DrawTexture(new Rect(x, y, w, 118), me ? S.PanelLight : S.Panel);
-            if (p.Ready) GUI.DrawTexture(new Rect(x, y, 6, 118), S.Green);
+            S.Box(new Rect(x, y, w, 118), me ? S.PanelLightColor : S.PanelColor, 14f);
+            if (me) S.Outline(new Rect(x, y, w, 118), new Color(1f, 0.85f, 0.4f, 0.35f), 1.5f, 14f);
+            if (p.Ready) { S.Glow(new Rect(x, y, 12, 118), new Color(0.3f, 1f, 0.5f, 0.5f + 0.3f * Mathf.Sin(Time.unscaledTime * 3f)), 2f); S.Box(new Rect(x, y + 10, 6, 98), S.GreenColor, 3f); }
             int tier = RankService.Ladder.TierIndex(p.RankPoints);
             S.Emblem(x + 62, y + 12, 94, tier);
             GUI.Label(new Rect(x + 120, y + 12, w - 260, 36), p.Name + (me ? "  (you)" : ""), S.H1);

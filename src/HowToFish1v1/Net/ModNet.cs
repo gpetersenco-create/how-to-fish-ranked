@@ -18,6 +18,7 @@ namespace HowToFish1v1.Net
         public static event Action<KillFeedBroadcast> KillFeedReceived;
         public static event Action<NetworkConnection, AimBroadcast> AimReceived;
         public static event Action<AimStateBroadcast> AimStateReceived;
+        public static event Action<CheatBroadcast> CheatReceived;
         public static event Action<NetworkConnection, KnifeBroadcast> KnifeReceived;
         public static event Action<KnifeStateBroadcast> KnifeStateReceived;
         public static event Action ClientStopped;
@@ -62,6 +63,7 @@ namespace HowToFish1v1.Net
             nm.ClientManager.RegisterBroadcast<KillFeedBroadcast>((msg, ch) => KillFeedReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<AimBroadcast>((conn, msg, ch) => AimReceived?.Invoke(conn, msg));
             nm.ClientManager.RegisterBroadcast<AimStateBroadcast>((msg, ch) => AimStateReceived?.Invoke(msg));
+            nm.ClientManager.RegisterBroadcast<CheatBroadcast>((msg, ch) => CheatReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<KnifeBroadcast>((conn, msg, ch) => KnifeReceived?.Invoke(conn, msg));
             nm.ClientManager.RegisterBroadcast<KnifeStateBroadcast>((msg, ch) => KnifeStateReceived?.Invoke(msg));
             nm.ClientManager.OnAuthenticated += SendHello;
@@ -116,6 +118,12 @@ namespace HowToFish1v1.Net
         {
             if (!IsHost) return;
             InstanceFinder.ServerManager.Broadcast(new KnifeStateBroadcast { OwnerId = ownerId, Skin = skin });
+        }
+
+        public static void BroadcastCheat(CheatBroadcast msg)
+        {
+            if (!IsHost) return;
+            InstanceFinder.ServerManager.Broadcast(msg);
         }
 
         public static void BroadcastAimState(int ownerId, bool ads)

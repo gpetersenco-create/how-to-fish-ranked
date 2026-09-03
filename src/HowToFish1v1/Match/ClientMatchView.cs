@@ -30,6 +30,12 @@ namespace HowToFish1v1.Match
             // Our own aim state is recorded the moment it changes (below); the relayed copy would arrive a round trip late.
             ModNet.AimStateReceived += a => { if (a.OwnerId != ModState.LocalOwnerId) Recorder.RecordAim(a.OwnerId, a.Ads); };
             ModNet.KnifeStateReceived += k => { if (k.OwnerId != ModState.LocalOwnerId) Recorder.RecordKnife(k.OwnerId, k.Skin); };
+            ModNet.CheatReceived += c =>
+            {
+                bool me = c.OwnerId == ModState.LocalOwnerId;
+                Hud.Announce(me ? AntiCheat.Message : $"{c.Name}\n<size=60%>{AntiCheat.Message}</size>", me ? 8f : 6f, me);
+                Plugin.Log.LogWarning($"Anti-cheat: {c.Name} was caught ({c.Reason})");
+            };
         }
 
         private static bool _lastAds;
