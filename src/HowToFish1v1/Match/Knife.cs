@@ -115,6 +115,7 @@ namespace HowToFish1v1.Match
                     try { victim.Vitals.LocalHit(point, fwd, me, Damage, false, fwd * GameInfo.PlayerKillForce); } catch (System.Exception e) { Plugin.Log.LogWarning("Knife hit: " + e.Message); }
                     return;
                 }
+                if (h.collider && h.collider.GetComponentInParent<TrickshotBot>()) { Trickshot.RegisterHit(); return; }
                 Item item = null;
                 try { item = ItemManager.Get(h.transform); } catch (System.Exception) { }
                 if (item && item is Creature)

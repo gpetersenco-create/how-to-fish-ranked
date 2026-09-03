@@ -69,6 +69,8 @@ namespace HowToFish1v1.Match
         private static readonly Dictionary<int, List<BodySample>> _bodies = new Dictionary<int, List<BodySample>>();
         private static readonly Dictionary<int, RigParts> _bodyParts = new Dictionary<int, RigParts>();
         private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
+        public struct Shot { public float T; public Vector3 Hit; public bool HasHit; }
+        private static readonly Dictionary<int, List<Shot>> _shotHits = new Dictionary<int, List<Shot>>();
         private static readonly Dictionary<int, List<(float t, bool ads)>> _aim = new Dictionary<int, List<(float, bool)>>();
         private static readonly Dictionary<Component, RigParts> _rigCache = new Dictionary<Component, RigParts>();
         private static float _nextCacheClear;
@@ -77,6 +79,11 @@ namespace HowToFish1v1.Match
         private static float _nextCreatureScan, _nextMannequin;
 
         public static IEnumerable<KeyValuePair<int, ActorTrack>> Actors => _actors;
+        private static readonly List<Transform> _extras = new List<Transform>();
+        /// <summary>Mod-made things worth replaying (trickshot bots).</summary>
+        public static IReadOnlyList<Transform> LiveExtras => _extras;
+        public static void RegisterActor(Transform t) { if (t && !_extras.Contains(t)) _extras.Add(t); }
+        public static void UnregisterActor(Transform t) { _extras.Remove(t); }
         /// <summary>Creatures currently in the world (refreshed twice a second).</summary>
         public static Creature[] LiveCreatures => _creatures;
         public static MannequinData Mannequin { get; private set; }
@@ -85,12 +92,25 @@ namespace HowToFish1v1.Match
         // ------------------------------------------------------------------ shots / aim
 
         /// <summary>A weapon held by this player fired (seen on every client through the game's shoot effects).</summary>
-        public static void RecordShot(int ownerId)
+        public static void RecordShot(int ownerId) => RecordShot(ownerId, Vector3.zero, false);
+
+        /// <summary>A shot plus where its aim line landed, for the replay's tracer.</summary>
+        public static void RecordShot(int ownerId, Vector3 hit, bool hasHit)
         {
             if (!ModState.IsActive) return;
             if (!_shots.TryGetValue(ownerId, out var list)) { list = new List<float>(); _shots[ownerId] = list; }
             list.Add(Time.unscaledTime);
             while (list.Count > 0 && Time.unscaledTime - list[0] > KeepSeconds) list.RemoveAt(0);
+            if (!_shotHits.TryGetValue(ownerId, out var hits)) { hits = new List<Shot>(); _shotHits[ownerId] = hits; }
+            hits.Add(new Shot { T = Time.unscaledTime, Hit = hit, HasHit = hasHit });
+            while (hits.Count > 0 && Time.unscaledTime - hits[0].T > KeepSeconds) hits.RemoveAt(0);
+        }
+
+        /// <summary>Shots the player fired in the (t0, t1] window, with their landing points.</summary>
+        public static void ShotsBetween(int ownerId, float t0, float t1, List<Shot> into)
+        {
+            if (!_shotHits.TryGetValue(ownerId, out var list)) return;
+            foreach (var s in list) if (s.T > t0 && s.T <= t1) into.Add(s);
         }
 
         public static void RecordAim(int ownerId, bool ads)
@@ -204,7 +224,7 @@ namespace HowToFish1v1.Match
         {
             if (!ModState.IsActive)
             {
-                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
+                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _shotHits.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
                 if (_actors.Count > 0) { foreach (var tr in _actors.Values) DestroyParts(tr); _actors.Clear(); _creatures = Array.Empty<Creature>(); }
                 return;
             }
@@ -289,17 +309,10 @@ namespace HowToFish1v1.Match
             foreach (var c in _creatures)
             {
                 if (!c || !c.gameObject.activeInHierarchy) continue;
-                int id = c.GetInstanceID();
-                if (!_actors.TryGetValue(id, out var tr))
-                {
-                    tr = new ActorTrack { Name = c.name };
-                    Snapshot(c, tr);
-                    if (tr.Parts.Count == 0) continue;
-                    _actors[id] = tr;
-                }
-                tr.Samples.Add(new Sample { T = now, Pos = c.transform.position, Rot = c.transform.rotation });
-                Prune(tr.Samples, now, s => s.T);
+                Track(c.transform, now);
             }
+            _extras.RemoveAll(t => !t);
+            foreach (var t in _extras) if (t.gameObject.activeInHierarchy) Track(t, now);
             List<int> dead = null;
             foreach (var kv in _actors)
             {
@@ -309,9 +322,23 @@ namespace HowToFish1v1.Match
             if (dead != null) foreach (var id in dead) { DestroyParts(_actors[id]); _actors.Remove(id); }
         }
 
-        private static void Snapshot(Creature c, ActorTrack tr)
+        private static void Track(Transform root, float now)
         {
-            var root = c.transform;
+            int id = root.GetInstanceID();
+            if (!_actors.TryGetValue(id, out var tr))
+            {
+                tr = new ActorTrack { Name = root.name };
+                Snapshot(root, tr);
+                if (tr.Parts.Count == 0) return;
+                _actors[id] = tr;
+            }
+            tr.Samples.Add(new Sample { T = now, Pos = root.position, Rot = root.rotation });
+            Prune(tr.Samples, now, s => s.T);
+        }
+
+        private static void Snapshot(Transform c, ActorTrack tr)
+        {
+            var root = c;
             foreach (var r in c.GetComponentsInChildren<Renderer>(false))
             {
                 if (!r || !r.enabled) continue;

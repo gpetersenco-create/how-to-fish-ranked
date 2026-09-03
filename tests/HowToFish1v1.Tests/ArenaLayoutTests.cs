@@ -10,13 +10,14 @@ namespace HowToFish1v1.Tests
     {
         private static bool Near(float a, float b) => Math.Abs(a - b) < 0.001f;
 
+        /// <summary>The two-sided maps; the solo trickshot map has no facing pads and no symmetry.</summary>
         public static IEnumerable<object[]> Maps() =>
-            Enumerable.Range(0, ArenaLayout.MapCount).Select(i => new object[] { i });
+            Enumerable.Range(0, ArenaLayout.MapCount).Where(i => !ArenaLayout.IsSoloMap(i)).Select(i => new object[] { i });
 
         [Fact]
         public void MapIndexWrapsAndNamesMatch()
         {
-            Assert.Equal(4, ArenaLayout.MapCount);
+            Assert.Equal(5, ArenaLayout.MapCount);
             for (int i = 0; i < ArenaLayout.MapCount; i++)
                 Assert.Equal(ArenaLayout.MapNames[i], ArenaLayout.Create(i).Name);
             Assert.Equal(ArenaLayout.MapNames[1], ArenaLayout.Create(1 + ArenaLayout.MapCount).Name);
@@ -143,5 +144,41 @@ namespace HowToFish1v1.Tests
                                     Assert.True(blocked, $"{l.Name}: open line from L({xa},{ha},{za}) to R({xb},{hb},{zb})");
                                 }
         }
-    }
+    
+        [Fact]
+        public void TrickshotMapHasPerchAndBots()
+        {
+            var l = ArenaLayout.Create(ArenaLayout.TrickshotIndex);
+            Assert.Contains(l.Boxes, b => b.Name == "Floor");
+            Assert.True(l.Left.Y > 15f, "spawn is high up");
+            Assert.True(l.Bots.Count >= 6);
+            Assert.Contains(l.Bots, b => b.Moving);
+            Assert.Contains(l.Bots, b => !b.Moving);
+            Assert.True(l.Ceiling > l.Left.Y + 5f, "ceiling above the perch");
+        }
+
+        [Fact]
+        public void TrickshotModeIsSoloAndPicksItsMap()
+        {
+            var m = new MatchMachine(new MatchRules());
+            m.Open();
+            m.PlayerJoined(1, "a");
+            m.PlayerSaidHello(1, true);
+            m.SetLoadout(1, new byte[0], true);
+            m.SetMode(MatchMode.Trickshot);
+            Assert.Equal(ArenaLayout.TrickshotIndex, m.State.MapIndex);
+            Assert.True(m.CanStart(out var why), why);
+            m.Start(0); m.Tick(3);
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            m.Kill(1, -1, 4);                                   // fell: respawn, no round end
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            m.EndTrickshot(1, 5, 3);
+            Assert.Equal(MatchPhase.MatchEnd, m.State.Phase);
+            Assert.Equal(1, m.State.MatchWinnerId);
+            m.Tick(5 + m.Rules.MatchEndSeconds);
+            Assert.Equal(MatchPhase.Lobby, m.State.Phase);
+            m.SetMode(MatchMode.OneVOne);
+            Assert.Equal(0, m.State.MapIndex);
+        }
+}
 }

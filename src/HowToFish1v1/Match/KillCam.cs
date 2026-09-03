@@ -87,6 +87,14 @@ namespace HowToFish1v1.Match
         private static Vector3 _previewGhostPos;
         private static Quaternion _previewGhostRot;
 
+        // Bullet tracers: a bright streak flying from the muzzle to where the shot landed, in replay time.
+        private sealed class Tracer { public GameObject Go; public Vector3 From, To; public float T0, Dur; }
+        private static readonly List<Tracer> _tracers = new List<Tracer>();
+        private static readonly List<Recorder.Shot> _shotBuf = new List<Recorder.Shot>();
+        private static Material _tracerMat;
+        private const float TracerSeconds = 0.09f;   // replay seconds from muzzle to target (slow motion stretches it)
+        private const float TracerLength = 2.2f;
+
         // The most recent kill seen this match, for the final killcam.
         private static int _lastKillerId = -1, _lastVictimId = -1;
         private static float _lastKillTime;
@@ -474,7 +482,7 @@ namespace HowToFish1v1.Match
             }
         }
 
-        /// <summary>Replays any shot the killer fired since the last frame of replay time: flash plus the gun's own sound.</summary>
+        /// <summary>Replays any shot the killer fired since the last frame of replay time: flash, tracer and the gun's own sound.</summary>
         private static void ReplayShots()
         {
             if (Recorder.FiredBetween(_killerId, _lastShotCheck, _replayT))
@@ -487,8 +495,60 @@ namespace HowToFish1v1.Match
                     // The game names its clips "<sound><n>"; this is the same call it uses, without the 3D position.
                     try { AudioManager.PlayRandomGlobalClip(_fireSound, 1, _fireSoundCount, false, _fireVolume, 0.02f); } catch (System.Exception) { }
                 }
+                _shotBuf.Clear();
+                Recorder.ShotsBetween(_killerId, _lastShotCheck, _replayT, _shotBuf);
+                Vector3 from = _flash ? _flash.transform.position : (_gun != null && _gun.Root ? _gun.Root.transform.position : Vector3.zero);
+                foreach (var s in _shotBuf) if (s.HasHit) SpawnTracer(from, s.Hit, s.T);
             }
             _lastShotCheck = _replayT;
+            UpdateTracers();
+        }
+
+        private static void SpawnTracer(Vector3 from, Vector3 to, float shotT)
+        {
+            if (!_tracerMat)
+            {
+                _tracerMat = new Material(Arena.ArenaMaterials.For(BoxKind.Yellow));
+                if (_tracerMat.HasProperty("_BaseMap")) _tracerMat.SetTexture("_BaseMap", null);
+                if (_tracerMat.HasProperty("_BumpMap")) _tracerMat.SetTexture("_BumpMap", null);
+                _tracerMat.DisableKeyword("_NORMALMAP");
+                if (_tracerMat.HasProperty("_BaseColor")) _tracerMat.SetColor("_BaseColor", new Color(1f, 0.92f, 0.6f));
+                _tracerMat.EnableKeyword("_EMISSION");
+                if (_tracerMat.HasProperty("_EmissionColor")) _tracerMat.SetColor("_EmissionColor", new Color(1f, 0.8f, 0.35f) * 5f);
+            }
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = "HTF1v1_Tracer";
+            Object.Destroy(go.GetComponent<Collider>());
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sharedMaterial = _tracerMat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _tracers.Add(new Tracer { Go = go, From = from, To = to, T0 = Mathf.Max(shotT, _lastShotCheck), Dur = TracerSeconds });
+        }
+
+        private static void UpdateTracers()
+        {
+            for (int i = _tracers.Count - 1; i >= 0; i--)
+            {
+                var tr = _tracers[i];
+                if (!tr.Go) { _tracers.RemoveAt(i); continue; }
+                float k = (_replayT - tr.T0) / tr.Dur;
+                if (k > 1.15f || k < -0.05f) { Object.Destroy(tr.Go); _tracers.RemoveAt(i); continue; }
+                k = Mathf.Clamp01(k);
+                float dist = Vector3.Distance(tr.From, tr.To);
+                float len = Mathf.Min(TracerLength, dist);
+                Vector3 dir = dist > 0.001f ? (tr.To - tr.From) / dist : Vector3.forward;
+                Vector3 head = tr.From + dir * (dist * k);
+                Vector3 tail = head - dir * Mathf.Min(len, dist * k);
+                tr.Go.transform.position = (head + tail) * 0.5f;
+                tr.Go.transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+                tr.Go.transform.localScale = new Vector3(0.025f, 0.025f, Mathf.Max(0.05f, Vector3.Distance(head, tail)));
+            }
+        }
+
+        private static void ClearTracers()
+        {
+            foreach (var tr in _tracers) if (tr.Go) Object.Destroy(tr.Go);
+            _tracers.Clear();
         }
 
         // ------------------------------------------------------------------ other players, victim, creatures
@@ -765,6 +825,7 @@ namespace HowToFish1v1.Match
                 if (item) { _hiddenItems[p.OwnerId] = item; HideRenderers(item); }
             }
             foreach (var c in Recorder.LiveCreatures) if (c) HideRenderers(c);
+            foreach (var t in Recorder.LiveExtras) if (t) HideRenderers(t);
         }
 
         private static void RehideDuringReplay(Player me)
@@ -857,6 +918,7 @@ namespace HowToFish1v1.Match
             _ghost = null;
             foreach (var go in _actorCopies.Values) if (go) Object.Destroy(go);
             _actorCopies.Clear();
+            ClearTracers();
             foreach (var c in _bodyCopies.Values) c.Destroy();
             _bodyCopies.Clear(); _bodyCopyParts.Clear();
             foreach (var c in _otherGunCopies.Values) c.Destroy();
@@ -1050,6 +1112,7 @@ namespace HowToFish1v1.Match
             UpdateActors(false, 0f);
             UpdateGhost(false, 0f);
             _gun?.SetActive(false);
+            ClearTracers();
             ShowLiveWorld();
         }
 

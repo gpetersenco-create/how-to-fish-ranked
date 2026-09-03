@@ -14,6 +14,13 @@ namespace HowToFish1v1.Core
         public BoxKind Kind;
     }
 
+    /// <summary>A practice target on the trickshot map; moving bots patrol between the two points.</summary>
+    public struct ArenaBot
+    {
+        public float X, Z, X2, Z2;
+        public bool Moving;
+    }
+
     public struct ArenaSpawn
     {
         public float X, Y, Z;
@@ -31,8 +38,11 @@ namespace HowToFish1v1.Core
         private const float Ramp2over4 = 26.565f; // atan(2/4)
         private const float Ramp3over4 = 36.87f;  // atan(3/4)
 
-        public static readonly string[] MapNames = { "Rust", "Nuketown", "Shipment", "Killhouse" };
+        public static readonly string[] MapNames = { "Rust", "Nuketown", "Shipment", "Killhouse", "Trickshot Tower" };
         public static int MapCount => MapNames.Length;
+        public const int TrickshotIndex = 4;
+        /// <summary>Maps built for one player (no facing spawn pads, no symmetry).</summary>
+        public static bool IsSoloMap(int mapIndex) => ((mapIndex % MapCount) + MapCount) % MapCount == TrickshotIndex;
 
         public string Name { get; private set; }
         public float HalfWidth { get; private set; }
@@ -42,9 +52,13 @@ namespace HowToFish1v1.Core
         public ArenaSpawn Right { get; private set; }
         /// <summary>Free-for-all spawns: the two pads plus four spread points, all facing the map center.</summary>
         public IReadOnlyList<ArenaSpawn> FfaSpawns => _ffa;
+        public IReadOnlyList<ArenaBot> Bots => _bots;
+        /// <summary>Height of the invisible ceiling (higher on the trickshot map).</summary>
+        public float Ceiling { get; private set; } = CeilingY;
 
         private readonly List<ArenaBox> _boxes = new List<ArenaBox>();
         private readonly List<ArenaSpawn> _ffa = new List<ArenaSpawn>();
+        private readonly List<ArenaBot> _bots = new List<ArenaBot>();
 
         /// <summary>Pad position for the index-th of count teammates: spaced 2 m apart along Z on the same pad.</summary>
         public ArenaSpawn TeamSpawn(Side side, int index, int count)
@@ -72,6 +86,7 @@ namespace HowToFish1v1.Core
                 case 1: return Nuketown();
                 case 2: return Shipment();
                 case 3: return Killhouse();
+                case 4: return Trickshot();
                 default: return Rust();
             }
         }
@@ -284,7 +299,51 @@ namespace HowToFish1v1.Core
             Add("WallS", 0, 3, -(HalfDepth + 0.25f), 2 * HalfWidth + 0.5f, 6, 0.5f, BoxKind.Invisible);
             Add("WallE", HalfWidth + 0.25f, 3, 0, 0.5f, 6, 2 * HalfDepth + 0.5f, BoxKind.Invisible);
             Add("WallW", -(HalfWidth + 0.25f), 3, 0, 0.5f, 6, 2 * HalfDepth + 0.5f, BoxKind.Invisible);
-            Add("Ceiling", 0, CeilingY, 0, 2 * HalfWidth + 1, 0.5f, 2 * HalfDepth + 1, BoxKind.Invisible);
+            Add("Ceiling", 0, Ceiling, 0, 2 * HalfWidth + 1, 0.5f, 2 * HalfDepth + 1, BoxKind.Invisible);
+        }
+
+        // ------------------------------------------------------------------ Trickshot Tower: one high perch, targets below
+
+        public static ArenaLayout Trickshot()
+        {
+            var l = new ArenaLayout { Name = "Trickshot Tower", HalfWidth = 36f, HalfDepth = 36f, Ceiling = 44f };
+            l.Floor();
+            // The perch: a tall block at the south edge with a railed deck on top. You spawn on the deck.
+            l.Add("Tower", 0, 11f, -28f, 8, 22, 8, BoxKind.Concrete);
+            l.Add("TowerDeck", 0, 22.2f, -28f, 10, 0.4f, 10, BoxKind.Steel);
+            l.Add("TowerRailBack", 0, 22.95f, -33f, 10, 1.1f, 0.25f, BoxKind.Steel);
+            l.Add("TowerRailL", -5f, 22.95f, -28f, 0.25f, 1.1f, 10, BoxKind.Steel);
+            l.Add("TowerRailR", 5f, 22.95f, -28f, 0.25f, 1.1f, 10, BoxKind.Steel);
+            l.Add("TowerStripe", 0, 11f, -23.95f, 2, 22, 0.1f, BoxKind.Yellow);
+            // A lower platform for variety and some cover on the ground.
+            l.Add("MidPlatform", -24f, 3f, 22f, 8, 6, 8, BoxKind.Concrete);
+            l.Add("MidRail", -24f, 6.5f, 26f, 8, 1f, 0.25f, BoxKind.Steel);
+            l.Add("ContainerA", -16f, 1.3f, -2f, 2.4f, 2.6f, 6, BoxKind.Rust);
+            l.Add("ContainerB", 18f, 1.3f, 8f, 6, 2.6f, 2.4f, BoxKind.Blue);
+            l.Add("ContainerC", 6f, 1.3f, 30f, 2.4f, 2.6f, 6, BoxKind.Red);
+            l.Add("LowWall", 0, 1f, 16f, 12, 2, 0.5f, BoxKind.Brick);
+            l.Add("Crate1", 8f, 0.75f, 10f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Add("Crate2", -8f, 0.75f, 20f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Add("Crate3", 14f, 0.75f, 26f, 1.5f, 1.5f, 1.5f, BoxKind.Steel);
+            l.Add("Crate4", -26f, 0.75f, 6f, 1.5f, 1.5f, 1.5f, BoxKind.Wood);
+            l.Add("Crate5", 26f, 0.75f, -6f, 1.5f, 1.5f, 1.5f, BoxKind.Steel);
+            l.Perimeter();
+            l.Left = new ArenaSpawn { X = 0, Y = 22.6f, Z = -28f, Yaw = 0f };
+            l.Right = l.Left;
+            l._ffa.Add(l.Left);
+            // Targets: standing ones spread over the field, patrolling ones crossing the open lanes.
+            l._bots.Add(new ArenaBot { X = 0, Z = 6 });
+            l._bots.Add(new ArenaBot { X = -12, Z = 14 });
+            l._bots.Add(new ArenaBot { X = 14, Z = 18 });
+            l._bots.Add(new ArenaBot { X = 4, Z = 28 });
+            l._bots.Add(new ArenaBot { X = -22, Z = 2 });
+            l._bots.Add(new ArenaBot { X = 24, Z = 2 });
+            l._bots.Add(new ArenaBot { X = -14, Z = 32 });
+            l._bots.Add(new ArenaBot { X = -10, Z = 24, X2 = 10, Z2 = 24, Moving = true });
+            l._bots.Add(new ArenaBot { X = 20, Z = -4, X2 = 20, Z2 = 30, Moving = true });
+            l._bots.Add(new ArenaBot { X = -30, Z = 10, X2 = -8, Z2 = 32, Moving = true });
+            l._bots.Add(new ArenaBot { X = 30, Z = 14, X2 = 12, Z2 = -8, Moving = true });
+            return l;
         }
 
         private void Add(string name, float x, float y, float z, float sx, float sy, float sz, BoxKind kind, float rotX = 0, float rotZ = 0)

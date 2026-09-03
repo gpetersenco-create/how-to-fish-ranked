@@ -163,11 +163,6 @@ namespace HowToFish1v1.UI
                 var mr = go.AddComponent<MeshRenderer>();
                 mr.sharedMaterials = skinOn ? WeaponSkins.MaterialsFor(g.Skin, r.sharedMaterials, _created) : r.sharedMaterials;
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                if (skinOn && g.Skin == WeaponSkins.Diamond)
-                {
-                    var studs = WeaponSkins.AddStuds(mr, _created);
-                    if (studs) studs.layer = _layer;
-                }
             }
             if (skinOn && g.Skin == WeaponSkins.Dragon && firePoint)
             {

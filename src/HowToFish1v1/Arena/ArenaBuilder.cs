@@ -45,7 +45,9 @@ namespace HowToFish1v1.Arena
                 }
                 else
                 {
-                    go.GetComponent<MeshRenderer>().sharedMaterial = ArenaMaterials.For(b.Kind);
+                    // Same collider (a scaled unit cube), but a mesh whose UVs tile in world metres.
+                    go.GetComponent<MeshFilter>().sharedMesh = WorldUvBox.For(b.SX, b.SY, b.SZ);
+                    go.GetComponent<MeshRenderer>().sharedMaterial = b.Name == "Floor" ? ArenaMaterials.Floor() : ArenaMaterials.For(b.Kind);
                 }
             }
 

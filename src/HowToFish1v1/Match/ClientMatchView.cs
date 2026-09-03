@@ -132,6 +132,7 @@ namespace HowToFish1v1.Match
             _lastRankedMatch = s.MatchNumber;
             var me = Me;
             if (me == null) return;
+            if (MatchModes.IsSolo((MatchMode)s.Mode)) return;   // practice: no rank change
             bool ffa = MatchModes.IsFfa((MatchMode)s.Mode);
             bool won = ffa ? s.MatchWinnerId == me.Value.Id : s.MatchWinnerTeam == me.Value.Team;
             string map = ArenaLayout.MapNames[((s.MapIndex % ArenaLayout.MapCount) + ArenaLayout.MapCount) % ArenaLayout.MapCount];

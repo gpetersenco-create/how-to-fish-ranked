@@ -33,8 +33,12 @@ namespace HowToFish1v1.Core
         public void SetMode(MatchMode mode)
         {
             if (State.Phase != MatchPhase.Lobby) return;
+            bool wasSolo = MatchModes.IsSolo(State.Mode);
             State.Mode = mode;
             RebalanceTeams();
+            // Trickshot has its own map; leaving it goes back to the first arena.
+            if (MatchModes.IsSolo(mode)) State.MapIndex = ArenaLayout.TrickshotIndex;
+            else if (wasSolo && State.MapIndex == ArenaLayout.TrickshotIndex) State.MapIndex = 0;
             Dirty = true;
         }
 
@@ -100,7 +104,7 @@ namespace HowToFish1v1.Core
             int max = MatchModes.MaxPlayers(State.Mode);
             if (count < min) { reason = $"{MatchModes.Name(State.Mode)} needs {min} players ({count} here)"; return false; }
             if (count > max) { reason = $"{MatchModes.Name(State.Mode)} allows at most {max} players ({count} here)"; return false; }
-            if (!State.IsFfa && !Rules.SoloDebug)
+            if (!State.IsFfa && !Rules.SoloDebug && !MatchModes.IsSolo(State.Mode))
             {
                 int cap = MatchModes.TeamSize(State.Mode);
                 if (State.TeamCount(0) == 0 || State.TeamCount(1) == 0) { reason = "Both teams need a player"; return false; }
@@ -147,7 +151,7 @@ namespace HowToFish1v1.Core
             Effects.Add(new Effect(EffectKind.ResetPlayers));
             State.Phase = MatchPhase.Countdown;
             State.PhaseEndsAt = now + Rules.CountdownSeconds;
-            State.StatusText = State.IsFfa ? $"First to {Rules.KillsToWin} kills" : "Round " + State.Round;
+            State.StatusText = MatchModes.IsSolo(State.Mode) ? "Jump off and hit a bot mid-air" : State.IsFfa ? $"First to {Rules.KillsToWin} kills" : "Round " + State.Round;
             Dirty = true;
         }
 
@@ -206,9 +210,9 @@ namespace HowToFish1v1.Core
             bool credited = killer != null && killerId != victimId && (State.IsFfa || killer.Team != victim.Team);
             if (credited) killer.Kills++;
 
-            if (State.IsFfa)
+            if (MatchModes.RespawnsInPlace(State.Mode))
             {
-                if (credited)
+                if (credited && State.IsFfa)
                 {
                     State.StatusText = killer.Name + " killed " + victim.Name;
                     if (killer.Kills >= Rules.KillsToWin)
@@ -255,6 +259,19 @@ namespace HowToFish1v1.Core
             State.Phase = MatchPhase.RoundEnd;
             State.PhaseEndsAt = now + Rules.RoundEndSeconds;
             return true;
+        }
+
+        /// <summary>Trickshot: the player landed a mid-air hit; the match ends and the final killcam replays it.</summary>
+        public void EndTrickshot(int playerId, double now, int attempts)
+        {
+            if (State.Phase != MatchPhase.Live || !MatchModes.IsSolo(State.Mode)) return;
+            var slot = State.Slot(playerId);
+            if (slot != null) slot.Kills++;
+            State.Phase = MatchPhase.MatchEnd;
+            State.MatchWinnerId = playerId;
+            State.PhaseEndsAt = now + Rules.MatchEndSeconds;
+            State.StatusText = attempts <= 1 ? "TRICKSHOT HIT   first try!" : $"TRICKSHOT HIT   attempt {attempts}";
+            Dirty = true;
         }
 
         /// <summary>Free-for-all: the host reports that the respawn effect was carried out.</summary>

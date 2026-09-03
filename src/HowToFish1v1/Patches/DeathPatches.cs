@@ -81,8 +81,27 @@ namespace HowToFish1v1.Patches
         {
             if (!ModState.IsActive || !__instance) return;
             var holder = __instance.Holder;
-            if (holder) Match.Recorder.RecordShot(holder.OwnerId);
+            if (holder)
+            {
+                // Where the aim line lands, so the replay can draw the tracer to it.
+                var cam = holder.CamObject ? holder.CamObject : holder.Transform;
+                Vector3 hitPoint = Vector3.zero; bool hasHit = false;
+                if (cam)
+                {
+                    int mask = ~0;
+                    int local = LayerMask.NameToLayer("LocalPlayer");
+                    if (local >= 0 && holder.Owner != null && holder.Owner.IsLocalClient) mask &= ~(1 << local);
+                    try
+                    {
+                        if (Physics.Raycast(cam.position + cam.forward * 0.6f, cam.forward, out var hit, 400f, mask, QueryTriggerInteraction.Ignore)) { hitPoint = hit.point; hasHit = true; }
+                        else { hitPoint = cam.position + cam.forward * 400f; hasHit = true; }
+                    }
+                    catch (System.Exception) { }
+                }
+                Match.Recorder.RecordShot(holder.OwnerId, hitPoint, hasHit);
+            }
             Match.WeaponSkins.OnShot(__instance);
+            Match.Trickshot.OnShot(__instance);
         }
 
         // Tab opens the fish journal in the base game; during matches Tab is the scoreboard.

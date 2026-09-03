@@ -79,6 +79,17 @@ namespace HowToFish1v1.Match
             Flush();
         }
         public void Quit() { if (Machine != null) { Machine.Quit(); Flush(); } }
+
+        /// <summary>Trickshot landed: end the match and announce it so the final killcam has a kill to replay.</summary>
+        public void EndTrickshot(int attempts)
+        {
+            if (Machine == null || Player.LocalPlayer == null) return;
+            int me = Player.LocalPlayer.OwnerId;
+            if (Machine.State.Phase != MatchPhase.Live) return;
+            Machine.EndTrickshot(me, Now, attempts);
+            ModNet.BroadcastKill(new KillFeedBroadcast { Killer = Player.LocalPlayer.SteamName, Victim = "Bot", Suicide = false, KillerId = me, VictimId = -2 });
+            Flush();
+        }
         public void SetMap(int mapIndex) { if (Machine != null) { Machine.SetMap(mapIndex); Flush(); } }
         public void SetMode(MatchMode mode) { if (Machine != null) { Machine.SetMode(mode); Flush(); } }
         public void MoveTeam(int ownerId) { if (Machine != null) { Machine.MoveTeam(ownerId); Flush(); } }
@@ -226,7 +237,7 @@ namespace HowToFish1v1.Match
         private IEnumerator FfaRespawnRoutine(int ownerId)
         {
             yield return new WaitForSeconds((float)Machine.Rules.FfaRespawnSeconds);
-            if (!IsOpen || !Machine.State.IsFfa || Machine.State.Phase != MatchPhase.Live) yield break;
+            if (!IsOpen || !MatchModes.RespawnsInPlace(Machine.State.Mode) || Machine.State.Phase != MatchPhase.Live) yield break;
             var slot = Machine.State.Slot(ownerId);
             var player = PlayerManager.Players.FirstOrDefault(p => p.OwnerId == ownerId);
             if (slot == null || !player) yield break;

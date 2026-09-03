@@ -37,7 +37,7 @@ namespace HowToFish1v1.Match
             new Def { Glow = new Color(1.00f, 0.80f, 0.25f), Tint = new Color(1f, 0.85f, 0.35f), Metal = 0.95f, Gloss = 0.9f, GlowScale = 1.2f },
             new Def { Glow = new Color(0.85f, 0.95f, 1.00f), Tint = new Color(0.9f, 0.95f, 1f), Metal = 0.3f, Gloss = 0.6f, GlowScale = 2.5f },
             new Def { Glow = Color.red, Tint = Color.white, Metal = 0.55f, Gloss = 0.75f, GlowScale = 2.5f },
-            new Def { Glow = new Color(0.25f, 0.55f, 1f), Tint = new Color(0.06f, 0.09f, 0.16f), Metal = 0.9f, Gloss = 0.85f, GlowScale = 0.25f },   // dark setting; the gems are geometry
+            new Def { Glow = new Color(0.55f, 0.85f, 1f), Tint = Color.white, Metal = 0.85f, Gloss = 0.98f, Tex = DiamondTex, GlowScale = 0.9f },
             new Def { Glow = Color.black, Tint = Color.white, Metal = 0.4f, Gloss = 0.85f, Tex = CarbonTex, GlowScale = 0f },
             new Def { Glow = new Color(0.45f, 0.25f, 1f), Tint = Color.white, Metal = 0.5f, Gloss = 0.8f, Tex = GalaxyTex, GlowScale = 1.4f },
             new Def { Glow = new Color(0.6f, 0.85f, 1f), Tint = Color.white, Metal = 0.6f, Gloss = 0.95f, Tex = FrostTex, GlowScale = 0.8f },
@@ -183,9 +183,7 @@ namespace HowToFish1v1.Match
             var original = r.sharedMaterials;
             var mats = MaterialsFor(skin, original);
             r.sharedMaterials = mats;
-            var a = new Applied { Mats = mats, Original = original, Skin = skin, Renderer = r };
-            if (skin == Diamond) a.Extra = AddStuds(r, null);
-            _applied[r.GetInstanceID()] = a;
+            _applied[r.GetInstanceID()] = new Applied { Mats = mats, Original = original, Skin = skin, Renderer = r };
         }
 
         private static void Restore(int key)
@@ -435,10 +433,7 @@ namespace HowToFish1v1.Match
                     case 3: c = Defs[3].Glow * (2.0f + 1.5f * Mathf.Abs(Mathf.Sin(t * 3f))); break;                  // magma pulse
                     case 7: c = Color.HSVToRGB((t * 0.25f) % 1f, 1f, 1f) * 2.5f; break;                              // rainbow cycle
                     case 6: c = Defs[6].Glow * (1.2f + 0.8f * Mathf.Abs(Mathf.Sin(t * 1.5f))); break;                // ghost breathe
-                    case Diamond:
-                        c = Defs[Diamond].Glow * Defs[Diamond].GlowScale;
-                        if (_gemMaterial) _gemMaterial.SetColor(EmissionId, new Color(0.45f, 0.75f, 1f) * (0.45f + 0.55f * Mathf.Abs(Mathf.Sin(t * 2.6f))));   // sparkle
-                        break;
+                    case Diamond: c = Defs[Diamond].Glow * (0.6f + 0.5f * Mathf.Abs(Mathf.Sin(t * 2.2f))); break;    // sparkle
                     case Galaxy: c = Color.Lerp(Defs[Galaxy].Glow, new Color(0.2f, 0.6f, 1f), 0.5f + 0.5f * Mathf.Sin(t * 0.8f)) * 1.4f; break;
                     case Dragon: c = Defs[Dragon].Glow * (0.8f + 0.8f * Mathf.Abs(Mathf.Sin(t * 4f)) + 0.4f * Mathf.PerlinNoise(t * 6f, 0.3f)); break;   // ember flicker
                     default: continue;

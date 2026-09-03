@@ -31,6 +31,9 @@ namespace HowToFish1v1.UI
             _popupQueue.Enqueue(text);
         }
 
+        /// <summary>Score-style popup next to the crosshair.</summary>
+        public static void Popup(string text) => EnqueuePopup(text);
+
         private static void UpdatePopup()
         {
             float age = Time.unscaledTime - _popupAt;
@@ -123,7 +126,8 @@ namespace HowToFish1v1.UI
                     _banner.text = n <= 0 ? "FIGHT" : (ClientMatchView.IsFfa ? $"{n}" : $"Round {s.Round}\n{n}");
                     break;
                 case MatchPhase.Live:
-                    _banner.text = (Time.unscaledTime - _liveAt < 1f) ? "FIGHT" : (ClientMatchView.IsFfa && me != null && DeadNow() ? "Respawning..." : "");
+                    if (Trickshot.IsMode) _banner.text = (Time.unscaledTime - _liveAt < 2f) ? "JUMP AND HIT A BOT" : Trickshot.Status;
+                    else _banner.text = (Time.unscaledTime - _liveAt < 1f) ? "FIGHT" : (ClientMatchView.IsFfa && me != null && DeadNow() ? "Respawning..." : "");
                     break;
                 case MatchPhase.RoundEnd:
                     _banner.text = s.StatusText ?? "";
