@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.22",
-    "notes":  "Trickshot: bots are now real character models copied from the game\u0027s own prefabs (random skin and outfit colours), six of them hover at different heights (two drift up and down), and four birds circle overhead; the miss counter moved to a small label bottom-right. Knife: a hand and forearm now hold the knife and the game\u0027s arms hide during the swing, swings are announced so killcam replays show the knife with its skin and sound, and the swing sound is a sharper Black Ops 2 style shwiff.",
+    "version":  "0.2.23",
+    "notes":  "Nuketown removed. Maps are now Rust, Shipment, Killhouse and Trickshot Tower.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.22/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.23/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.22/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.23/HowToFish1v1.Core.dll"
                   }
               ]
 }
