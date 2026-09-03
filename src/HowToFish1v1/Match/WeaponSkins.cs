@@ -37,7 +37,7 @@ namespace HowToFish1v1.Match
             new Def { Glow = new Color(1.00f, 0.80f, 0.25f), Tint = new Color(1f, 0.85f, 0.35f), Metal = 0.95f, Gloss = 0.9f, GlowScale = 1.2f },
             new Def { Glow = new Color(0.85f, 0.95f, 1.00f), Tint = new Color(0.9f, 0.95f, 1f), Metal = 0.3f, Gloss = 0.6f, GlowScale = 2.5f },
             new Def { Glow = Color.red, Tint = Color.white, Metal = 0.55f, Gloss = 0.75f, GlowScale = 2.5f },
-            new Def { Glow = new Color(0.55f, 0.85f, 1f), Tint = Color.white, Metal = 0.85f, Gloss = 0.98f, Tex = DiamondTex, GlowScale = 0.9f },
+            new Def { Glow = new Color(0.25f, 0.55f, 1f), Tint = new Color(0.06f, 0.09f, 0.16f), Metal = 0.9f, Gloss = 0.85f, GlowScale = 0.25f },   // dark setting; the gems are geometry
             new Def { Glow = Color.black, Tint = Color.white, Metal = 0.4f, Gloss = 0.85f, Tex = CarbonTex, GlowScale = 0f },
             new Def { Glow = new Color(0.45f, 0.25f, 1f), Tint = Color.white, Metal = 0.5f, Gloss = 0.8f, Tex = GalaxyTex, GlowScale = 1.4f },
             new Def { Glow = new Color(0.6f, 0.85f, 1f), Tint = Color.white, Metal = 0.6f, Gloss = 0.95f, Tex = FrostTex, GlowScale = 0.8f },
@@ -45,7 +45,7 @@ namespace HowToFish1v1.Match
             new Def { Glow = new Color(1f, 0.35f, 0.05f), Tint = Color.white, Metal = 0.5f, Gloss = 0.7f, Tex = DragonTex, GlowScale = 1.2f },
         };
 
-        private class Applied { public Material[] Mats; public Material[] Original; public byte Skin; public Renderer Renderer; }
+        private class Applied { public Material[] Mats; public Material[] Original; public byte Skin; public Renderer Renderer; public GameObject Extra; }
 
         private static readonly Dictionary<int, Applied> _applied = new Dictionary<int, Applied>();
         private static readonly Dictionary<Item, GameObject> _dragons = new Dictionary<Item, GameObject>();
@@ -183,7 +183,9 @@ namespace HowToFish1v1.Match
             var original = r.sharedMaterials;
             var mats = MaterialsFor(skin, original);
             r.sharedMaterials = mats;
-            _applied[r.GetInstanceID()] = new Applied { Mats = mats, Original = original, Skin = skin, Renderer = r };
+            var a = new Applied { Mats = mats, Original = original, Skin = skin, Renderer = r };
+            if (skin == Diamond) a.Extra = AddStuds(r, null);
+            _applied[r.GetInstanceID()] = a;
         }
 
         private static void Restore(int key)
@@ -192,6 +194,228 @@ namespace HowToFish1v1.Match
             _applied.Remove(key);
             if (a.Renderer && a.Original != null) a.Renderer.sharedMaterials = a.Original;
             if (a.Mats != null) foreach (var m in a.Mats) if (m) Object.Destroy(m);
+            if (a.Extra) Object.Destroy(a.Extra);
+        }
+
+        // ------------------------------------------------------------------ diamond studs
+
+        private static Material _gemMaterial;
+
+        private static Material GemMaterial()
+        {
+            if (_gemMaterial) return _gemMaterial;
+            var shader = Arena.ArenaMaterials.LitShader;
+            var m = new Material(shader ? shader : Shader.Find("Sprites/Default")) { name = "HTF1v1_Gem" };
+            if (m.HasProperty(BaseColorId)) m.SetColor(BaseColorId, new Color(0.9f, 0.98f, 1f));
+            if (m.HasProperty(MetallicId)) m.SetFloat(MetallicId, 0.85f);
+            if (m.HasProperty(SmoothnessId)) m.SetFloat(SmoothnessId, 1f);
+            m.EnableKeyword("_EMISSION");
+            if (m.HasProperty(EmissionId)) m.SetColor(EmissionId, new Color(0.45f, 0.75f, 1f) * 0.6f);
+            _gemMaterial = m;
+            return m;
+        }
+
+        /// <summary>
+        /// Covers a gun part with small faceted gems, Black Ops 2 diamond style: one gem per sampled surface point, sitting
+        /// on the surface along its normal, all merged into one mesh in a child object (so it costs one draw call and the
+        /// killcam copies it like any other part).
+        /// </summary>
+        public static GameObject AddStuds(Renderer r, List<Object> track)
+        {
+            if (!r) return null;
+            Mesh src = null; bool owned = false;
+            if (r is SkinnedMeshRenderer smr) { src = new Mesh(); try { smr.BakeMesh(src); owned = true; } catch (System.Exception) { Object.Destroy(src); src = null; } }
+            else { var mf = r.GetComponent<MeshFilter>(); src = mf ? mf.sharedMesh : null; }
+            if (!src) return null;
+            bool ok = TryReadPositions(src, out var verts, out var norms);
+            Bounds srcBounds = src.bounds;
+            if (owned) Object.Destroy(src);
+            if (!ok || verts == null || verts.Length == 0) return null;
+            if (norms == null || norms.Length != verts.Length)
+            {
+                // No usable normals: point the gems away from the part's centre.
+                norms = new Vector3[verts.Length];
+                for (int i = 0; i < norms.Length; i++) { var d = verts[i] - srcBounds.center; norms[i] = d.sqrMagnitude > 1e-8f ? d.normalized : Vector3.up; }
+            }
+
+            // The renderer's world scale: gems must be a fixed size in the world, and the child inherits the scale.
+            Vector3 sc = r is SkinnedMeshRenderer ? Vector3.one : r.transform.lossyScale;
+            sc = new Vector3(Mathf.Max(1e-4f, Mathf.Abs(sc.x)), Mathf.Max(1e-4f, Mathf.Abs(sc.y)), Mathf.Max(1e-4f, Mathf.Abs(sc.z)));
+            const float Spacing = 0.011f;   // world metres between gems
+            const int MaxGems = 420;
+            var cells = new HashSet<(int, int, int)>();
+            var picked = new List<int>();
+            for (int i = 0; i < verts.Length && picked.Count < MaxGems; i++)
+            {
+                var wv = Vector3.Scale(verts[i], sc);
+                var key = (Mathf.FloorToInt(wv.x / Spacing), Mathf.FloorToInt(wv.y / Spacing), Mathf.FloorToInt(wv.z / Spacing));
+                if (cells.Add(key)) picked.Add(i);
+            }
+            if (picked.Count == 0) return null;
+
+            const float Radius = 0.0038f, Height = 0.0045f;
+            var v = new List<Vector3>(picked.Count * 6);
+            var n = new List<Vector3>(picked.Count * 6);
+            var tri = new List<int>(picked.Count * 24);
+            foreach (int i in picked)
+            {
+                Vector3 p = verts[i];
+                Vector3 nn = norms[i].sqrMagnitude > 0.001f ? norms[i].normalized : Vector3.up;
+                Vector3 t = Vector3.Cross(nn, Mathf.Abs(nn.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
+                Vector3 b = Vector3.Cross(nn, t);
+                // Convert world-size offsets into this mesh's (scaled) local space.
+                Vector3 L(Vector3 world) => new Vector3(world.x / sc.x, world.y / sc.y, world.z / sc.z);
+                Vector3 tip = p + L(nn * Height);
+                Vector3 baseC = p + L(nn * 0.0008f);
+                int i0 = v.Count;
+                v.Add(tip); n.Add(nn);
+                for (int k = 0; k < 4; k++)
+                {
+                    float ang = k * Mathf.PI / 2f + Mathf.PI / 4f;
+                    Vector3 rim = p + L((t * Mathf.Cos(ang) + b * Mathf.Sin(ang)) * Radius + nn * 0.0015f);
+                    v.Add(rim); n.Add((rim - baseC).normalized * 0.5f + nn * 0.7f);
+                }
+                v.Add(baseC); n.Add(nn);
+                for (int k = 0; k < 4; k++)
+                {
+                    int a = i0 + 1 + k, c = i0 + 1 + (k + 1) % 4;
+                    tri.Add(i0); tri.Add(c); tri.Add(a);          // crown facet
+                    tri.Add(i0 + 5); tri.Add(a); tri.Add(c);      // girdle underside (keeps it solid from grazing angles)
+                }
+            }
+            var mesh = new Mesh { name = "HTF1v1_Gems" };
+            mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetTriangles(tri, 0);
+            mesh.RecalculateBounds();
+            track?.Add(mesh);
+
+            var go = new GameObject("HTF1v1_Gems");
+            go.layer = r.gameObject.layer;
+            go.transform.SetParent(r.transform, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = GemMaterial();
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            if (track == null) go.AddComponent<MeshOwner>().Mesh = mesh;   // destroyed with the object
+            return go;
+        }
+
+        /// <summary>
+        /// Vertex positions and normals of a mesh. Game meshes are usually not CPU-readable, so when the plain read fails the
+        /// vertex buffer is read back from the GPU and decoded from the mesh's attribute layout.
+        /// </summary>
+        private static bool TryReadPositions(Mesh m, out Vector3[] verts, out Vector3[] norms)
+        {
+            verts = null; norms = null;
+            try
+            {
+                if (m.isReadable)
+                {
+                    verts = m.vertices; norms = m.normals;
+                    if (verts != null && verts.Length > 0) return true;
+                }
+            }
+            catch (System.Exception) { }
+            try
+            {
+                var attrs = m.GetVertexAttributes();
+                int count = m.vertexCount;
+                if (count == 0) return false;
+                UnityEngine.Rendering.VertexAttributeDescriptor pos = default, nrm = default;
+                bool hasPos = false, hasNrm = false;
+                foreach (var a in attrs)
+                {
+                    if (a.attribute == UnityEngine.Rendering.VertexAttribute.Position) { pos = a; hasPos = true; }
+                    if (a.attribute == UnityEngine.Rendering.VertexAttribute.Normal) { nrm = a; hasNrm = true; }
+                }
+                if (!hasPos) return false;
+                m.vertexBufferTarget |= GraphicsBuffer.Target.Raw;
+                var streams = new Dictionary<int, byte[]>();
+                byte[] Stream(int idx)
+                {
+                    if (streams.TryGetValue(idx, out var d)) return d;
+                    int stride = m.GetVertexBufferStride(idx);
+                    using (var vb = m.GetVertexBuffer(idx))
+                    {
+                        d = new byte[stride * count];
+                        vb.GetData(d);
+                    }
+                    streams[idx] = d;
+                    return d;
+                }
+                verts = Decode(Stream(pos.stream), m.GetVertexBufferStride(pos.stream), AttrOffset(m, attrs, pos), pos.format, pos.dimension, count);
+                if (hasNrm) norms = Decode(Stream(nrm.stream), m.GetVertexBufferStride(nrm.stream), AttrOffset(m, attrs, nrm), nrm.format, nrm.dimension, count);
+                return verts != null && verts.Length == count;
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogDebug("Mesh readback failed for " + m.name + ": " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>Byte offset of an attribute inside its stream: the sum of the sizes of the attributes before it in that stream.</summary>
+        private static int AttrOffset(Mesh m, UnityEngine.Rendering.VertexAttributeDescriptor[] attrs, UnityEngine.Rendering.VertexAttributeDescriptor target)
+        {
+            int off = 0;
+            foreach (var a in attrs)
+            {
+                if (a.stream != target.stream) continue;
+                if (a.attribute == target.attribute) return off;
+                off += FormatSize(a.format) * a.dimension;
+            }
+            return off;
+        }
+
+        private static int FormatSize(UnityEngine.Rendering.VertexAttributeFormat f)
+        {
+            switch (f)
+            {
+                case UnityEngine.Rendering.VertexAttributeFormat.Float32: case UnityEngine.Rendering.VertexAttributeFormat.UInt32: case UnityEngine.Rendering.VertexAttributeFormat.SInt32: return 4;
+                case UnityEngine.Rendering.VertexAttributeFormat.Float16: case UnityEngine.Rendering.VertexAttributeFormat.UNorm16: case UnityEngine.Rendering.VertexAttributeFormat.SNorm16:
+                case UnityEngine.Rendering.VertexAttributeFormat.UInt16: case UnityEngine.Rendering.VertexAttributeFormat.SInt16: return 2;
+                default: return 1;
+            }
+        }
+
+        private static Vector3[] Decode(byte[] data, int stride, int offset, UnityEngine.Rendering.VertexAttributeFormat f, int dim, int count)
+        {
+            var outp = new Vector3[count];
+            int size = FormatSize(f);
+            for (int i = 0; i < count; i++)
+            {
+                int b = i * stride + offset;
+                float x = Read(data, b, f), y = dim > 1 ? Read(data, b + size, f) : 0f, z = dim > 2 ? Read(data, b + size * 2, f) : 0f;
+                outp[i] = new Vector3(x, y, z);
+            }
+            return outp;
+        }
+
+        private static float Read(byte[] d, int at, UnityEngine.Rendering.VertexAttributeFormat f)
+        {
+            switch (f)
+            {
+                case UnityEngine.Rendering.VertexAttributeFormat.Float32: return System.BitConverter.ToSingle(d, at);
+                case UnityEngine.Rendering.VertexAttributeFormat.Float16: return Mathf.HalfToFloat(System.BitConverter.ToUInt16(d, at));
+                case UnityEngine.Rendering.VertexAttributeFormat.SNorm16: return Mathf.Max(-1f, System.BitConverter.ToInt16(d, at) / 32767f);
+                case UnityEngine.Rendering.VertexAttributeFormat.UNorm16: return System.BitConverter.ToUInt16(d, at) / 65535f;
+                case UnityEngine.Rendering.VertexAttributeFormat.SNorm8: return Mathf.Max(-1f, (sbyte)d[at] / 127f);
+                case UnityEngine.Rendering.VertexAttributeFormat.UNorm8: return d[at] / 255f;
+                case UnityEngine.Rendering.VertexAttributeFormat.SInt32: return System.BitConverter.ToInt32(d, at);
+                case UnityEngine.Rendering.VertexAttributeFormat.UInt32: return System.BitConverter.ToUInt32(d, at);
+                case UnityEngine.Rendering.VertexAttributeFormat.SInt16: return System.BitConverter.ToInt16(d, at);
+                case UnityEngine.Rendering.VertexAttributeFormat.UInt16: return System.BitConverter.ToUInt16(d, at);
+                default: return d[at];
+            }
+        }
+
+        /// <summary>Frees a generated mesh when its object goes away.</summary>
+        private sealed class MeshOwner : MonoBehaviour
+        {
+            public Mesh Mesh;
+            private void OnDestroy() { if (Mesh) Object.Destroy(Mesh); }
         }
 
         private static void RestoreAll()
@@ -211,7 +435,10 @@ namespace HowToFish1v1.Match
                     case 3: c = Defs[3].Glow * (2.0f + 1.5f * Mathf.Abs(Mathf.Sin(t * 3f))); break;                  // magma pulse
                     case 7: c = Color.HSVToRGB((t * 0.25f) % 1f, 1f, 1f) * 2.5f; break;                              // rainbow cycle
                     case 6: c = Defs[6].Glow * (1.2f + 0.8f * Mathf.Abs(Mathf.Sin(t * 1.5f))); break;                // ghost breathe
-                    case Diamond: c = Defs[Diamond].Glow * (0.6f + 0.5f * Mathf.Abs(Mathf.Sin(t * 2.2f))); break;    // sparkle
+                    case Diamond:
+                        c = Defs[Diamond].Glow * Defs[Diamond].GlowScale;
+                        if (_gemMaterial) _gemMaterial.SetColor(EmissionId, new Color(0.45f, 0.75f, 1f) * (0.45f + 0.55f * Mathf.Abs(Mathf.Sin(t * 2.6f))));   // sparkle
+                        break;
                     case Galaxy: c = Color.Lerp(Defs[Galaxy].Glow, new Color(0.2f, 0.6f, 1f), 0.5f + 0.5f * Mathf.Sin(t * 0.8f)) * 1.4f; break;
                     case Dragon: c = Defs[Dragon].Glow * (0.8f + 0.8f * Mathf.Abs(Mathf.Sin(t * 4f)) + 0.4f * Mathf.PerlinNoise(t * 6f, 0.3f)); break;   // ember flicker
                     default: continue;

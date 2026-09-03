@@ -18,6 +18,8 @@ namespace HowToFish1v1.Match
 
         private static readonly Dictionary<Attachments, bool> _drum = new Dictionary<Attachments, bool>();
         private static readonly Dictionary<Weapon, bool> _originalAuto = new Dictionary<Weapon, bool>();
+        private static readonly Dictionary<Weapon, float> _originalRate = new Dictionary<Weapon, float>();
+        public const float SwitchRateMultiplier = 0.5f;   // time between shots is halved: twice the fire rate
         private static float _next;
 
         /// <summary>Re-check on the next frame (a loadout was just given out).</summary>
@@ -41,6 +43,7 @@ namespace HowToFish1v1.Match
             if (!ModState.IsActive)
             {
                 if (_originalAuto.Count > 0) { foreach (var kv in _originalAuto.ToList()) SetAuto(kv.Key, kv.Value); _originalAuto.Clear(); }
+                if (_originalRate.Count > 0) { foreach (var kv in _originalRate.ToList()) SetRate(kv.Key, kv.Value); _originalRate.Clear(); }
                 if (_drum.Count > 0) _drum.Clear();
                 return;
             }
@@ -67,16 +70,19 @@ namespace HowToFish1v1.Match
                     {
                         if (!_originalAuto.ContainsKey(w)) _originalAuto[w] = GetAuto(w);
                         SetAuto(w, true);
+                        if (!_originalRate.ContainsKey(w)) { _originalRate[w] = GetRate(w); SetRate(w, _originalRate[w] * SwitchRateMultiplier); }
                     }
-                    else if (_originalAuto.TryGetValue(w, out var orig))
+                    else
                     {
-                        SetAuto(w, orig);
-                        _originalAuto.Remove(w);
+                        if (_originalAuto.TryGetValue(w, out var orig)) { SetAuto(w, orig); _originalAuto.Remove(w); }
+                        if (_originalRate.TryGetValue(w, out var rate)) { SetRate(w, rate); _originalRate.Remove(w); }
                     }
                 }
             }
             foreach (var w in _originalAuto.Keys.ToList())
                 if (!w || !seen.Contains(w)) { if (w) SetAuto(w, _originalAuto[w]); _originalAuto.Remove(w); }
+            foreach (var w in _originalRate.Keys.ToList())
+                if (!w || !seen.Contains(w)) { if (w) SetRate(w, _originalRate[w]); _originalRate.Remove(w); }
             foreach (var a in _drum.Keys.Where(a => !a).ToList()) _drum.Remove(a);
         }
 
@@ -88,6 +94,16 @@ namespace HowToFish1v1.Match
         private static void SetAuto(Weapon w, bool on)
         {
             try { Traverse.Create(w).Field<bool>("_fullAuto").Value = on; } catch (System.Exception) { }
+        }
+
+        private static float GetRate(Weapon w)
+        {
+            try { return Traverse.Create(w).Field<float>("_timeBetweenShots").Value; } catch (System.Exception) { return 0.2f; }
+        }
+
+        private static void SetRate(Weapon w, float seconds)
+        {
+            try { Traverse.Create(w).Field<float>("_timeBetweenShots").Value = seconds; } catch (System.Exception) { }
         }
     }
 
