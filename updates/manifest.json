@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.23",
-    "notes":  "Nuketown removed. Maps are now Rust, Shipment, Killhouse and Trickshot Tower.",
+    "version":  "0.2.24",
+    "notes":  "Custom sounds: drop knife.wav (or .ogg/.mp3) and/or hitmarker.wav into BepInEx/plugins/HowToFish1v1 and the mod uses them instead of its built-in sounds.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.23/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.24/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.23/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.24/HowToFish1v1.Core.dll"
                   }
               ]
 }
