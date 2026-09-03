@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.14",
-    "notes":  "Killcam: skinned gun bodies and hands are now live skinned copies driven by recorded bone poses, so reloads and inspects replay properly and attachments stay on the gun; duplicate hands fixed by re-hiding right before each camera renders; weapon skins no longer recolour the hands.",
+    "version":  "0.2.15",
+    "notes":  "Killcam: muzzle flash now sits on the recorded muzzle instead of beside the gun (it no longer blocks the sight on the SMG) and is a small streak rather than a ball.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.14/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.15/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.14/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.15/HowToFish1v1.Core.dll"
                   }
               ]
 }
