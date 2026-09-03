@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.2.36",
-    "notes":  "Charm anchored every frame on the grip-to-muzzle line (it was measured once at spawn, before the gun was in hand). Ricochets only off metal and concrete arena pieces at glancing angles: never the ground, wood, brick or the invisible borders. Ricochet ping is a short-range 3D sound, muffled and quiet with distance, silent past 35 m.",
+    "version":  "0.2.37",
+    "notes":  "Ricochets are a 35% chance on every real arena surface (never the invisible borders). RicochetChance in the config.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.36/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.37/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.36/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.37/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.36/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.37/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.36/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.37/hitmarker.mp3"
                   }
               ]
 }
