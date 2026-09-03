@@ -12,11 +12,15 @@ namespace HowToFish1v1.Core
         public byte Bullets;
         public bool ExtendedMag;
         public bool Laser;
+        /// <summary>Mod-made drum magazine (SMG, pistol): much bigger magazine.</summary>
+        public bool Drum;
+        /// <summary>Mod-made "switch" (pistol): full auto.</summary>
+        public bool Switch;
         public byte Skin;
 
-        public LoadoutGun(byte itemId) { ItemId = itemId; Sight = 0; Barrel = 0; Bullets = 0; ExtendedMag = false; Laser = false; Skin = 0; }
+        public LoadoutGun(byte itemId) { ItemId = itemId; Sight = 0; Barrel = 0; Bullets = 0; ExtendedMag = false; Laser = false; Drum = false; Switch = false; Skin = 0; }
 
-        public int ModCount => (Sight > 0 ? 1 : 0) + (Barrel > 0 ? 1 : 0) + (Bullets > 0 ? 1 : 0) + (ExtendedMag ? 1 : 0) + (Laser ? 1 : 0);
+        public int ModCount => (Sight > 0 ? 1 : 0) + (Barrel > 0 ? 1 : 0) + (Bullets > 0 ? 1 : 0) + (ExtendedMag ? 1 : 0) + (Laser ? 1 : 0) + (Drum ? 1 : 0) + (Switch ? 1 : 0);
     }
 
     /// <summary>Packs guns into the byte array carried by the loadout messages: 6 bytes per gun.</summary>
@@ -36,7 +40,7 @@ namespace HowToFish1v1.Core
                 bytes[o + 1] = g.Sight;
                 bytes[o + 2] = g.Barrel;
                 bytes[o + 3] = g.Bullets;
-                bytes[o + 4] = (byte)((g.ExtendedMag ? 1 : 0) | (g.Laser ? 2 : 0));
+                bytes[o + 4] = (byte)((g.ExtendedMag ? 1 : 0) | (g.Laser ? 2 : 0) | (g.Drum ? 4 : 0) | (g.Switch ? 8 : 0));
                 bytes[o + 5] = g.Skin;
             }
             return bytes;
@@ -51,7 +55,8 @@ namespace HowToFish1v1.Core
                 list.Add(new LoadoutGun
                 {
                     ItemId = bytes[o], Sight = bytes[o + 1], Barrel = bytes[o + 2], Bullets = bytes[o + 3],
-                    ExtendedMag = (bytes[o + 4] & 1) != 0, Laser = (bytes[o + 4] & 2) != 0, Skin = bytes[o + 5]
+                    ExtendedMag = (bytes[o + 4] & 1) != 0, Laser = (bytes[o + 4] & 2) != 0,
+                    Drum = (bytes[o + 4] & 4) != 0, Switch = (bytes[o + 4] & 8) != 0, Skin = bytes[o + 5]
                 });
             }
             return list;

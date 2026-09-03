@@ -82,6 +82,7 @@ namespace HowToFish1v1.Patches
             if (!ModState.IsActive || !__instance) return;
             var holder = __instance.Holder;
             if (holder) Match.Recorder.RecordShot(holder.OwnerId);
+            Match.WeaponSkins.OnShot(__instance);
         }
 
         // Tab opens the fish journal in the base game; during matches Tab is the scoreboard.

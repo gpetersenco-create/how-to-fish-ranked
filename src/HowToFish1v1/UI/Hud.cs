@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using HowToFish1v1.Core;
 using HowToFish1v1.Match;
 using TMPro;
@@ -107,16 +107,10 @@ namespace HowToFish1v1.UI
 
             double left = ClientMatchView.SecondsLeftInPhase;
             TrackLive();
+            TrackCard();
             if (KillCam.Active)
             {
-                string head = KillCam.IsPreview ? "KILLCAM PREVIEW" : KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? (KillCam.SlowMotion ? "KILLCAM  <size=60%>(slow motion)</size>" : "KILLCAM") : "KILLED BY");
-                string who = KillCam.IsFinal ? $"{KillCam.KillerName}  killed  {KillCam.VictimName}" : KillCam.KillerName;
-                string tail;
-                if (KillCam.IsPreview) tail = "your own last seconds  |  F8 again to stop";
-                else if (ModState.Phase == MatchPhase.RoundEnd || ModState.Phase == MatchPhase.MatchEnd) tail = s.StatusText ?? "";
-                else if (ClientMatchView.IsFfa) tail = $"Respawning in {System.Math.Max(1, (int)System.Math.Ceiling(KillCam.SecondsLeft))}";
-                else tail = "";
-                _banner.text = $"<size=60%>{head}</size>\n{who}\n<size=45%>{KillCam.KillerInfo}</size>" + (tail.Length > 0 ? $"\n<size=50%>{tail}</size>" : "");
+                _banner.text = "";   // the calling card at the bottom of the screen carries the killcam text
                 return;
             }
             switch (ModState.Phase)
@@ -144,6 +138,47 @@ namespace HowToFish1v1.UI
         }
 
         private static bool DeadNow() => Player.LocalPlayer && Player.LocalPlayer.Dying.IsDead;
+
+        /// <summary>IMGUI: a calling card along the bottom of the screen during a killcam: emblem, name, rank, gun, and what happens next.</summary>
+        public static void DrawKillcamCard()
+        {
+            if (!KillCam.Active || ModState.PanelOpen || !ClientMatchView.HasState) return;
+            var s = ClientMatchView.Latest;
+            var entry = ClientMatchView.Players.FirstOrDefault(p => p.Id == KillCam.KillerId);
+            int tier = entry.Name != null ? RankService.Ladder.TierIndex(entry.RankPoints) : 0;
+            string rank = entry.Name != null ? RankService.Ladder.TierName(entry.RankPoints).ToUpperInvariant() : "";
+            string gun = entry.Name != null ? LoadoutService.Summary(entry.Loadout) : "";
+            string head = KillCam.IsPreview ? "KILLCAM PREVIEW" : KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? (KillCam.SlowMotion ? "KILLCAM   (slow motion)" : "KILLCAM") : "KILLED BY");
+            string tail;
+            if (KillCam.IsPreview) tail = "your own last seconds  |  F8 again to stop";
+            else if (ModState.Phase == MatchPhase.RoundEnd || ModState.Phase == MatchPhase.MatchEnd) tail = s.StatusText ?? "";
+            else if (ClientMatchView.IsFfa) tail = $"Respawning in {System.Math.Max(1, (int)System.Math.Ceiling(KillCam.SecondsLeft))}";
+            else tail = "";
+
+            var saved = RankedStyles.BeginCanvas();
+            float w = 820f, h = 118f;
+            float x = (RankedStyles.DesignW - w) / 2f, y = RankedStyles.DesignH - h - 26f;
+            float open = Mathf.Clamp01((Time.unscaledTime - _cardShownAt) * 3f);
+            if (!_cardWasActive) { _cardShownAt = Time.unscaledTime; _cardWasActive = true; open = 0f; }
+            y += (1f - open) * 60f;
+            GUI.color = new Color(1f, 1f, 1f, open);
+            RankedStyles.Box(new Rect(x, y, w, h), RankedStyles.PanelColor, 16f);
+            RankedStyles.Outline(new Rect(x, y, w, h), RankedStyles.GoldColor, 2f, 16f);
+            GUI.DrawTexture(new Rect(x, y + 18, 6, h - 36), RankedStyles.Gold);
+            RankedStyles.Emblem(x + 74, y + 10, 98, tier);
+            GUI.Label(new Rect(x + 140, y + 8, w - 460, 30), head, RankedStyles.GoldText);
+            GUI.Label(new Rect(x + 140, y + 36, w - 460, 40), KillCam.KillerName + (KillCam.IsFinal ? $"   <size=60%>killed  {KillCam.VictimName}</size>" : ""), RankedStyles.H1);
+            GUI.Label(new Rect(x + 140, y + 80, w - 460, 28), (rank.Length > 0 ? rank + "   |   " : "") + gun, RankedStyles.Small);
+            if (tail.Length > 0) GUI.Label(new Rect(x + w - 320, y + 30, 300, 60), tail, RankedStyles.BodyCenter);
+            GUI.color = Color.white;
+            GUI.matrix = saved;
+        }
+
+        private static float _cardShownAt;
+        private static bool _cardWasActive;
+
+        /// <summary>Resets the card's slide-in when the killcam ends.</summary>
+        public static void TrackCard() { if (!KillCam.Active) _cardWasActive = false; }
 
         /// <summary>Remembers when the phase became Live so the banner can flash FIGHT for one second.</summary>
         private static void TrackLive()

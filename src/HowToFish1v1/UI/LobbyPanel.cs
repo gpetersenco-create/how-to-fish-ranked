@@ -22,6 +22,9 @@ namespace HowToFish1v1.UI
         private static bool _ready;
         private static string _hint = "";
         private static Vector2 _loadoutScroll;
+        private static int _previewIndex;
+        private const float PreviewH = 330f;
+        private const float AttachH = 308f;
 
         public static void Toggle() { if (IsOpen) Close(); else Open(); }
 
@@ -180,10 +183,11 @@ namespace HowToFish1v1.UI
             GUI.Label(new Rect(x + 20, y + 10, 540, 36), $"YOUR LOADOUT   (pick up to {max})", S.H1);
             if (inLobby && _ready && ClientMatchView.Me is PlayerEntry me && !me.Ready) _ready = false;
 
+            DrawPreview(x, y + 66, w);
             GUI.enabled = inLobby;
             // Scrollable area: gun toggles, then an attachment block per chosen gun.
-            float areaTop = y + 66, areaH = S.DesignH - 130 - areaTop - 90;
-            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * 278 + 40;
+            float areaTop = y + 66 + PreviewH + 10, areaH = S.DesignH - 130 - areaTop - 90;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * (AttachH + 12) + 40;
             _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
             float gy = 0;
             foreach (var item in LoadoutService.Weapons())
@@ -216,14 +220,53 @@ namespace HowToFish1v1.UI
             GUI.enabled = true;
         }
 
+        /// <summary>Create-a-class view: the chosen gun with its attachments and skin, turning in front of a private camera.</summary>
+        private static void DrawPreview(float x, float y, float w)
+        {
+            S.Box(new Rect(x, y, w, PreviewH), S.Panel);
+            GUI.DrawTexture(new Rect(x, y, 6, PreviewH), S.GoldDim);
+            if (_guns.Count == 0)
+            {
+                ClassPreview.Hide();
+                GUI.color = new Color(1f, 1f, 1f, 0.6f);
+                GUI.Label(new Rect(x, y, w, PreviewH), "PICK A GUN BELOW TO SEE IT HERE", S.BodyCenter);
+                GUI.color = Color.white;
+                return;
+            }
+            _previewIndex = Mathf.Clamp(_previewIndex, 0, _guns.Count - 1);
+            var g = _guns[_previewIndex];
+            var o = LoadoutService.Options(g.ItemId);
+            ClassPreview.Show(g);
+            var tex = ClassPreview.Texture;
+            var view = new Rect(x + 12, y + 44, w - 24, PreviewH - 84);
+            if (tex) GUI.DrawTexture(view, tex, ScaleMode.ScaleToFit);
+            else GUI.Label(view, ClassPreview.Error, S.BodyCenter);
+            GUI.Label(new Rect(x + 16, y + 8, w - 32, 30), $"{o.Name.ToUpperInvariant()}   |   {WeaponSkins.Names[Mathf.Clamp(g.Skin, 0, WeaponSkins.Count - 1)].ToUpperInvariant()}", S.H2);
+            if (_guns.Count > 1)
+            {
+                bool was = GUI.enabled; GUI.enabled = true;
+                if (S.Btn(new Rect(x + w - 108, y + 6, 42, 34), "<", S.ToggleButton)) _previewIndex = (_previewIndex + _guns.Count - 1) % _guns.Count;
+                if (S.Btn(new Rect(x + w - 58, y + 6, 42, 34), ">", S.ToggleButton)) _previewIndex = (_previewIndex + 1) % _guns.Count;
+                GUI.enabled = was;
+            }
+            string mods = string.Join("  |  ", new[] {
+                g.Sight > 0 && g.Sight < o.Sights.Count ? o.Sights[g.Sight] : null,
+                g.Barrel > 0 && g.Barrel < o.Barrels.Count ? o.Barrels[g.Barrel] : null,
+                g.ExtendedMag ? "Extended mag" : null, g.Drum ? "Drum mag" : null, g.Switch ? "Switch (full auto)" : null, g.Laser ? "Laser" : null
+            }.Where(m => m != null));
+            int mag = o.AmmoPerMag > 0 ? Mathf.RoundToInt(o.AmmoPerMag * (g.Drum ? ModAttachments.DrumMultiplier : 1f)) : 0;
+            GUI.Label(new Rect(x + 16, y + PreviewH - 36, w - 32, 28), (mag > 0 ? $"{mag} rounds   " : "") + (mods.Length > 0 ? mods : "stock"), S.Small);
+        }
+
         /// <summary>Attachment rows for one chosen gun; returns the y after the block.</summary>
         private static float DrawAttachments(float x, float y, float w, int gunIndex)
         {
             var g = _guns[gunIndex];
             var o = LoadoutService.Options(g.ItemId);
-            S.Box(new Rect(x, y, w, 266), S.Panel);
-            GUI.DrawTexture(new Rect(x, y, 6, 266), S.GoldDim);
+            S.Box(new Rect(x, y, w, AttachH), S.Panel);
+            GUI.DrawTexture(new Rect(x, y, 6, AttachH), gunIndex == _previewIndex ? S.Gold : S.GoldDim);
             GUI.Label(new Rect(x + 16, y + 8, w - 32, 30), $"{o.Name.ToUpperInvariant()}  ATTACHMENTS & SKIN", S.H2);
+            if (Event.current.type == EventType.MouseDown && new Rect(x, y, w, AttachH).Contains(Event.current.mousePosition)) _previewIndex = gunIndex;
             bool changed = false;
             float ry = y + 44;
             changed |= Cycle(x + 16, ry, w - 32, "Sight", o.Sights, ref g.Sight); ry += 42;
@@ -237,12 +280,20 @@ namespace HowToFish1v1.UI
             GUI.enabled = ModState.Phase == MatchPhase.Lobby && o.HasLaser;
             if (S.Btn(new Rect(x + 24 + half, ry, half, 38), o.HasLaser ? (g.Laser ? "[x] Laser sight" : "[ ] Laser sight") : "No laser", g.Laser ? S.ToggleButtonOn : S.ToggleButton))
             { g.Laser = !g.Laser; changed = true; }
+            ry += 42;
+            GUI.enabled = ModState.Phase == MatchPhase.Lobby && o.HasDrum;
+            if (S.Btn(new Rect(x + 16, ry, half, 38), o.HasDrum ? (g.Drum ? "[x] Drum mag" : "[ ] Drum mag") : "No drum mag", g.Drum ? S.ToggleButtonOn : S.ToggleButton))
+            { g.Drum = !g.Drum; if (g.Drum) g.ExtendedMag = false; changed = true; }
+            GUI.enabled = ModState.Phase == MatchPhase.Lobby && o.HasSwitch;
+            if (S.Btn(new Rect(x + 24 + half, ry, half, 38), o.HasSwitch ? (g.Switch ? "[x] The Switch (full auto)" : "[ ] The Switch (full auto)") : "No switch", g.Switch ? S.ToggleButtonOn : S.ToggleButton))
+            { g.Switch = !g.Switch; changed = true; }
             GUI.enabled = ModState.Phase == MatchPhase.Lobby;
-            if (changed) { _guns[gunIndex] = g; SendLoadout(false); }
-            return y + 266;
+            if (!WeaponSkins.CanPick(g.Skin)) { g.Skin = 0; changed = true; }   // locked skins are skipped
+            if (changed) { _guns[gunIndex] = g; _previewIndex = gunIndex; SendLoadout(false); }
+            return y + AttachH;
         }
 
-        private static readonly List<string> _skinNames = WeaponSkins.Names.ToList();
+        private static readonly List<string> _skinNames = WeaponSkins.Names.Select((n, i) => i == WeaponSkins.Dragon && !WeaponSkins.CanPick((byte)i) ? n + " (locked)" : n).ToList();
 
         private static bool Cycle(float x, float y, float w, string label, List<string> options, ref byte index)
         {

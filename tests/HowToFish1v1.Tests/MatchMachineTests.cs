@@ -398,5 +398,15 @@ namespace HowToFish1v1.Tests
             Assert.Equal("Team A", t.TeamLabel(0));
             Assert.Equal("Team B", t.TeamLabel(1));
         }
-    }
+    
+        [Fact]
+        public void DrumAndSwitchRoundTrip()
+        {
+            var g = new LoadoutGun(66) { Drum = true, Switch = true, Laser = true, Skin = 9 };
+            var back = LoadoutCodec.Decode(LoadoutCodec.Encode(new[] { g }))[0];
+            Assert.True(back.Drum); Assert.True(back.Switch); Assert.True(back.Laser); Assert.False(back.ExtendedMag);
+            Assert.Equal(9, back.Skin);
+            Assert.Equal(3, back.ModCount);
+        }
+}
 }

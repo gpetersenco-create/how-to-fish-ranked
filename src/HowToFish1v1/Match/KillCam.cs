@@ -674,7 +674,7 @@ namespace HowToFish1v1.Match
         private static void UpdateGhost(bool show, float t)
         {
             Vector3 headPos = Vector3.zero; Quaternion headRot = Quaternion.identity;
-            bool have = show && !_victimShown && (_victimId >= 0 ? Recorder.TryGet(_victimId, t, out headPos, out headRot) : PreviewGhost(out headPos, out headRot));
+            bool have = show && !_victimShown && !_preview && _victimId >= 0 && Recorder.TryGet(_victimId, t, out headPos, out headRot);
             if (!have)
             {
                 if (_ghost) _ghost.SetActive(false);

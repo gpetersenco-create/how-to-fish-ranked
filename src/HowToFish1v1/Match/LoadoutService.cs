@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FishNet;
@@ -18,6 +18,10 @@ namespace HowToFish1v1.Match
         public List<string> Bullets = new List<string>();
         public bool HasExtendedMag;
         public bool HasLaser;
+        /// <summary>Mod attachments: drum magazine (SMG and pistol) and the full-auto switch (pistol).</summary>
+        public bool HasDrum;
+        public bool HasSwitch;
+        public int AmmoPerMag;
     }
 
     public static class LoadoutService
@@ -52,9 +56,13 @@ namespace HowToFish1v1.Match
             var prefab = GameInfo.IDToItem(itemId);
             o.Name = DisplayName(prefab);
             var att = prefab ? prefab.GetComponentInChildren<Attachments>(true) : null;
+            string lower = o.Name.ToLowerInvariant();
+            o.HasDrum = lower.Contains("smg") || lower.Contains("pistol");
+            o.HasSwitch = lower.Contains("pistol");
             if (att)
             {
                 var t = Traverse.Create(att);
+                try { o.AmmoPerMag = t.Field<int>("_defaultAmmoPerMag").Value; } catch (Exception) { }
                 var sights = t.Field<List<Sight>>("_sights").Value;
                 var barrels = t.Field<List<BarrelAttachment>>("_barrelAttachments").Value;
                 var bullets = t.Field<BulletUpgrade[]>("_bulletUpgrades").Value;
@@ -158,6 +166,7 @@ namespace HowToFish1v1.Match
             att._syncedBulletIndex.Value = (byte)Mathf.Clamp(g.Bullets, 0, o.Bullets.Count - 1);
             att._syncedExtendedMag.Value = g.ExtendedMag && o.HasExtendedMag;
             att._syncedLaserSight.Value = g.Laser && o.HasLaser;
+            ModAttachments.Refresh();
         }
 
         /// <summary>Local client. Fills the magazine of every gun the local player carries and clears reload state.</summary>

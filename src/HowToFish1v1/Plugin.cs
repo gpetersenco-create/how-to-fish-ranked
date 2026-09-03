@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.16";
+        public const string Version = "0.2.17";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -60,6 +60,8 @@ namespace HowToFish1v1
             KillCam.Update();
             if (Input.GetKeyDown(Cfg.KillcamPreviewKey.Value) && ModState.IsActive && !ModState.PanelOpen) KillCam.StartPreview();
             WeaponSkins.Update();
+            ModAttachments.Update();
+            UI.ClassPreview.Update();
             Leaderboard.Update();
             Hud.Update();
             AutoHostForTesting();
@@ -72,6 +74,7 @@ namespace HowToFish1v1
             LobbyPanel.Draw();
             Scoreboard.Draw();
             Match.KillCam.DrawOverlay();
+            Hud.DrawKillcamCard();
             Updater.Draw();
             RankedMenu.Draw();
         }
