@@ -62,6 +62,8 @@ namespace HowToFish1v1.Match
         private static GameObject _viewGun, _flash;
         private static Item _gunSource;
         private static Transform[] _gunParts;
+        private static Transform[] _boneCopies;
+        private static Vector3[] _boneScale;
         private static readonly List<Renderer> _gunRenderers = new List<Renderer>();
         private static readonly List<Object> _gunCreated = new List<Object>();
         private static bool _remoteKiller;
@@ -105,6 +107,14 @@ namespace HowToFish1v1.Match
         public static void Init()
         {
             ModNet.KillFeedReceived += OnKill;
+            // The game switches hand and tool meshes back on in its LateUpdate; hide them again right before each camera draws.
+            UnityEngine.Rendering.RenderPipelineManager.beginCameraRendering += (ctx, cam) => { if (IsReplay) RehideNow(); };
+        }
+
+        private static void RehideNow()
+        {
+            foreach (var r in _hiddenRenderers) if (r && r.enabled) r.enabled = false;
+            foreach (var c in _hiddenCanvases) if (c && c.enabled) c.enabled = false;
         }
 
         private static void OnKill(KillFeedBroadcast k)
@@ -209,7 +219,7 @@ namespace HowToFish1v1.Match
         private static void DestroyViewGun()
         {
             if (_viewGun) Object.Destroy(_viewGun);
-            _viewGun = null; _flash = null; _gunSource = null; _gunParts = null;
+            _viewGun = null; _flash = null; _gunSource = null; _gunParts = null; _boneCopies = null; _boneScale = null;
             _gunRenderers.Clear();
             foreach (var o in _gunCreated) if (o) Object.Destroy(o);
             _gunCreated.Clear();
@@ -229,8 +239,21 @@ namespace HowToFish1v1.Match
             try { if (item is Tool tool && _remoteKiller) _tpOffset = tool.ThirdPersonOffset; } catch (System.Exception) { }
 
             _viewGun = new GameObject("HTF1v1_KillcamGun");
-            var rends = Recorder.RenderersOf(item);
+            var parts = Recorder.PartsOf(item);
+            var rends = parts.Rends;
             _gunParts = new Transform[rends.Length];
+            // One stand-in transform per recorded bone; the skinned copies are rigged to these and posed from the recording.
+            _boneCopies = new Transform[parts.Bones.Length];
+            _boneScale = new Vector3[parts.Bones.Length];
+            var boneRoot = new GameObject("Bones").transform;
+            boneRoot.SetParent(_viewGun.transform, false);
+            for (int i = 0; i < parts.Bones.Length; i++)
+            {
+                var b = new GameObject(parts.Bones[i] ? parts.Bones[i].name : "bone").transform;
+                b.SetParent(boneRoot, false);
+                _boneCopies[i] = b;
+                _boneScale[i] = parts.Bones[i] ? parts.Bones[i].lossyScale : Vector3.one;
+            }
             for (int i = 0; i < rends.Length; i++)
             {
                 var r = rends[i];
@@ -240,12 +263,31 @@ namespace HowToFish1v1.Match
                 Renderer made;
                 if (r is SkinnedMeshRenderer smr)
                 {
-                    var mesh = new Mesh();
-                    try { smr.BakeMesh(mesh); } catch (System.Exception) { Object.Destroy(mesh); Object.Destroy(copy); continue; }
-                    _gunCreated.Add(mesh);
-                    copy.AddComponent<MeshFilter>().sharedMesh = mesh;
-                    made = copy.AddComponent<MeshRenderer>();
-                    made.sharedMaterials = smr.sharedMaterials;
+                    int start = parts.BoneStart[i];
+                    if (start >= 0 && smr.sharedMesh && smr.bones != null && smr.bones.Length > 0)
+                    {
+                        // A live skinned copy: same mesh and bind poses, rigged to our stand-in bones.
+                        var skin = copy.AddComponent<SkinnedMeshRenderer>();
+                        skin.sharedMesh = smr.sharedMesh;
+                        skin.sharedMaterials = smr.sharedMaterials;
+                        var bones = new Transform[smr.bones.Length];
+                        for (int j = 0; j < bones.Length; j++) bones[j] = _boneCopies[start + j];
+                        skin.bones = bones;
+                        int rootIdx = System.Array.IndexOf(smr.bones, smr.rootBone);
+                        skin.rootBone = rootIdx >= 0 ? bones[rootIdx] : bones[0];
+                        skin.updateWhenOffscreen = true;
+                        skin.quality = smr.quality;
+                        made = skin;
+                    }
+                    else
+                    {
+                        var mesh = new Mesh();
+                        try { smr.BakeMesh(mesh); } catch (System.Exception) { Object.Destroy(mesh); Object.Destroy(copy); continue; }
+                        _gunCreated.Add(mesh);
+                        copy.AddComponent<MeshFilter>().sharedMesh = mesh;
+                        made = copy.AddComponent<MeshRenderer>();
+                        made.sharedMaterials = smr.sharedMaterials;
+                    }
                 }
                 else
                 {
@@ -370,6 +412,17 @@ namespace HowToFish1v1.Match
                 var r = part.GetComponent<Renderer>();
                 bool on = gs.On != null && i < gs.On.Length && gs.On[i] && !hideGun;
                 if (r && r.enabled != on) r.enabled = on;
+            }
+            if (_boneCopies != null && gs.BonePos != null && gs.BonePos.Length == _boneCopies.Length)
+            {
+                for (int i = 0; i < _boneCopies.Length; i++)
+                {
+                    var b = _boneCopies[i];
+                    if (!b) continue;
+                    b.localPosition = gs.BonePos[i] + fix;
+                    b.localRotation = gs.BoneRot[i];
+                    b.localScale = _boneScale[i];
+                }
             }
             if (_flash)
             {

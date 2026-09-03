@@ -20,13 +20,25 @@ namespace HowToFish1v1.Match
             public Item Item;
             public Vector3 RootPos; public Quaternion RootRot;
             public Vector3[] Pos; public Quaternion[] Rot; public bool[] On;
+            /// <summary>Bones of the item's skinned meshes (hands, gun body), so their animation replays too.</summary>
+            public Vector3[] BonePos; public Quaternion[] BoneRot;
         }
+
+        /// <summary>The mesh parts of an item plus the bones of its skinned parts, in a stable order shared with the replay copy.</summary>
+        public sealed class ItemParts
+        {
+            public Renderer[] Rends = System.Array.Empty<Renderer>();
+            public Transform[] Bones = System.Array.Empty<Transform>();
+            public int[] BoneStart = System.Array.Empty<int>();   // per renderer: first index into Bones (-1 when not skinned)
+        }
+
+        public const int MaxBones = 240;
 
         public const float KeepSeconds = 20f;
         private static readonly Dictionary<int, List<Sample>> _tracks = new Dictionary<int, List<Sample>>();
         private static readonly Dictionary<int, List<GunSample>> _guns = new Dictionary<int, List<GunSample>>();
         private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
-        private static readonly Dictionary<Item, Renderer[]> _rendCache = new Dictionary<Item, Renderer[]>();
+        private static readonly Dictionary<Item, ItemParts> _rendCache = new Dictionary<Item, ItemParts>();
         private static float _nextCacheClear;
 
         /// <summary>A weapon held by this player fired (seen on every client through the game's shoot effects).</summary>
@@ -73,16 +85,28 @@ namespace HowToFish1v1.Match
             return false;
         }
 
-        /// <summary>The mesh parts of an item, in a stable order shared by the recording and the replay copy.</summary>
-        public static Renderer[] RenderersOf(Item item)
+        public static ItemParts PartsOf(Item item)
         {
-            if (!item) return Array.Empty<Renderer>();
-            if (!_rendCache.TryGetValue(item, out var list) || list == null)
+            if (!item) return new ItemParts();
+            if (!_rendCache.TryGetValue(item, out var parts) || parts == null)
             {
-                list = item.GetComponentsInChildren<Renderer>(true).Where(r => r is MeshRenderer || r is SkinnedMeshRenderer).ToArray();
-                _rendCache[item] = list;
+                parts = new ItemParts();
+                parts.Rends = item.GetComponentsInChildren<Renderer>(true).Where(r => r is MeshRenderer || r is SkinnedMeshRenderer).ToArray();
+                var bones = new List<Transform>();
+                parts.BoneStart = new int[parts.Rends.Length];
+                for (int i = 0; i < parts.Rends.Length; i++)
+                {
+                    parts.BoneStart[i] = -1;
+                    if (parts.Rends[i] is SkinnedMeshRenderer smr && smr.bones != null && smr.bones.Length > 0 && bones.Count + smr.bones.Length <= MaxBones)
+                    {
+                        parts.BoneStart[i] = bones.Count;
+                        bones.AddRange(smr.bones);
+                    }
+                }
+                parts.Bones = bones.ToArray();
+                _rendCache[item] = parts;
             }
-            return list;
+            return parts;
         }
 
         /// <summary>Call every frame.</summary>
@@ -109,7 +133,8 @@ namespace HowToFish1v1.Match
                 var gs = new GunSample { T = now, Item = item };
                 if (item)
                 {
-                    var rends = RenderersOf(item);
+                    var parts = PartsOf(item);
+                    var rends = parts.Rends;
                     int n = rends.Length;
                     gs.RootPos = head.InverseTransformPoint(item.transform.position);
                     gs.RootRot = Quaternion.Inverse(head.rotation) * item.transform.rotation;
@@ -121,6 +146,15 @@ namespace HowToFish1v1.Match
                         gs.Pos[i] = head.InverseTransformPoint(r.transform.position);
                         gs.Rot[i] = Quaternion.Inverse(head.rotation) * r.transform.rotation;
                         gs.On[i] = r.enabled && r.gameObject.activeInHierarchy;
+                    }
+                    int nb = parts.Bones.Length;
+                    gs.BonePos = new Vector3[nb]; gs.BoneRot = new Quaternion[nb];
+                    for (int i = 0; i < nb; i++)
+                    {
+                        var b = parts.Bones[i];
+                        if (!b) continue;
+                        gs.BonePos[i] = head.InverseTransformPoint(b.position);
+                        gs.BoneRot[i] = Quaternion.Inverse(head.rotation) * b.rotation;
                     }
                 }
                 glist.Add(gs);
@@ -176,6 +210,17 @@ namespace HowToFish1v1.Match
                 mixed.Pos[i] = Vector3.Lerp(a.Pos[i], b.Pos[i], f);
                 mixed.Rot[i] = Quaternion.Slerp(a.Rot[i], b.Rot[i], f);
             }
+            if (a.BonePos != null && b.BonePos != null && a.BonePos.Length == b.BonePos.Length)
+            {
+                int nb = a.BonePos.Length;
+                mixed.BonePos = new Vector3[nb]; mixed.BoneRot = new Quaternion[nb];
+                for (int i = 0; i < nb; i++)
+                {
+                    mixed.BonePos[i] = Vector3.Lerp(a.BonePos[i], b.BonePos[i], f);
+                    mixed.BoneRot[i] = Quaternion.Slerp(a.BoneRot[i], b.BoneRot[i], f);
+                }
+            }
+            else { mixed.BonePos = a.BonePos; mixed.BoneRot = a.BoneRot; }
             result = mixed;
             return true;
         }

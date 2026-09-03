@@ -63,9 +63,12 @@ namespace HowToFish1v1.Match
                 {
                     if (!(item is Weapon)) continue;
                     skinByOwnerAndItem.TryGetValue((player.OwnerId, item.ID), out byte skin);
+                    Renderer hands = null;
+                    try { hands = item is Tool tool ? tool.HandsMesh : null; } catch (System.Exception) { }
                     foreach (var r in item.GetComponentsInChildren<Renderer>(true))
                     {
                         if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+                        if (r == hands) continue;   // the player's hands on the gun keep the game's skin-colour shader
                         int key = r.GetInstanceID();
                         bool has = _applied.TryGetValue(key, out var a) && a.Renderer;
                         if (skin == 0) { if (has) Restore(key); continue; }
