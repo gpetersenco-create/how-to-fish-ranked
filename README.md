@@ -14,10 +14,21 @@ with rank emblems and ready badges, an **Invite Friends** button that opens the 
 **Ready Up**. Each chosen gun gets an attachments block: sight, barrel (compensator / suppressor), bullet tier
 (damage), extended magazine and laser, using the game's own attachment options for that gun.
 
-## Sharing the mod
+## Sharing the mod and updates
 
-Run `tools\make-release.ps1` to produce `dist\HowToFishRanked-<version>.zip`. It contains BepInEx, the mod, and an
-`INSTALL.txt`. Your friend extracts everything into the folder that contains `How to Fish.exe` and starts the game. Friends who join see the same screen. The host picks mode and map at the bottom and presses
+Run `tools\make-release.ps1 -Notes "what changed"` after bumping `Plugin.Version`. It builds, produces
+`dist\HowToFishRanked-<version>.zip`, publishes a GitHub release with the zip and the two DLLs at
+`github.com/gpetersenco-create/how-to-fish-ranked`, and pushes `updates/manifest.json`. Friends install the zip once
+(extract into the folder with `How to Fish.exe`); after that the mod checks the manifest at startup, downloads newer
+DLLs itself, and shows "Mod updated, restart the game" on the main menu. Ranks live in
+`BepInEx\config\HowToFish1v1.ranks.json` and are untouched by updates. `-NoPublish` skips GitHub.
+
+## Killcam, skins, scoreboard
+
+Dying to a player replays their first-person view from 5 s before the kill (aim zoom, scope overlay, shots with
+sound, half speed for the final moment, a ghost of you). The match-winning kill replays for everyone at match end.
+Each gun in a loadout has a skin slot (Neon Blue, Toxic, Magma, Ultraviolet, Gold, Ghost, Rainbow) visible to all.
+Hold Tab for the scoreboard; the game's fish journal is disabled during matches. Friends who join see the same screen. The host picks mode and map at the bottom and presses
 **Start Match** once everyone is ready; the screen closes at the countdown and comes back after the match. F5 hides
 or shows it.
 
