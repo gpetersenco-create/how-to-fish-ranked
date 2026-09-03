@@ -44,9 +44,9 @@ namespace HowToFish1v1.Core
         private const float Ramp2over4 = 26.565f; // atan(2/4)
         private const float Ramp3over4 = 36.87f;  // atan(3/4)
 
-        public static readonly string[] MapNames = { "Rust", "Nuketown", "Shipment", "Killhouse", "Trickshot Tower" };
+        public static readonly string[] MapNames = { "Rust", "Shipment", "Killhouse", "Trickshot Tower" };
         public static int MapCount => MapNames.Length;
-        public const int TrickshotIndex = 4;
+        public const int TrickshotIndex = 3;
         /// <summary>Maps built for one player (no facing spawn pads, no symmetry).</summary>
         public static bool IsSoloMap(int mapIndex) => ((mapIndex % MapCount) + MapCount) % MapCount == TrickshotIndex;
 
@@ -91,10 +91,9 @@ namespace HowToFish1v1.Core
             int i = ((mapIndex % MapCount) + MapCount) % MapCount;
             switch (i)
             {
-                case 1: return Nuketown();
-                case 2: return Shipment();
-                case 3: return Killhouse();
-                case 4: return Trickshot();
+                case 1: return Shipment();
+                case 2: return Killhouse();
+                case 3: return Trickshot();
                 default: return Rust();
             }
         }

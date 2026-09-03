@@ -17,7 +17,7 @@ namespace HowToFish1v1.Tests
         [Fact]
         public void MapIndexWrapsAndNamesMatch()
         {
-            Assert.Equal(5, ArenaLayout.MapCount);
+            Assert.Equal(4, ArenaLayout.MapCount);
             for (int i = 0; i < ArenaLayout.MapCount; i++)
                 Assert.Equal(ArenaLayout.MapNames[i], ArenaLayout.Create(i).Name);
             Assert.Equal(ArenaLayout.MapNames[1], ArenaLayout.Create(1 + ArenaLayout.MapCount).Name);
