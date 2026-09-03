@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.3.4",
-    "notes":  "Search \u0026 Destroy removed from the mode list.",
+    "version":  "0.3.5",
+    "notes":  "New rank emblems: metal shields, wings, gems, crown per tier",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.4/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.5/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.4/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.5/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.4/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.5/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.4/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.5/hitmarker.mp3"
                   }
               ]
 }
