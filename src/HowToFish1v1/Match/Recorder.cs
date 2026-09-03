@@ -73,6 +73,22 @@ namespace HowToFish1v1.Match
         private static readonly Dictionary<int, List<float>> _shots = new Dictionary<int, List<float>>();
         public struct Shot { public float T; public Vector3 Hit; public bool HasHit; }
         public struct KnifeSwing { public float T; public byte Skin; }
+        public struct Bounce { public float T; public Vector3 From, To; }
+        private static readonly Dictionary<int, List<Bounce>> _bounces = new Dictionary<int, List<Bounce>>();
+
+        public static void RecordBounce(int ownerId, Vector3 from, Vector3 to)
+        {
+            if (!ModState.IsActive) return;
+            if (!_bounces.TryGetValue(ownerId, out var list)) { list = new List<Bounce>(); _bounces[ownerId] = list; }
+            list.Add(new Bounce { T = Time.unscaledTime, From = from, To = to });
+            while (list.Count > 0 && Time.unscaledTime - list[0].T > KeepSeconds) list.RemoveAt(0);
+        }
+
+        public static void BouncesBetween(int ownerId, float t0, float t1, List<Bounce> into)
+        {
+            if (!_bounces.TryGetValue(ownerId, out var list)) return;
+            foreach (var b in list) if (b.T > t0 && b.T <= t1) into.Add(b);
+        }
         private static readonly Dictionary<int, List<KnifeSwing>> _knives = new Dictionary<int, List<KnifeSwing>>();
 
         public static void RecordKnife(int ownerId, byte skin)
@@ -246,7 +262,7 @@ namespace HowToFish1v1.Match
         {
             if (!ModState.IsActive)
             {
-                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _shotHits.Clear(); _knives.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
+                if (_tracks.Count > 0) { _tracks.Clear(); _shots.Clear(); _shotHits.Clear(); _knives.Clear(); _bounces.Clear(); _aim.Clear(); _guns.Clear(); _bodies.Clear(); _bodyParts.Clear(); _rigCache.Clear(); Mannequin = null; }
                 if (_actors.Count > 0) { foreach (var tr in _actors.Values) DestroyParts(tr); _actors.Clear(); _creatures = Array.Empty<Creature>(); }
                 return;
             }

@@ -17,7 +17,7 @@ namespace HowToFish1v1.Match
         private const float HitAt = 0.36f;          // fraction of the swing at which the blade crosses the centre
         private const float Reach = 2.3f;
         private const float Radius = 0.4f;
-        private const int Damage = 150;
+        private const int Damage = HowToFish1v1.Core.GunBalance.KnifeDamage;
         private const float Cooldown = 0.55f;
 
         private static GameObject _model;
@@ -144,7 +144,9 @@ namespace HowToFish1v1.Match
                 {
                     if (victim == me || victim.Dying.IsDead) continue;
                     Vector3 point = h.point == Vector3.zero ? victim.Transform.position + Vector3.up : h.point;
+                    Patches.CombatPatches.SendingRaw = true;
                     try { victim.Vitals.LocalHit(point, fwd, me, Damage, false, fwd * GameInfo.PlayerKillForce); } catch (System.Exception e) { Plugin.Log.LogWarning("Knife hit: " + e.Message); }
+                    finally { Patches.CombatPatches.SendingRaw = false; }
                     return;
                 }
                 if (h.collider && h.collider.GetComponentInParent<TrickshotBot>()) { Trickshot.RegisterHit(); return; }
@@ -311,6 +313,34 @@ namespace HowToFish1v1.Match
             Ensure();
             _source.pitch = kill ? 0.92f : 1f;
             _source.PlayOneShot(_hitmarker, Mathf.Clamp(Plugin.Cfg.HitmarkerVolume.Value, 0f, 2f));
+        }
+
+        private static AudioClip _ricochet;
+
+        /// <summary>A ricochet ping at the wall: a descending metallic whine with a sharp crack at the front.</summary>
+        public static void PlayRicochet(Vector3 at)
+        {
+            Ensure();
+            if (!_ricochet)
+            {
+                int n = (int)(Rate * 0.32f);
+                var data = new float[n];
+                var rng = new System.Random(23);
+                float phase = 0f;
+                for (int i = 0; i < n; i++)
+                {
+                    float t = (float)i / Rate;
+                    float u = t / 0.32f;
+                    float f = Mathf.Lerp(4200f, 900f, Mathf.Pow(u, 0.55f));
+                    phase += 2f * Mathf.PI * f / Rate;
+                    float whine = Mathf.Sin(phase) * Mathf.Exp(-t * 9f) * 0.55f + Mathf.Sin(phase * 2.01f) * Mathf.Exp(-t * 14f) * 0.2f;
+                    float crack = t < 0.012f ? (float)(rng.NextDouble() * 2 - 1) * Mathf.Exp(-t * 400f) * 0.8f : 0f;
+                    data[i] = Mathf.Clamp(whine + crack, -1f, 1f);
+                }
+                _ricochet = AudioClip.Create("HTF1v1_Ricochet", n, 1, Rate, false);
+                _ricochet.SetData(data, 0);
+            }
+            AudioSource.PlayClipAtPoint(_ricochet, at, 0.9f);
         }
 
         public static void PlaySwoosh()

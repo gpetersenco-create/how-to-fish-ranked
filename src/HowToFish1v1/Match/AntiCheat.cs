@@ -57,8 +57,8 @@ namespace HowToFish1v1.Match
             {
                 Vector3 to = point - head.position;
                 float dist = to.magnitude;
-                // Silent aim: the shot landed somewhere the shooter was not looking.
-                if (dist > 2.5f && Vector3.Angle(head.forward, to) > 16f) { rec.SilentAim.Add(now); Note(attacker, $"hit {Vector3.Angle(head.forward, to):0}° off the aim line"); }
+                // Silent aim: the shot landed somewhere the shooter was not looking, and no single ricochet explains it.
+                if (dist > 2.5f && Vector3.Angle(head.forward, to) > 16f && !RicochetExplains(head, point)) { rec.SilentAim.Add(now); Note(attacker, $"hit {Vector3.Angle(head.forward, to):0}° off the aim line"); }
                 // Snap: the view turned faster than a human flick in the instant before the hit.
                 if (Recorder.TryGet(attacker.OwnerId, now - 0.12f, out _, out var before) && Recorder.TryGet(attacker.OwnerId, now, out _, out var at))
                 {
@@ -66,9 +66,8 @@ namespace HowToFish1v1.Match
                     if (degPerSec > 1400f && dist > 4f) { rec.Snaps.Add(now); Note(attacker, $"snapped {degPerSec:0}°/s onto the target"); }
                 }
             }
-            // Damage: more than the gun can possibly do.
-            int max = MaxDamage(attacker);
-            if (max > 0 && damage > max * 1.6f + 5f) { rec.Strikes += 3; Note(attacker, $"reported {damage} damage, gun max {max}"); }
+            // Damage: more than anything in ranked can do (the host clamps it anyway; this is the evidence).
+            if (damage > GunBalance.KnifeDamage + 5) { rec.Strikes += 3; Note(attacker, $"reported {damage} damage"); }
             Evaluate(attacker, rec);
         }
 
@@ -145,6 +144,26 @@ namespace HowToFish1v1.Match
         private static void Note(Player p, string what)
         {
             Plugin.Log.LogInfo($"Anti-cheat note: {p.SteamName}: {what}");
+        }
+
+        /// <summary>Could a bullet from this head have reached the point with one bounce off the level?</summary>
+        private static bool RicochetExplains(Transform head, Vector3 point)
+        {
+            try
+            {
+                int mask = ~0;
+                int local = LayerMask.NameToLayer("LocalPlayer");
+                if (local >= 0) mask &= ~(1 << local);
+                if (!Physics.Raycast(head.position + head.forward * 0.5f, head.forward, out var hit, 300f, mask, QueryTriggerInteraction.Ignore)) return false;
+                if (!hit.collider || !hit.collider.CompareTag("Level")) return false;
+                Vector3 dir = Vector3.Reflect(head.forward, hit.normal).normalized;
+                Vector3 rel = point - hit.point;
+                float along = Vector3.Dot(rel, dir);
+                if (along < 0f || along > 90f) return false;
+                float off = (rel - dir * along).magnitude;
+                return off < 1.5f;
+            }
+            catch (System.Exception) { return false; }
         }
 
         private static int MaxDamage(Player p)

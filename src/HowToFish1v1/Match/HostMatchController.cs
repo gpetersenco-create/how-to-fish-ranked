@@ -31,6 +31,7 @@ namespace HowToFish1v1.Match
             ModNet.RemoteDisconnected += id => _helloVersions.Remove(id);
             ModNet.AimReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastAimState(conn.ClientId, msg.Ads); };
             ModNet.KnifeReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastKnifeState(conn.ClientId, msg.Skin); };
+            ModNet.BounceReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastBounce(conn.ClientId, msg.From, msg.To); };
             ModState.KillDetected += OnKill;
         }
 

@@ -48,6 +48,10 @@ namespace HowToFish1v1.Net
             GenericReader<KnifeStateBroadcast>.SetRead(r => Open(r, b => new KnifeStateBroadcast { OwnerId = b.ReadInt32(), Skin = b.ReadUInt8Unpacked() }));
             GenericWriter<CheatBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteString(v.Name ?? ""); b.WriteString(v.Reason ?? ""); }));
             GenericReader<CheatBroadcast>.SetRead(r => Open(r, b => new CheatBroadcast { OwnerId = b.ReadInt32(), Name = b.ReadStringAllocated() ?? "", Reason = b.ReadStringAllocated() ?? "" }));
+            GenericWriter<BounceBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteVector3(v.From); b.WriteVector3(v.To); }));
+            GenericReader<BounceBroadcast>.SetRead(r => Open(r, b => new BounceBroadcast { From = b.ReadVector3(), To = b.ReadVector3() }));
+            GenericWriter<BounceStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteVector3(v.From); b.WriteVector3(v.To); }));
+            GenericReader<BounceStateBroadcast>.SetRead(r => Open(r, b => new BounceStateBroadcast { OwnerId = b.ReadInt32(), From = b.ReadVector3(), To = b.ReadVector3() }));
             GenericWriter<AimStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteBoolean(v.Ads); }));
             GenericReader<AimStateBroadcast>.SetRead(r => Open(r, b => new AimStateBroadcast { OwnerId = b.ReadInt32(), Ads = b.ReadBoolean() }));
 

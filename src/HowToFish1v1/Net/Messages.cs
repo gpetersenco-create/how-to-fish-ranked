@@ -1,4 +1,5 @@
 using FishNet.Broadcast;
+using UnityEngine;
 
 // FishNet keys broadcasts by the type's full name. Bumping this namespace whenever the wire layout changes makes
 // older builds skip our packets cleanly (unknown key) instead of mis-parsing them and disconnecting the sender.
@@ -34,6 +35,12 @@ namespace HowToFish1v1.Net.Proto2
 
     /// <summary>Host to everyone: a player was caught cheating.</summary>
     public struct CheatBroadcast : IBroadcast { public int OwnerId; public string Name; public string Reason; }
+
+    /// <summary>Client to host: one of my bullets ricocheted along this segment.</summary>
+    public struct BounceBroadcast : IBroadcast { public Vector3 From; public Vector3 To; }
+
+    /// <summary>Host to everyone: this player's bullet ricocheted.</summary>
+    public struct BounceStateBroadcast : IBroadcast { public int OwnerId; public Vector3 From; public Vector3 To; }
 
     public struct AimStateBroadcast : IBroadcast
     {

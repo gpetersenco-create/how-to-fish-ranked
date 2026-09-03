@@ -18,6 +18,8 @@ namespace HowToFish1v1.Net
         public static event Action<KillFeedBroadcast> KillFeedReceived;
         public static event Action<NetworkConnection, AimBroadcast> AimReceived;
         public static event Action<AimStateBroadcast> AimStateReceived;
+        public static event Action<NetworkConnection, BounceBroadcast> BounceReceived;
+        public static event Action<BounceStateBroadcast> BounceStateReceived;
         public static event Action<CheatBroadcast> CheatReceived;
         public static event Action<NetworkConnection, KnifeBroadcast> KnifeReceived;
         public static event Action<KnifeStateBroadcast> KnifeStateReceived;
@@ -63,6 +65,8 @@ namespace HowToFish1v1.Net
             nm.ClientManager.RegisterBroadcast<KillFeedBroadcast>((msg, ch) => KillFeedReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<AimBroadcast>((conn, msg, ch) => AimReceived?.Invoke(conn, msg));
             nm.ClientManager.RegisterBroadcast<AimStateBroadcast>((msg, ch) => AimStateReceived?.Invoke(msg));
+            nm.ServerManager.RegisterBroadcast<BounceBroadcast>((conn, msg, ch) => BounceReceived?.Invoke(conn, msg));
+            nm.ClientManager.RegisterBroadcast<BounceStateBroadcast>((msg, ch) => BounceStateReceived?.Invoke(msg));
             nm.ClientManager.RegisterBroadcast<CheatBroadcast>((msg, ch) => CheatReceived?.Invoke(msg));
             nm.ServerManager.RegisterBroadcast<KnifeBroadcast>((conn, msg, ch) => KnifeReceived?.Invoke(conn, msg));
             nm.ClientManager.RegisterBroadcast<KnifeStateBroadcast>((msg, ch) => KnifeStateReceived?.Invoke(msg));
@@ -124,6 +128,18 @@ namespace HowToFish1v1.Net
         {
             if (!IsHost) return;
             InstanceFinder.ServerManager.Broadcast(msg);
+        }
+
+        public static void SendBounce(UnityEngine.Vector3 from, UnityEngine.Vector3 to)
+        {
+            if (!ClientAuthenticated) return;
+            InstanceFinder.ClientManager.Broadcast(new BounceBroadcast { From = from, To = to }, Channel.Reliable);
+        }
+
+        public static void BroadcastBounce(int ownerId, UnityEngine.Vector3 from, UnityEngine.Vector3 to)
+        {
+            if (!IsHost) return;
+            InstanceFinder.ServerManager.Broadcast(new BounceStateBroadcast { OwnerId = ownerId, From = from, To = to });
         }
 
         public static void BroadcastAimState(int ownerId, bool ads)

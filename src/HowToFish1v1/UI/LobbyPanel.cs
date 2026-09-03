@@ -24,7 +24,7 @@ namespace HowToFish1v1.UI
         private static Vector2 _loadoutScroll;
         private static int _previewIndex;
         private const float PreviewH = 330f;
-        private const float AttachH = 308f;
+        private const float AttachH = 266f;
 
         public static void Toggle() { if (IsOpen) Close(); else Open(); }
 
@@ -299,7 +299,7 @@ namespace HowToFish1v1.UI
             float ry = y + 44;
             changed |= Cycle(x + 16, ry, w - 32, "Sight", o.Sights, ref g.Sight); ry += 42;
             changed |= Cycle(x + 16, ry, w - 32, "Barrel", o.Barrels, ref g.Barrel); ry += 42;
-            changed |= Cycle(x + 16, ry, w - 32, "Bullets", o.Bullets, ref g.Bullets); ry += 42;
+            if (g.Bullets != 0) { g.Bullets = 0; changed = true; }   // damage is fixed per gun in ranked
             changed |= Cycle(x + 16, ry, w - 32, "Skin", _skinNames, ref g.Skin); ry += 42;
             float half = (w - 40) / 2f;
             GUI.enabled = GUI.enabled && o.HasExtendedMag;

@@ -163,7 +163,7 @@ namespace HowToFish1v1.Match
             var o = Options(g.ItemId);
             att._syncedSight.Value = (byte)Mathf.Clamp(g.Sight, 0, o.Sights.Count - 1);
             att._syncedBarrelAttachment.Value = (byte)Mathf.Clamp(g.Barrel, 0, o.Barrels.Count - 1);
-            att._syncedBulletIndex.Value = (byte)Mathf.Clamp(g.Bullets, 0, o.Bullets.Count - 1);
+            att._syncedBulletIndex.Value = 0;   // ranked damage is fixed per gun; bullet tiers are not used
             att._syncedExtendedMag.Value = g.ExtendedMag && o.HasExtendedMag;
             att._syncedLaserSight.Value = g.Laser && o.HasLaser;
             ModAttachments.Refresh();

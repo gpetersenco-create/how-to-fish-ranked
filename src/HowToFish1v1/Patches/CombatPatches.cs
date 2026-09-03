@@ -14,16 +14,28 @@ namespace HowToFish1v1.Patches
             if (ModState.IsActive) __result = true;
         }
 
-        // LocalHit multiplies damage by _playerDamageMultiplier (0.25) for player hits. Pre-scale so the net result is damage * cfg.
+        /// <summary>Set by the knife and ricochets around their own LocalHit calls: send exactly this damage, do not replace it.</summary>
+        public static bool SendingRaw;
+
+        // LocalHit multiplies damage by _playerDamageMultiplier (0.25) and the server damage multiplier. Replace the
+        // game's damage with the gun's fixed ranked damage and pre-scale so the value that reaches the server is exact.
         [HarmonyPatch(typeof(PlayerVitals), nameof(PlayerVitals.LocalHit))]
         [HarmonyPrefix]
-        private static void ScalePlayerDamage(PlayerVitals __instance, ref int damage, bool fromNpc)
+        private static void ScalePlayerDamage(PlayerVitals __instance, Player playerWhoHit, ref int damage, bool fromNpc)
         {
             if (!ModState.IsActive || fromNpc) return;
             float gameScale = Traverse.Create(__instance).Field<float>("_playerDamageMultiplier").Value;
             if (gameScale <= 0f) gameScale = 0.25f;
-            float want = Mathf.Max(0f, Plugin.Cfg.DamageMultiplier.Value);
-            damage = Mathf.RoundToInt(damage * want / gameScale);
+            float serverScale = 1f;
+            try { serverScale = ServerSettings.DamageMultiplier; } catch (System.Exception) { }
+            if (serverScale <= 0f) serverScale = 1f;
+            int want = damage;
+            if (!SendingRaw)
+            {
+                string gun = playerWhoHit && playerWhoHit.Holding ? Match.LoadoutService.DisplayName(playerWhoHit.Holding.HeldItem) : "";
+                want = HowToFish1v1.Core.GunBalance.DamageFor(gun);
+            }
+            damage = Mathf.RoundToInt(want / gameScale / serverScale);
         }
     }
 }

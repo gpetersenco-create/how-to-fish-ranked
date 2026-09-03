@@ -30,6 +30,7 @@ namespace HowToFish1v1.Match
             // Our own aim state is recorded the moment it changes (below); the relayed copy would arrive a round trip late.
             ModNet.AimStateReceived += a => { if (a.OwnerId != ModState.LocalOwnerId) Recorder.RecordAim(a.OwnerId, a.Ads); };
             ModNet.KnifeStateReceived += k => { if (k.OwnerId != ModState.LocalOwnerId) Recorder.RecordKnife(k.OwnerId, k.Skin); };
+            ModNet.BounceStateReceived += b => { if (b.OwnerId != ModState.LocalOwnerId) Ricochet.OnRemoteBounce(b.OwnerId, b.From, b.To); };
             ModNet.CheatReceived += c =>
             {
                 bool me = c.OwnerId == ModState.LocalOwnerId;

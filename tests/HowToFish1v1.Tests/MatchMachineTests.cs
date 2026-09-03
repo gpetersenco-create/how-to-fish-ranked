@@ -408,5 +408,18 @@ namespace HowToFish1v1.Tests
             Assert.Equal(9, back.Skin);
             Assert.Equal(3, back.ModCount);
         }
+
+        [Fact]
+        public void GunBalanceIsAuthoritative()
+        {
+            Assert.Equal(100, GunBalance.DamageFor("Sniper Rifle"));          // one shot
+            Assert.True(GunBalance.DamageFor("Smg") * 6 < GunBalance.Health);  // seven to kill
+            Assert.Equal(24, GunBalance.Authoritative("Assault Rifle", 999, 10f));   // damage hack clamped
+            Assert.Equal(24, GunBalance.Authoritative("Assault Rifle", 3, 10f));     // low value raised too
+            Assert.Equal(18, GunBalance.Authoritative("Assault Rifle", 18, 10f));    // ricochet (75%) kept
+            Assert.Equal(150, GunBalance.Authoritative("Assault Rifle", 150, 2f));   // knife in reach kept
+            Assert.Equal(24, GunBalance.Authoritative("Assault Rifle", 150, 12f));   // "knife" from 12 m is not a knife
+            Assert.Equal(75, GunBalance.RicochetDamageFor("Sniper Rifle"));
+        }
 }
 }

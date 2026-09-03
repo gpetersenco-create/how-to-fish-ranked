@@ -97,6 +97,7 @@ namespace HowToFish1v1.Match
         private sealed class Tracer { public GameObject Go; public Vector3 From, To; public float T0, Dur; }
         private static readonly List<Tracer> _tracers = new List<Tracer>();
         private static readonly List<Recorder.Shot> _shotBuf = new List<Recorder.Shot>();
+        private static readonly List<Recorder.Bounce> _bounceBuf = new List<Recorder.Bounce>();
         private static Material _tracerMat;
         private const float TracerSeconds = 0.09f;   // replay seconds from muzzle to target (slow motion stretches it)
         private const float TracerLength = 2.2f;
@@ -540,6 +541,10 @@ namespace HowToFish1v1.Match
                 Vector3 from = _flash ? _flash.transform.position : (_gun != null && _gun.Root ? _gun.Root.transform.position : Vector3.zero);
                 foreach (var s in _shotBuf) if (s.HasHit) SpawnTracer(from, s.Hit, s.T);
             }
+            // Ricochets have their own recorded segments (they can arrive a frame after the shot).
+            _bounceBuf.Clear();
+            Recorder.BouncesBetween(_killerId, _lastShotCheck, _replayT, _bounceBuf);
+            foreach (var b in _bounceBuf) SpawnTracer(b.From, b.To, b.T);
             _lastShotCheck = _replayT;
             UpdateTracers();
         }
