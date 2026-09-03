@@ -1,22 +1,22 @@
 ﻿{
-    "version":  "0.3.2",
-    "notes":  "Grenades: frag on G (hold to cook, release to throw along the previewed arc, 7 m blast with cover checks, host-applied damage and kill credit) and flashbang on H (whiteout and ringing when you were looking at it), one of each per life. New attachments on every gun: Grip (less spread and kick), Fast mag (quicker reloads), Flashlight. Seasons: four-week ranked seasons; rank points archive and reset at the start of each, the emblem shows the season, last season\u0027s podium appears on the Leaderboard tab. Party codes: the lobby shows a code, friends type it into the ranked menu to join without an invite.",
+    "version":  "0.3.3",
+    "notes":  "Crosshair and hit marker pickers removed from the lobby (the game\u0027s own crosshair and hit marker are used).",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.3/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.3/HowToFish1v1.Core.dll"
                   },
                   {
                       "name":  "knife.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/knife.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.3/knife.mp3"
                   },
                   {
                       "name":  "hitmarker.mp3",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.2/hitmarker.mp3"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.3.3/hitmarker.mp3"
                   }
               ]
 }
