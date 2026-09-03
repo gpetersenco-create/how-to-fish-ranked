@@ -142,6 +142,8 @@ namespace HowToFish1v1.Match
             ArenaBuilder.Build(mapIndex);
             yield return new WaitForSeconds(0.75f);
             IslandManager.UnloadIslands();
+            yield return new WaitForSeconds(0.5f);
+            PlayerUI.ToggleIslandWarning(false);
         }
 
         /// <summary>Load the island first and only then remove the arena, so players stand on something until the game teleports them.</summary>

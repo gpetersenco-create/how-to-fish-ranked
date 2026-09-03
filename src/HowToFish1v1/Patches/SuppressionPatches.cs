@@ -19,5 +19,9 @@ namespace HowToFish1v1.Patches
         [HarmonyPatch(typeof(TutorialManager), "AddTutorial")] [HarmonyPrefix] private static bool NoTutorial() => Skip();
         [HarmonyPatch(typeof(PlayerVitals), "LowerFullnessTick")] [HarmonyPrefix] private static bool NoHunger() => Skip();
         [HarmonyPatch(typeof(AutoSaver), "Start")] [HarmonyPrefix] private static bool NoAutosave() => Skip();
+
+        // The island's "you can't progress if you leave your friends" zone fires its exit event when the island unloads.
+        [HarmonyPatch(typeof(PlayerUI), "ToggleIslandWarning")] [HarmonyPrefix]
+        private static bool NoIslandWarning(bool to) => !(to && (ModState.IsActive || ModState.RankedSession));
     }
 }
