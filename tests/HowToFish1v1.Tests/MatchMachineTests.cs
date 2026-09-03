@@ -15,7 +15,7 @@ namespace HowToFish1v1.Tests
             {
                 m.PlayerJoined(i, "P" + i);
                 m.PlayerSaidHello(i, true);
-                m.SetLoadout(i, new byte[] { (byte)(10 + i) }, true);
+                m.SetLoadout(i, LoadoutCodec.Encode(new[] { new LoadoutGun((byte)(10 + i)) }), true);
             }
             m.Effects.Clear();
             m.Dirty = false;
@@ -114,14 +114,33 @@ namespace HowToFish1v1.Tests
         }
 
         [Fact]
-        public void LoadoutTruncatedAndRankPointsStored()
+        public void LoadoutTruncatedToWholeGunsAndRankPointsStored()
         {
             var m = new MatchMachine(new MatchRules { MaxLoadoutGuns = 2 });
             m.Open();
             m.PlayerJoined(1, "A");
-            m.SetLoadout(1, new byte[] { 1, 2, 3 }, false, 250);
-            Assert.Equal(new byte[] { 1, 2 }, m.State.Slot(1).Loadout);
+            var three = LoadoutCodec.Encode(new[] { new LoadoutGun(1), new LoadoutGun(2) { Sight = 1, Laser = true }, new LoadoutGun(3) });
+            m.SetLoadout(1, three, false, 250);
+            var kept = LoadoutCodec.Decode(m.State.Slot(1).Loadout);
+            Assert.Equal(2, kept.Count);
+            Assert.Equal(2, kept[1].ItemId);
+            Assert.Equal(1, kept[1].Sight);
+            Assert.True(kept[1].Laser);
             Assert.Equal(250, m.State.Slot(1).RankPoints);
+        }
+
+        [Fact]
+        public void LoadoutCodecRoundTripsAndIgnoresPartialBytes()
+        {
+            var guns = new[] { new LoadoutGun(54) { Sight = 2, Barrel = 1, Bullets = 3, ExtendedMag = true, Laser = false } };
+            var bytes = LoadoutCodec.Encode(guns);
+            Assert.Equal(5, bytes.Length);
+            var back = LoadoutCodec.Decode(bytes);
+            Assert.Single(back);
+            Assert.Equal((54, 2, 1, 3, true, false), (back[0].ItemId, (int)back[0].Sight, (int)back[0].Barrel, (int)back[0].Bullets, back[0].ExtendedMag, back[0].Laser));
+            Assert.Equal(4, back[0].ModCount);
+            Assert.Empty(LoadoutCodec.Decode(new byte[] { 1, 2, 3 }));
+            Assert.Empty(LoadoutCodec.Encode(null));
         }
 
         // ------------------------------------------------------------ 1v1 / team flow
@@ -236,7 +255,7 @@ namespace HowToFish1v1.Tests
             Assert.Equal(0, m.State.TeamScore[1]);
             Assert.All(m.State.Players, p => Assert.False(p.Ready));
             Assert.True(m.State.ArenaBuilt);
-            Assert.Equal(new byte[] { 11 }, m.State.Slot(1).Loadout);
+            Assert.Equal(11, LoadoutCodec.Decode(m.State.Slot(1).Loadout)[0].ItemId);
         }
 
         [Fact]

@@ -11,7 +11,13 @@ Steam lobby (no save file is touched); **Solo practice** hosts an offline sessio
 
 Once you are in the world the **lobby screen** opens by itself: team columns (or a free-for-all grid) of player cards
 with rank emblems and ready badges, an **Invite Friends** button that opens the Steam overlay, your loadout picker and
-**Ready Up**. Friends who join see the same screen. The host picks mode and map at the bottom and presses
+**Ready Up**. Each chosen gun gets an attachments block: sight, barrel (compensator / suppressor), bullet tier
+(damage), extended magazine and laser, using the game's own attachment options for that gun.
+
+## Sharing the mod
+
+Run `tools\make-release.ps1` to produce `dist\HowToFishRanked-<version>.zip`. It contains BepInEx, the mod, and an
+`INSTALL.txt`. Your friend extracts everything into the folder that contains `How to Fish.exe` and starts the game. Friends who join see the same screen. The host picks mode and map at the bottom and presses
 **Start Match** once everyone is ready; the screen closes at the countdown and comes back after the match. F5 hides
 or shows it.
 

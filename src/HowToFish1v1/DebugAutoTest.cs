@@ -40,8 +40,15 @@ namespace HowToFish1v1
                     Plugin.Host.SetMode((MatchMode)Mathf.Clamp(Plugin.Cfg.AutoSoloMode.Value, 0, 3));
                     Plugin.Host.SetMap(Plugin.Cfg.AutoSoloMap.Value);
                     var gun = LoadoutService.Weapons().FirstOrDefault();
-                    var ids = gun ? new[] { gun.ID } : new byte[0];
-                    Plugin.Log.LogInfo($"AutoTest: open + loadout [{(gun ? gun.name : "none")}] + start");
+                    byte[] ids = new byte[0];
+                    if (gun)
+                    {
+                        var o = LoadoutService.Options(gun.ID);
+                        Plugin.Log.LogInfo($"AutoTest: options for {o.Name}: sights [{string.Join("|", o.Sights)}] barrels [{string.Join("|", o.Barrels)}] bullets [{string.Join("|", o.Bullets)}] extMag={o.HasExtendedMag} laser={o.HasLaser}");
+                        var g = new LoadoutGun(gun.ID) { Sight = (byte)(o.Sights.Count - 1), Barrel = (byte)(o.Barrels.Count - 1), Bullets = (byte)(o.Bullets.Count - 1), ExtendedMag = o.HasExtendedMag, Laser = o.HasLaser };
+                        ids = LoadoutCodec.Encode(new[] { g });
+                    }
+                    Plugin.Log.LogInfo($"AutoTest: open + loadout [{(gun ? gun.name : "none")} fully modded] + start");
                     Plugin.Host.SetLocalLoadout(ids, true, RankService.Points);
                     Plugin.Log.LogInfo($"AutoTest: lobby open={ModState.PanelOpen}; starting in 6 s");
                     _step = Step.Started;
@@ -99,7 +106,8 @@ namespace HowToFish1v1
             var p = Player.LocalPlayer;
             if (!p || !(p.Holding.HeldItem is Weapon w)) { Plugin.Log.LogInfo("AutoTest trace: no weapon held"); return; }
             var t = HarmonyLib.Traverse.Create(w);
-            Plugin.Log.LogInfo($"AutoTest trace: ammo={w.Ammo} perMag={w.Attachments.AmmoPerMag} reloading={t.Field("_isReloading").GetValue<bool>()} queueReload={t.Field("_queueReload").GetValue<bool>()} holdingFire={t.Field("_holdingFireInput").GetValue<bool>()} blockInputs={p.BlockInputs} phase={ModState.Phase}");
+            var a = w.Attachments;
+            Plugin.Log.LogInfo($"AutoTest trace: ammo={w.Ammo} perMag={a.AmmoPerMag} sight={a.Sight} barrel={a.BarrelAttachment} bullets={a.AmmoType} dmg={a.Damage} ext={a.ExtendedMag} laser={a.LaserSight} reloading={t.Field("_isReloading").GetValue<bool>()} holdingFire={t.Field("_holdingFireInput").GetValue<bool>()} phase={ModState.Phase}");
         }
 
         private static void LogPlayer(string when)

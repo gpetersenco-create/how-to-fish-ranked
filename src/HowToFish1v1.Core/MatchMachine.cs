@@ -70,11 +70,7 @@ namespace HowToFish1v1.Core
         {
             var slot = State.Slot(id);
             if (slot == null) return;
-            itemIds = itemIds ?? Array.Empty<byte>();
-            int n = Math.Min(itemIds.Length, Rules.MaxLoadoutGuns);
-            var copy = new byte[n];
-            Array.Copy(itemIds, copy, n);
-            slot.Loadout = copy;
+            slot.Loadout = LoadoutCodec.Truncate(itemIds ?? Array.Empty<byte>(), Rules.MaxLoadoutGuns);
             slot.Ready = ready;
             if (rankPoints >= 0) slot.RankPoints = rankPoints;
             Dirty = true;

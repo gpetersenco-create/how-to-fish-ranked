@@ -10,16 +10,17 @@ using S = HowToFish1v1.UI.RankedStyles;
 namespace HowToFish1v1.UI
 {
     /// <summary>
-    /// Full-screen lobby: player cards per team (or a free-for-all grid), invite button, loadout picker, Ready, and for
-    /// the host the mode/map pickers and Start. Opens by itself in ranked sessions and closes when the match starts.
+    /// Full-screen lobby: player cards per team (or a free-for-all grid), invite button, loadout picker with attachments,
+    /// Ready, and for the host the mode/map pickers and Start. Opens by itself in ranked sessions and closes when the match starts.
     /// </summary>
     public static class LobbyPanel
     {
         public static bool IsOpen => ModState.PanelOpen;
 
-        private static readonly List<byte> _selected = new List<byte>();
+        private static readonly List<LoadoutGun> _guns = new List<LoadoutGun>();
         private static bool _ready;
         private static string _hint = "";
+        private static Vector2 _loadoutScroll;
 
         public static void Toggle() { if (IsOpen) Close(); else Open(); }
 
@@ -70,7 +71,7 @@ namespace HowToFish1v1.UI
 
         // ------------------------------------------------------------ pieces
 
-        private static void DrawHeader(bool host, bool has, Net.MatchStateBroadcast s)
+        private static void DrawHeader(bool host, bool has, MatchStateBroadcast s)
         {
             GUI.DrawTexture(new Rect(0, 0, S.DesignW, 92), S.Panel);
             GUI.Label(new Rect(40, 20, 500, 52), "RANKED LOBBY", S.Title);
@@ -91,7 +92,7 @@ namespace HowToFish1v1.UI
             }
         }
 
-        private static void DrawTeams(Net.MatchStateBroadcast s, bool canMove)
+        private static void DrawTeams(MatchStateBroadcast s, bool canMove)
         {
             var mode = (MatchMode)s.Mode;
             int size = MatchModes.TeamSize(mode);
@@ -117,7 +118,7 @@ namespace HowToFish1v1.UI
             }
         }
 
-        private static void DrawFfaGrid(Net.MatchStateBroadcast s, bool canMove)
+        private static void DrawFfaGrid(MatchStateBroadcast s, bool canMove)
         {
             var players = ClientMatchView.Players.OrderByDescending(p => p.Kills).ToList();
             float top = 120, colW = 560;
@@ -134,7 +135,7 @@ namespace HowToFish1v1.UI
             }
         }
 
-        private static void DrawCard(float x, float y, float w, Net.PlayerEntry p, bool canMove, bool showKills)
+        private static void DrawCard(float x, float y, float w, PlayerEntry p, bool canMove, bool showKills)
         {
             bool me = p.Id == ModState.LocalOwnerId;
             GUI.DrawTexture(new Rect(x, y, w, 118), me ? S.PanelLight : S.Panel);
@@ -143,9 +144,7 @@ namespace HowToFish1v1.UI
             S.Emblem(x + 62, y + 12, 94, tier);
             GUI.Label(new Rect(x + 120, y + 12, w - 260, 36), p.Name + (me ? "  (you)" : ""), S.H1);
             GUI.Label(new Rect(x + 120, y + 48, w - 260, 28), RankService.Ladder.TierName(p.RankPoints).ToUpperInvariant() + $"   {p.RankPoints} RP", S.GoldText);
-            string guns = p.Loadout == null || p.Loadout.Length == 0 ? "fists" :
-                string.Join(", ", p.Loadout.Select(b => LoadoutService.DisplayName(GameInfo.IDToItem(b))));
-            GUI.Label(new Rect(x + 120, y + 78, w - 260, 28), (showKills ? $"{p.Kills} kills   " : "") + guns, S.Small);
+            GUI.Label(new Rect(x + 120, y + 78, w - 260, 28), (showKills ? $"{p.Kills} kills   " : "") + LoadoutService.Summary(p.Loadout), S.Small);
             string badge = !p.HasMod ? "NO MOD" : (p.Ready ? "READY" : "NOT READY");
             GUI.DrawTexture(new Rect(x + w - 130, y + 14, 116, 34), !p.HasMod ? S.Red : (p.Ready ? S.Green : S.BarBg));
             GUI.Label(new Rect(x + w - 130, y + 14, 116, 34), badge, S.SmallCenter);
@@ -167,24 +166,36 @@ namespace HowToFish1v1.UI
             GUI.DrawTexture(new Rect(x, y, 6, 56), S.Gold);
             int max = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value);
             GUI.Label(new Rect(x + 20, y + 10, 540, 36), $"YOUR LOADOUT   (pick up to {max})", S.H1);
-            if (inLobby && _ready && ClientMatchView.Me is Net.PlayerEntry me && !me.Ready) _ready = false;
+            if (inLobby && _ready && ClientMatchView.Me is PlayerEntry me && !me.Ready) _ready = false;
 
             GUI.enabled = inLobby;
-            float gy = y + 72;
+            // Scrollable area: gun toggles, then an attachment block per chosen gun.
+            float areaTop = y + 66, areaH = S.DesignH - 130 - areaTop - 90;
+            float contentH = LoadoutService.Weapons().Count * 46 + _guns.Count * 236 + 40;
+            _loadoutScroll = GUI.BeginScrollView(new Rect(x, areaTop, w + 20, areaH), _loadoutScroll, new Rect(0, 0, w, contentH));
+            float gy = 0;
             foreach (var item in LoadoutService.Weapons())
             {
-                bool on = _selected.Contains(item.ID);
-                if (GUI.Button(new Rect(x, gy, w, 54), (on ? "  [x]  " : "  [ ]  ") + LoadoutService.DisplayName(item).ToUpperInvariant(), on ? S.ToggleButtonOn : S.ToggleButton))
+                int idx = _guns.FindIndex(g => g.ItemId == item.ID);
+                bool on = idx >= 0;
+                if (GUI.Button(new Rect(0, gy, w, 40), (on ? "  [x]  " : "  [ ]  ") + LoadoutService.DisplayName(item).ToUpperInvariant(), on ? S.ToggleButtonOn : S.ToggleButton))
                 {
-                    if (on) { _selected.Remove(item.ID); SendLoadout(false); }
-                    else if (_selected.Count < max) { _selected.Add(item.ID); SendLoadout(false); }
+                    if (on) { _guns.RemoveAt(idx); SendLoadout(false); }
+                    else if (_guns.Count < max) { _guns.Add(new LoadoutGun(item.ID)); SendLoadout(false); }
                     else _hint = $"Only {max} guns per loadout";
                 }
-                gy += 60;
+                gy += 46;
             }
-            if (!string.IsNullOrEmpty(_hint)) GUI.Label(new Rect(x, gy, w, 30), _hint, S.Small);
-            gy += 40;
-            if (GUI.Button(new Rect(x, gy, w, 70), _ready ? "READY  (click to unready)" : "READY UP", _ready ? S.BigButton : S.Button))
+            gy += 10;
+            for (int i = 0; i < _guns.Count; i++)
+            {
+                gy = DrawAttachments(0, gy, w, i);
+                gy += 12;
+            }
+            if (!string.IsNullOrEmpty(_hint)) GUI.Label(new Rect(0, gy, w, 30), _hint, S.Small);
+            GUI.EndScrollView();
+
+            if (GUI.Button(new Rect(x, S.DesignH - 130 - 80, w, 70), _ready ? "READY  (click to unready)" : "READY UP", _ready ? S.BigButton : S.Button))
             {
                 _ready = !_ready;
                 _hint = "";
@@ -193,7 +204,46 @@ namespace HowToFish1v1.UI
             GUI.enabled = true;
         }
 
-        private static void DrawFooter(bool host, bool inLobby, Net.MatchStateBroadcast s)
+        /// <summary>Attachment rows for one chosen gun; returns the y after the block.</summary>
+        private static float DrawAttachments(float x, float y, float w, int gunIndex)
+        {
+            var g = _guns[gunIndex];
+            var o = LoadoutService.Options(g.ItemId);
+            GUI.DrawTexture(new Rect(x, y, w, 224), S.Panel);
+            GUI.DrawTexture(new Rect(x, y, 6, 224), S.GoldDim);
+            GUI.Label(new Rect(x + 16, y + 8, w - 32, 30), $"{o.Name.ToUpperInvariant()}  ATTACHMENTS", S.H2);
+            bool changed = false;
+            float ry = y + 44;
+            changed |= Cycle(x + 16, ry, w - 32, "Sight", o.Sights, ref g.Sight); ry += 42;
+            changed |= Cycle(x + 16, ry, w - 32, "Barrel", o.Barrels, ref g.Barrel); ry += 42;
+            changed |= Cycle(x + 16, ry, w - 32, "Bullets", o.Bullets, ref g.Bullets); ry += 42;
+            float half = (w - 40) / 2f;
+            GUI.enabled = GUI.enabled && o.HasExtendedMag;
+            if (GUI.Button(new Rect(x + 16, ry, half, 38), o.HasExtendedMag ? (g.ExtendedMag ? "[x] Extended mag" : "[ ] Extended mag") : "No extended mag", g.ExtendedMag ? S.ToggleButtonOn : S.ToggleButton))
+            { g.ExtendedMag = !g.ExtendedMag; changed = true; }
+            GUI.enabled = ModState.Phase == MatchPhase.Lobby && o.HasLaser;
+            if (GUI.Button(new Rect(x + 24 + half, ry, half, 38), o.HasLaser ? (g.Laser ? "[x] Laser sight" : "[ ] Laser sight") : "No laser", g.Laser ? S.ToggleButtonOn : S.ToggleButton))
+            { g.Laser = !g.Laser; changed = true; }
+            GUI.enabled = ModState.Phase == MatchPhase.Lobby;
+            if (changed) { _guns[gunIndex] = g; SendLoadout(false); }
+            return y + 224;
+        }
+
+        private static bool Cycle(float x, float y, float w, string label, List<string> options, ref byte index)
+        {
+            bool changed = false;
+            int n = Mathf.Max(1, options.Count);
+            index = (byte)Mathf.Clamp(index, 0, n - 1);
+            GUI.Label(new Rect(x, y, 90, 38), label, S.Small);
+            GUI.enabled = GUI.enabled && n > 1;
+            if (GUI.Button(new Rect(x + 96, y, 42, 38), "<", S.ToggleButton)) { index = (byte)((index + n - 1) % n); changed = true; }
+            GUI.Label(new Rect(x + 144, y, w - 240, 38), options[index], S.BodyCenter);
+            if (GUI.Button(new Rect(x + w - 42, y, 42, 38), ">", S.ToggleButton)) { index = (byte)((index + 1) % n); changed = true; }
+            GUI.enabled = ModState.Phase == MatchPhase.Lobby;
+            return changed;
+        }
+
+        private static void DrawFooter(bool host, bool inLobby, MatchStateBroadcast s)
         {
             GUI.DrawTexture(new Rect(0, S.DesignH - 130, S.DesignW, 130), S.Panel);
             var mode = (MatchMode)s.Mode;
@@ -247,9 +297,9 @@ namespace HowToFish1v1.UI
         private static void SendLoadout(bool ready)
         {
             _ready = ready;
-            var ids = _selected.ToArray();
-            if (ModNet.IsHost) Plugin.Host.SetLocalLoadout(ids, ready, RankService.Points);
-            else ModNet.SendLoadout(ids, ready, RankService.Points);
+            var bytes = LoadoutCodec.Encode(_guns);
+            if (ModNet.IsHost) Plugin.Host.SetLocalLoadout(bytes, ready, RankService.Points);
+            else ModNet.SendLoadout(bytes, ready, RankService.Points);
         }
 
         /// <summary>Re-sends the current loadout so the host learns updated rank points.</summary>

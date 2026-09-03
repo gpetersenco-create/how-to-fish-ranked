@@ -52,7 +52,14 @@ namespace HowToFish1v1.Match
             Flush();
         }
 
-        public void Start() { if (Machine != null) { Machine.Start(Now); Flush(); } }
+        public void Start()
+        {
+            if (Machine == null) return;
+            if (!Machine.CanStart(out string why))
+                Plugin.Log.LogInfo($"Start refused: {why} (players={Machine.State.PresentCount}, mode={MatchModes.Name(Machine.State.Mode)}, solo={Machine.Rules.SoloDebug})");
+            Machine.Start(Now);
+            Flush();
+        }
         public void Quit() { if (Machine != null) { Machine.Quit(); Flush(); } }
         public void SetMap(int mapIndex) { if (Machine != null) { Machine.SetMap(mapIndex); Flush(); } }
         public void SetMode(MatchMode mode) { if (Machine != null) { Machine.SetMode(mode); Flush(); } }
