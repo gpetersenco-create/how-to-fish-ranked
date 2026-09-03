@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.20",
-    "notes":  "The Switch now also doubles the pistol\u0027s fire rate. Diamond camo is real diamond studs: hundreds of small faceted gems set over every part of the gun on a dark metal base, Black Ops 2 style, sparkling; shown in the class preview and in killcams too.",
+    "version":  "0.2.21",
+    "notes":  "New Trickshot mode (solo): spawn on a 22 m tower over a field of bot targets, some standing, some patrolling; a mid-air hit ends the run and the final killcam replays it, landing without one puts you straight back on top. Maps rebuilt with real surfaces: concrete, asphalt, rusted corrugated steel, riveted steel, planks, bricks and worn painted metal, all with bump maps and world-scaled tiling. Bullet tracers in killcam replays. Diamond camo reverted to the earlier look.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.20/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.21/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.20/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.21/HowToFish1v1.Core.dll"
                   }
               ]
 }
