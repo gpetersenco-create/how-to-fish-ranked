@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.17",
-    "notes":  "Create-a-class: the lobby shows the chosen gun turning in 3D with its sight, barrel, laser and skin. New attachments: drum magazine (SMG, pistol; 2.5x rounds) and The Switch (pistol full auto). Six new skins: Diamond (BO2 style), Carbon Fiber, Galaxy, Frost, Bloodshot, and a locked Dragon sniper skin that breathes fire from the barrel. Killcam text moved into a calling card along the bottom (emblem, name, rank, gun); the yellow marker is gone from the solo preview.",
+    "version":  "0.2.18",
+    "notes":  "Knife on V: a Black Ops 2 style lunge-slash with a knife viewmodel, one-hit kill in reach (birds and fish too), with its own skin picked in the lobby. New hitmarker sound: a sharp Call of Duty style tick replaces the game\u0027s during matches (volume in config).",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.17/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.18/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.17/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.18/HowToFish1v1.Core.dll"
                   }
               ]
 }
