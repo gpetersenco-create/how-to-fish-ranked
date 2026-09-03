@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.13",
-    "notes":  "Killcam: the gun is now driven by a per-frame recording of the real gun\u0027s parts, so weapon swaps, reloads, inspects, aim and recoil replay exactly as they happened; duplicate hands fixed (the game re-enabled them every frame); inputs frozen while watching a killcam alive and stuck fire/aim inputs cleared afterwards. Weapon skins now actually glow: gun materials are swapped for lit-shader copies with the original texture plus tint and emission (the game\u0027s own shaders had no emission), restored when the match ends.",
+    "version":  "0.2.14",
+    "notes":  "Killcam: skinned gun bodies and hands are now live skinned copies driven by recorded bone poses, so reloads and inspects replay properly and attachments stay on the gun; duplicate hands fixed by re-hiding right before each camera renders; weapon skins no longer recolour the hands.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.13/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.14/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.13/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.14/HowToFish1v1.Core.dll"
                   }
               ]
 }
