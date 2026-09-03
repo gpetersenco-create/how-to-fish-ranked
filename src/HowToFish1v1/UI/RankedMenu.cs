@@ -162,15 +162,58 @@ namespace HowToFish1v1.UI
                 if (on) targetX = x;
                 x += TabW;
             }
-            // Player chip: emblem, name, rank and RP.
+            DrawPlayerBanner();
+        }
+
+        private static GUIStyle _tierText, _pillText;
+
+        /// <summary>
+        /// The player's rank banner in the header: a card tinted in the tier's colour with the emblem hanging off its left
+        /// end, the player's name, the tier name in the tier colour, a progress bar to the next tier and the season pill.
+        /// </summary>
+        private static void DrawPlayerBanner()
+        {
             var ladder = RankService.Ladder;
-            int tier = ladder.TierIndex(RankService.Points);
-            string me = Player.LocalPlayer ? Player.LocalPlayer.SteamName : (SteamManagerName());
-            float cx = S.DesignW - 440;
-            S.Box(new Rect(cx, 14, 420, 64), S.PanelLightColor, 32f);
-            S.Emblem(cx + 34, 18, 56, tier);
-            GUI.Label(new Rect(cx + 72, 18, 330, 30), me, S.H2);
-            GUI.Label(new Rect(cx + 72, 46, 330, 26), $"{ladder.TierName(RankService.Points).ToUpperInvariant()}   {RankService.Points} RP   <size=80%>S{Seasons.Current}</size>", S.GoldText);
+            int pts = RankService.Points;
+            int tier = ladder.TierIndex(pts);
+            var tint = RankEmblems.ColorFor(tier);
+            string me = Player.LocalPlayer ? Player.LocalPlayer.SteamName : SteamManagerName();
+            if (_tierText == null)
+            {
+                _tierText = new GUIStyle(S.H2) { fontSize = 17 };
+                _pillText = new GUIStyle(S.SmallCenter) { fontSize = 13, fontStyle = FontStyle.Bold };
+            }
+            _tierText.normal.textColor = Color.Lerp(tint, Color.white, 0.25f);
+            _pillText.normal.textColor = S.GoldColor;
+
+            float x = S.DesignW - 452, y = 6, w = 432, h = 80;
+            var card = new Rect(x, y, w, h);
+            // Tinted card with a soft tier-coloured glow so the emblem reads as part of it rather than pasted on.
+            S.Glow(new Rect(x - 10, y - 6, 150, h + 12), new Color(tint.r, tint.g, tint.b, 0.35f), 1.8f);
+            S.Box(card, Color.Lerp(S.PanelLightColor, tint, 0.16f), 18f);
+            GUI.DrawTexture(new Rect(x, y, 160, h), S.White, ScaleMode.StretchToFill, true, 0f, new Color(tint.r, tint.g, tint.b, 0.10f) * GUI.color, 0f, 18f);
+            S.Outline(card, new Color(tint.r, tint.g, tint.b, 0.55f), 1.5f, 18f);
+
+            // Emblem hangs off the left end, a touch taller than the card.
+            S.Emblem(x + 52, y - 4, 88, tier);
+
+            float tx = x + 104;
+            GUI.Label(new Rect(tx, y + 8, 232, 30), me, S.H2);
+            GUI.Label(new Rect(tx, y + 36, 232, 24), ladder.TierName(pts).ToUpperInvariant(), _tierText);
+
+            // Progress to the next tier.
+            int inTier = pts - tier * ladder.PointsPerTier;
+            bool top = tier >= ladder.Names.Length - 1;
+            float frac = top ? 1f : Mathf.Clamp01(inTier / (float)ladder.PointsPerTier);
+            frac *= S.Ease(PageKey, 0.9f);
+            S.Bar(new Rect(tx, y + 64, 230, 7), frac, tint);
+            GUI.Label(new Rect(x + w - 132, y + 36, 118, 24), top ? $"{pts} RP" : $"{inTier} / {ladder.PointsPerTier} RP", S.SmallRight);
+
+            // Season pill in the top-right corner of the card.
+            var pill = new Rect(x + w - 104, y + 10, 90, 22);
+            S.Box(pill, new Color(0.52f, 0.42f, 0.16f, 0.55f), 11f);
+            S.Outline(pill, new Color(1f, 0.85f, 0.4f, 0.5f), 1f, 11f);
+            GUI.Label(pill, $"SEASON {Seasons.Current}", _pillText);
         }
 
         private static string SteamManagerName()

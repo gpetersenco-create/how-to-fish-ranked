@@ -14,8 +14,8 @@ namespace HowToFish1v1.UI
     {
         private const int Size = 256;
         private const int SS = 3;   // supersamples per axis
-        private const float Canvas = 1.26f;
-        private const float CornerRadius = 0.07f;
+        private const float Canvas = 1.12f;
+        private const float CornerRadius = 0.045f;
         private static readonly Dictionary<int, Texture2D> _cache = new Dictionary<int, Texture2D>();
 
         private static readonly Color[] TierColors =
