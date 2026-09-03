@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.15",
-    "notes":  "Killcam: muzzle flash now sits on the recorded muzzle instead of beside the gun (it no longer blocks the sight on the SMG) and is a small streak rather than a ball.",
+    "version":  "0.2.16",
+    "notes":  "Killcam replays the world, not just the killer: birds and fish are recorded and shown where they were (the live ones are hidden), other players\u0027 bodies and guns are recorded bone-by-bone and replayed as animated copies, and when you are the victim a mannequin in your colours stands where you were instead of the orange blob. Solo preview keeps the marker since there is no body to copy.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.15/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.16/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.15/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.16/HowToFish1v1.Core.dll"
                   }
               ]
 }
