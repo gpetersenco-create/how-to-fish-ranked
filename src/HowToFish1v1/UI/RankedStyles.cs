@@ -300,7 +300,7 @@ namespace HowToFish1v1.UI
             return t;
         }
 
-        /// <summary>Draws a rank emblem with its numeral over a radial glow in the tier's colour; optional caption and name below.</summary>
+        /// <summary>Draws a rank emblem over a radial glow in the tier's colour; optional caption and name below.</summary>
         public static void Emblem(float centerX, float top, float size, int tier, string name = null, string caption = null, bool dim = false, bool glow = false)
         {
             Ensure();
@@ -320,9 +320,6 @@ namespace HowToFish1v1.UI
             }
             GUI.color = (dim ? new Color(1f, 1f, 1f, 0.55f) : Color.white) * saved;
             GUI.DrawTexture(r, tex);
-            var numeral = new GUIStyle(H1Center) { fontSize = Mathf.Max(10, Mathf.RoundToInt(size * 0.28f)) };
-            numeral.normal.textColor = new Color(1f, 0.95f, 0.8f);
-            GUI.Label(new Rect(r.x, r.y + size * 0.30f, size, size * 0.3f), RankEmblems.Numeral(tier), numeral);
             GUI.color = saved;
             if (caption != null) GUI.Label(new Rect(centerX - 220, top + size + 8, 440, 30), caption, SmallCenter);
             if (name != null) GUI.Label(new Rect(centerX - 220, top + size + 36, 440, 40), name.ToUpperInvariant(), dim ? BodyCenter : H1Center);
