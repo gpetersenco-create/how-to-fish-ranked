@@ -64,13 +64,13 @@ namespace HowToFish1v1.Tests
             var m = new MatchMachine(new MatchRules());
             m.Open();
             m.SetMode(MatchMode.TwoVTwo);
-            m.PlayerJoined(1, "A"); m.PlayerJoined(2, "B");
+            m.PlayerJoined(1, "A");
             Assert.False(m.CanStart(out var r1));
-            Assert.Contains("needs 4", r1);
-            m.PlayerJoined(3, "C"); m.PlayerJoined(4, "D");
-            m.MoveTeam(3);   // now 3 vs 1
+            Assert.Contains("needs 2", r1);
+            m.PlayerJoined(2, "B"); m.PlayerJoined(3, "C"); m.PlayerJoined(4, "D");
+            m.MoveTeam(3);   // now 3 vs 1: over the 2-per-team cap
             Assert.False(m.CanStart(out var r2));
-            Assert.Contains("uneven", r2);
+            Assert.Contains("at most 2", r2);
             m.MoveTeam(3);
             Assert.False(m.CanStart(out var r3));
             Assert.Contains("mod", r3);
@@ -89,6 +89,31 @@ namespace HowToFish1v1.Tests
             Assert.Contains("at most 2", r);
             var f = Lobby(MatchMode.FreeForAll, 8);
             Assert.True(f.CanStart(out _));
+        }
+
+        [Fact]
+        public void TeamModesAllowUnevenTeamsButNotEmptyOnes()
+        {
+            var m = Lobby(MatchMode.TwoVTwo, 3);   // teams {1,3} vs {2}
+            Assert.True(m.CanStart(out _));
+            m.MoveTeam(2);                          // everyone on team 0
+            Assert.False(m.CanStart(out var r));
+            Assert.Contains("Both teams", r);
+            var f = Lobby(MatchMode.ThreeVThree, 5);
+            Assert.True(f.CanStart(out _));
+            f.Start(0); f.Tick(3);
+            f.Kill(2, 1, 4); f.Kill(4, 1, 5);       // team 1 = {2,4} wiped
+            Assert.Equal(MatchPhase.RoundEnd, f.State.Phase);
+            Assert.Equal(1, f.State.TeamScore[0]);
+        }
+
+        [Fact]
+        public void KillReportsWhetherItWasAccepted()
+        {
+            var m = Live(MatchMode.FreeForAll, 2);
+            Assert.True(m.Kill(1, 2, 5));
+            Assert.False(m.Kill(1, 2, 5.5));      // already dead
+            Assert.False(m.Kill(9, 2, 5.5));      // unknown victim
         }
 
         [Fact]

@@ -38,6 +38,19 @@ namespace HowToFish1v1.Net
                 ModVersion = b.ReadStringAllocated() ?? ""
             }));
 
+            GenericWriter<KillFeedBroadcast>.SetWrite((w, v) => Envelope(w, b =>
+            {
+                b.WriteString(v.Killer ?? "");
+                b.WriteString(v.Victim ?? "");
+                b.WriteBoolean(v.Suicide);
+            }));
+            GenericReader<KillFeedBroadcast>.SetRead(r => Open(r, b => new KillFeedBroadcast
+            {
+                Killer = b.ReadStringAllocated() ?? "",
+                Victim = b.ReadStringAllocated() ?? "",
+                Suicide = b.ReadBoolean()
+            }));
+
             GenericWriter<ArenaBroadcast>.SetWrite((w, v) => Envelope(w, b =>
             {
                 b.WriteBoolean(v.Build);

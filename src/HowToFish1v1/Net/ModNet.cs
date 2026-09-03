@@ -15,6 +15,7 @@ namespace HowToFish1v1.Net
         public static event Action<NetworkConnection, LoadoutBroadcast> LoadoutReceived;
         public static event Action<MatchStateBroadcast> StateReceived;
         public static event Action<ArenaBroadcast> ArenaReceived;
+        public static event Action<KillFeedBroadcast> KillFeedReceived;
         public static event Action ClientStopped;
         /// <summary>Host side: a remote connection dropped (its client id may be reused later).</summary>
         public static event Action<int> RemoteDisconnected;
@@ -54,6 +55,7 @@ namespace HowToFish1v1.Net
             };
             nm.ClientManager.RegisterBroadcast<MatchStateBroadcast>((msg, ch) => StateReceived?.Invoke(msg));
             nm.ClientManager.RegisterBroadcast<ArenaBroadcast>((msg, ch) => ArenaReceived?.Invoke(msg));
+            nm.ClientManager.RegisterBroadcast<KillFeedBroadcast>((msg, ch) => KillFeedReceived?.Invoke(msg));
             nm.ClientManager.OnAuthenticated += SendHello;
             nm.ClientManager.OnClientConnectionState += args =>
             {
@@ -88,6 +90,12 @@ namespace HowToFish1v1.Net
         {
             if (!IsHost) return;
             InstanceFinder.ServerManager.Broadcast(s);
+        }
+
+        public static void BroadcastKill(KillFeedBroadcast k)
+        {
+            if (!IsHost) return;
+            InstanceFinder.ServerManager.Broadcast(k);
         }
 
         public static void BroadcastArena(ArenaBroadcast a)

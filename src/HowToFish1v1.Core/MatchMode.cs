@@ -31,7 +31,8 @@ namespace HowToFish1v1.Core
             }
         }
 
-        public static int MinPlayers(MatchMode m) => IsFfa(m) ? 2 : TeamSize(m) * 2;
+        /// <summary>Team modes only need two players (one per side); the team size is a cap, so 2v2 can run as 2v1.</summary>
+        public static int MinPlayers(MatchMode m) => 2;
         public static int MaxPlayers(MatchMode m) => IsFfa(m) ? 8 : TeamSize(m) * 2;
     }
 }

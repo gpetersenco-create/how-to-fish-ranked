@@ -100,7 +100,12 @@ namespace HowToFish1v1.Core
             int max = MatchModes.MaxPlayers(State.Mode);
             if (count < min) { reason = $"{MatchModes.Name(State.Mode)} needs {min} players ({count} here)"; return false; }
             if (count > max) { reason = $"{MatchModes.Name(State.Mode)} allows at most {max} players ({count} here)"; return false; }
-            if (!State.IsFfa && !Rules.SoloDebug && State.TeamCount(0) != State.TeamCount(1)) { reason = "Teams are uneven"; return false; }
+            if (!State.IsFfa && !Rules.SoloDebug)
+            {
+                int cap = MatchModes.TeamSize(State.Mode);
+                if (State.TeamCount(0) == 0 || State.TeamCount(1) == 0) { reason = "Both teams need a player"; return false; }
+                if (State.TeamCount(0) > cap || State.TeamCount(1) > cap) { reason = $"Teams hold at most {cap} in {MatchModes.Name(State.Mode)}"; return false; }
+            }
             foreach (var s in State.Players)
                 if (!s.HasMod) { reason = s.Name + " does not have the mod"; return false; }
             foreach (var s in State.Players)
@@ -187,11 +192,12 @@ namespace HowToFish1v1.Core
         /// A death during Live or Countdown. Team modes: when a whole team is dead the other team takes the round.
         /// Free-for-all: the killer gains a kill (suicides count nothing), the victim respawns after a delay.
         /// </summary>
-        public void Kill(int victimId, int killerId, double now)
+        /// <summary>Returns true when the death was accepted (so the host can announce it).</summary>
+        public bool Kill(int victimId, int killerId, double now)
         {
-            if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return;
+            if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return false;
             var victim = State.Slot(victimId);
-            if (victim == null || victim.DeadThisRound) return;
+            if (victim == null || victim.DeadThisRound) return false;
             victim.DeadThisRound = true;
             victim.Deaths++;
             Dirty = true;
@@ -211,7 +217,7 @@ namespace HowToFish1v1.Core
                         State.MatchWinnerId = killer.Id;
                         State.PhaseEndsAt = now + Rules.MatchEndSeconds;
                         State.StatusText = killer.Name + " wins the match";
-                        return;
+                        return true;
                     }
                 }
                 else
@@ -219,12 +225,12 @@ namespace HowToFish1v1.Core
                     State.StatusText = victim.Name + " died";
                 }
                 Effects.Add(new Effect(EffectKind.RespawnPlayer, victimId));
-                return;
+                return true;
             }
 
             int team = victim.Team;
             bool teamWiped = State.TeamMembers(team).All(p => p.DeadThisRound);
-            if (!teamWiped) return;
+            if (!teamWiped) return true;
             int winner = State.TeamCount(1 - team) > 0 ? 1 - team : -1;
             if (winner >= 0)
             {
@@ -239,6 +245,7 @@ namespace HowToFish1v1.Core
             }
             State.Phase = MatchPhase.RoundEnd;
             State.PhaseEndsAt = now + Rules.RoundEndSeconds;
+            return true;
         }
 
         /// <summary>Free-for-all: the host reports that the respawn effect was carried out.</summary>

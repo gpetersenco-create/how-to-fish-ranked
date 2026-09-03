@@ -18,6 +18,13 @@ namespace HowToFish1v1.Net.Proto2
         public string ModVersion;
     }
 
+    public struct KillFeedBroadcast : IBroadcast
+    {
+        public string Killer;
+        public string Victim;
+        public bool Suicide;
+    }
+
     public struct ArenaBroadcast : IBroadcast
     {
         public bool Build;

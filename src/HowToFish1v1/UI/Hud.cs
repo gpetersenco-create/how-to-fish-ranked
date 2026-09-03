@@ -11,8 +11,27 @@ namespace HowToFish1v1.UI
     {
         private static TextMeshProUGUI _score;
         private static TextMeshProUGUI _banner;
+        private static TextMeshProUGUI _feed;
         private static float _liveAt = -10f;
         private static MatchPhase _lastPhase;
+
+        private const float FeedSeconds = 7f;
+        private const int FeedMax = 5;
+        private static readonly System.Collections.Generic.List<(string text, float at)> _feedLines = new System.Collections.Generic.List<(string, float)>();
+
+        /// <summary>Called once; listens for host kill announcements.</summary>
+        public static void Init()
+        {
+            Net.ModNet.KillFeedReceived += k =>
+            {
+                string me = Player.LocalPlayer ? Player.LocalPlayer.SteamName : null;
+                string killer = k.Killer == me ? "<color=#F5C740>YOU</color>" : k.Killer;
+                string victim = k.Victim == me ? "<color=#F5C740>YOU</color>" : k.Victim;
+                string line = k.Suicide ? $"{victim}  died" : $"{killer}  <color=#FF6A5A>killed</color>  {victim}";
+                _feedLines.Insert(0, (line, Time.unscaledTime));
+                while (_feedLines.Count > FeedMax) _feedLines.RemoveAt(_feedLines.Count - 1);
+            };
+        }
 
         public static void Update()
         {
@@ -21,11 +40,15 @@ namespace HowToFish1v1.UI
             {
                 if (_score) _score.gameObject.SetActive(false);
                 if (_banner) _banner.gameObject.SetActive(false);
+                if (_feed) _feed.gameObject.SetActive(false);
                 return;
             }
             if (!EnsureCreated()) return;
             _score.gameObject.SetActive(true);
             _banner.gameObject.SetActive(true);
+            _feed.gameObject.SetActive(true);
+            _feedLines.RemoveAll(l => Time.unscaledTime - l.at > FeedSeconds);
+            _feed.text = string.Join("\n", _feedLines.Select(l => l.text));
 
             var s = ClientMatchView.Latest;
             var me = ClientMatchView.Me;
@@ -81,13 +104,18 @@ namespace HowToFish1v1.UI
 
         private static bool EnsureCreated()
         {
-            if (_score && _banner) return true;
+            if (_score && _banner && _feed) return true;
             var prefab = PlayerUI.CanvasTextPrefab;
             var parent = PlayerUI.FXCanvasTrans;
             if (!prefab || !parent) return false;
 
             _score = Make(prefab, parent, "HTF1v1_Score", new Vector2(0.5f, 1f), new Vector2(0f, -40f), 36f);
             _banner = Make(prefab, parent, "HTF1v1_Banner", new Vector2(0.5f, 0.5f), new Vector2(0f, 120f), 64f);
+            _feed = Make(prefab, parent, "HTF1v1_KillFeed", new Vector2(0f, 1f), new Vector2(30f, -30f), 26f);
+            _feed.alignment = TextAlignmentOptions.TopLeft;
+            _feed.rectTransform.pivot = new Vector2(0f, 1f);
+            _feed.rectTransform.sizeDelta = new Vector2(700f, 260f);
+            _feed.richText = true;
             return true;
         }
 

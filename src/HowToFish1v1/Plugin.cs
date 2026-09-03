@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.2.3";
+        public const string Version = "0.2.4";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -33,6 +33,7 @@ namespace HowToFish1v1
             _harmony = new Harmony(Guid);
             _harmony.PatchAll(typeof(Plugin).Assembly);
             ClientMatchView.Init(this);
+            Hud.Init();
             Host = new HostMatchController(this);
             Log.LogInfo($"{Name} {Version} loaded. Panel key: {Cfg.PanelKey.Value}. Rank: {RankService.RankName} ({RankService.Points})");
         }
