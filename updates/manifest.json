@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.19",
-    "notes":  "Killcam: no drawn crosshair in replays (the sniper scope overlay stays).",
+    "version":  "0.2.20",
+    "notes":  "The Switch now also doubles the pistol\u0027s fire rate. Diamond camo is real diamond studs: hundreds of small faceted gems set over every part of the gun on a dark metal base, Black Ops 2 style, sparkling; shown in the class preview and in killcams too.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.19/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.20/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.19/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.20/HowToFish1v1.Core.dll"
                   }
               ]
 }
