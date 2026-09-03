@@ -5,6 +5,16 @@ using UnityEngine;
 
 namespace HowToFish1v1.Arena
 {
+    /// <summary>What a piece of arena is made of, for ricochets.</summary>
+    public sealed class ArenaSurface : MonoBehaviour
+    {
+        public BoxKind Kind;
+        public bool IsFloor;
+        /// <summary>Metal and concrete bounce bullets; wood, brick and the ground swallow them.</summary>
+        public bool Bounces => !IsFloor && (Kind == BoxKind.Concrete || Kind == BoxKind.Steel || Kind == BoxKind.Rust
+            || Kind == BoxKind.Yellow || Kind == BoxKind.Red || Kind == BoxKind.Blue || Kind == BoxKind.White);
+    }
+
     /// <summary>Builds an arena from ArenaLayout on this peer. Deterministic, so every peer produces identical geometry.</summary>
     public static class ArenaBuilder
     {
@@ -39,6 +49,8 @@ namespace HowToFish1v1.Arena
                 go.transform.localPosition = new Vector3(b.X, b.Y, b.Z);
                 go.transform.localRotation = Quaternion.Euler(b.RotX, 0f, b.RotZ);
                 go.transform.localScale = new Vector3(b.SX, b.SY, b.SZ);
+                var surf = go.AddComponent<ArenaSurface>();
+                surf.Kind = b.Kind; surf.IsFloor = b.Name == "Floor";
                 if (b.Kind == BoxKind.Invisible)
                 {
                     Object.Destroy(go.GetComponent<MeshRenderer>());

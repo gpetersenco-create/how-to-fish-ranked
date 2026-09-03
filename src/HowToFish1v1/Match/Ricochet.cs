@@ -33,7 +33,7 @@ namespace HowToFish1v1.Match
             int local = LayerMask.NameToLayer("LocalPlayer");
             if (local >= 0) mask &= ~(1 << local);
             if (!Physics.Raycast(cam.position + cam.forward * 0.5f, cam.forward, out var hit1, 300f, mask, QueryTriggerInteraction.Ignore)) return;
-            if (!hit1.collider || !hit1.collider.CompareTag("Level")) return;   // only walls, floors and cover bounce
+            if (!CanBounce(hit1, cam.forward)) return;
 
             Vector3 dir = Vector3.Reflect(cam.forward, hit1.normal).normalized;
             Vector3 start = hit1.point + hit1.normal * 0.02f;
@@ -64,6 +64,19 @@ namespace HowToFish1v1.Match
             {
                 try { item.LocalHit(hit2.transform, hit2.point, dir, me, damage, true, dir * 3f); } catch (System.Exception) { }
             }
+        }
+
+        /// <summary>
+        /// Real-ish ricochet rules: only metal and concrete arena surfaces bounce (not wood, brick or the ground), and only
+        /// when the bullet comes in at a glancing angle (more than 40 degrees from the surface normal).
+        /// </summary>
+        public static bool CanBounce(RaycastHit hit, Vector3 dir)
+        {
+            if (!hit.collider) return false;
+            var surf = hit.collider.GetComponent<Arena.ArenaSurface>();
+            if (!surf || !surf.Bounces) return false;
+            float incidence = Vector3.Angle(-dir, hit.normal);
+            return incidence >= 40f;
         }
 
         private static int Damage(Weapon w)

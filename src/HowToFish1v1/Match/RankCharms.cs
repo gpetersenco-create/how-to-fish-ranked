@@ -20,7 +20,8 @@ namespace HowToFish1v1.Match
             public Item Item;
             public int Tier;
             public bool Dev;
-            public Vector3 AnchorLocal;
+            public Transform Muzzle;
+            public GameObject LayerProbe;
             public Vector3 Pos, Prev;
             public bool Init;
         }
@@ -81,7 +82,8 @@ namespace HowToFish1v1.Match
             {
                 if (!c.Root || !c.Item) continue;
                 var root = c.Item.transform;
-                Vector3 anchor = root.TransformPoint(c.AnchorLocal);
+                Vector3 anchor = Anchor(c, root);
+                if (c.LayerProbe && c.Root.layer != c.LayerProbe.layer) SetLayer(c.Root, c.LayerProbe.layer);
                 if (!c.Init) { c.Pos = anchor + Vector3.down * Length; c.Prev = c.Pos; c.Init = true; }
                 Vector3 vel = (c.Pos - c.Prev) * 0.965f;
                 if (vel.magnitude > 0.08f) vel = vel.normalized * 0.08f;    // a teleport must not fling it across the map
@@ -103,52 +105,44 @@ namespace HowToFish1v1.Match
             }
         }
 
+        /// <summary>
+        /// Where the chain hangs from: a point on the line from the grip (the item root) to the muzzle, a little over
+        /// half way along, pushed to the gun's left and slightly down. Works in first person, in other players' hands and
+        /// while the gun is still being picked up, because it never depends on mesh bounds.
+        /// </summary>
+        private static Vector3 Anchor(Charm c, Transform root)
+        {
+            Vector3 muzzle = c.Muzzle ? c.Muzzle.position : root.position + root.forward * 0.6f;
+            Vector3 axis = muzzle - root.position;
+            float len = axis.magnitude;
+            if (len < 0.05f) { axis = root.forward; len = 0.6f; muzzle = root.position + axis * len; }
+            axis /= len;
+            Vector3 left = Vector3.Cross(root.up, axis);
+            if (left.sqrMagnitude < 1e-4f) left = -root.right;
+            left.Normalize();
+            Vector3 down = Vector3.Cross(axis, left).normalized;
+            if (Vector3.Dot(down, Vector3.up) > 0f) down = -down;
+            return root.position + axis * (len * 0.55f) + left * 0.045f + down * 0.035f;
+        }
+
+        private static void SetLayer(GameObject go, int layer)
+        {
+            foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+        }
+
         private static Charm Build(Item item, int tier, bool dev)
         {
             var root = new GameObject("HTF1v1_Charm");
             root.transform.SetParent(item.transform, false);
             var c = new Charm { Root = root, Item = item, Tier = tier, Dev = dev };
 
-            // Anchor: on the left flank of the gun's body. The gun is measured in its own axes (mesh bounds turned into
-            // the root's frame), because a world-aligned box around a diagonal gun is far too wide.
-            Renderer hands = null;
-            try { hands = item is Tool tool ? tool.HandsMesh : null; } catch (System.Exception) { }
-            var rends = item.GetComponentsInChildren<Renderer>(false).Where(r => r && r.enabled && r != hands && !r.name.StartsWith("HTF1v1_")).ToArray();
-            var t = item.transform;
-            Vector3 anchor;
-            Vector3 mn = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue), mx = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-            int used = 0;
-            foreach (var r in rends)
-            {
-                Bounds lb; Transform space = r.transform;
-                if (r is SkinnedMeshRenderer smr) { if (!smr.sharedMesh) continue; lb = smr.localBounds; }
-                else { var mf = r.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue; lb = mf.sharedMesh.bounds; }
-                if (Vector3.Distance(r.transform.position, t.position) > 1.5f) continue;   // stray, unposed part
-                bool any = false;
-                for (int i = 0; i < 8; i++)
-                {
-                    var corner = lb.center + Vector3.Scale(lb.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
-                    var w = space.TransformPoint(corner) - t.position;
-                    var p = new Vector3(Vector3.Dot(w, t.right), Vector3.Dot(w, t.up), Vector3.Dot(w, t.forward));
-                    if (p.magnitude > 2f) { any = false; break; }
-                    mn = Vector3.Min(mn, p); mx = Vector3.Max(mx, p); any = true;
-                }
-                if (any) used++;
-            }
-            string dbg = $"root {t.position} rends {rends.Length} used {used}";
-            if (used > 0)
-            {
-                Vector3 c0 = (mn + mx) * 0.5f, ext = (mx - mn) * 0.5f;
-                dbg += $" gun-frame centre {c0} ext {ext}";
-                // Left flank, a touch below the middle, a quarter of the way back from the middle.
-                anchor = t.position + t.right * (mn.x - 0.006f) + t.up * (c0.y - ext.y * 0.2f) + t.forward * (c0.z - ext.z * 0.25f);
-            }
-            else anchor = t.position - t.right * 0.05f - t.up * 0.03f + t.forward * 0.12f;
-            c.AnchorLocal = t.InverseTransformPoint(anchor);
-            // Gun roots are scaled (models exported in centimetres); the charm must keep real-world size, so cancel that scale.
-            var ls = t.lossyScale;
-            root.transform.localScale = new Vector3(1f / Mathf.Max(1e-4f, Mathf.Abs(ls.x)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ls.y)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ls.z)));
-
+            // The anchor is recomputed every frame (see Anchor): guns are built the moment they spawn, before they are in hand.
+            c.Muzzle = null;
+            try { if (item is Weapon w && w.Attachments) c.Muzzle = w.Attachments.FirePoint; } catch (System.Exception) { }
+            var probe = item.GetComponentsInChildren<Renderer>(true).FirstOrDefault(r => r && !r.name.StartsWith("HTF1v1_"));
+            c.LayerProbe = probe ? probe.gameObject : item.gameObject;
+            root.layer = c.LayerProbe.layer;
+            string dbg = $"root {item.transform.position} muzzle {(c.Muzzle ? c.Muzzle.position.ToString() : "none")}";
             EnsureMaterials();
             var ring = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Prep(ring, "HTF1v1_CharmRing", root, new Vector3(0f, 0f, 0f), new Vector3(0.008f, 0.008f, 0.008f), _chainMat);
@@ -159,7 +153,7 @@ namespace HowToFish1v1.Match
             float cw = dev ? 0.06f : 0.046f, ch = dev ? 0.036f : 0.052f;
             Prep(card, "HTF1v1_CharmCard", root, new Vector3(0f, -Length - ch * 0.5f, 0f), new Vector3(cw, ch, 0.004f), dev ? _devMat : TierMaterial(tier));
             c.Card = card.transform;
-            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} {dbg} anchor {anchor}");
+            Plugin.Log.LogInfo($"Charm built on {LoadoutService.DisplayName(item)} (tier {tier}{(dev ? ", DEV" : "")}) layer {LayerMask.LayerToName(root.layer)} {dbg}");
             return c;
         }
 

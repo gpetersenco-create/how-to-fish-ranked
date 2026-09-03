@@ -340,7 +340,29 @@ namespace HowToFish1v1.Match
                 _ricochet = AudioClip.Create("HTF1v1_Ricochet", n, 1, Rate, false);
                 _ricochet.SetData(data, 0);
             }
-            AudioSource.PlayClipAtPoint(_ricochet, at, 0.9f);
+            // A short-range 3D source: inaudible past 35 m, and the further away the more muffled and quieter it gets.
+            const float Range = 35f;
+            Vector3 ear = at;
+            try { var me = Player.LocalPlayer; if (me) ear = (me.CamObject ? me.CamObject : me.Transform).position; } catch (System.Exception) { }
+            float d = Vector3.Distance(ear, at);
+            if (d > Range) return;
+            float far = Mathf.Clamp01(d / Range);
+            var go = new GameObject("HTF1v1_RicochetSound");
+            go.transform.position = at;
+            var src = go.AddComponent<AudioSource>();
+            src.clip = _ricochet;
+            src.spatialBlend = 1f;
+            src.rolloffMode = AudioRolloffMode.Linear;
+            src.minDistance = 1.5f;
+            src.maxDistance = Range;
+            src.dopplerLevel = 0f;
+            src.volume = Mathf.Lerp(0.9f, 0.25f, far);
+            src.pitch = Random.Range(0.94f, 1.08f) * Mathf.Lerp(1f, 0.85f, far);
+            if (_source) src.outputAudioMixerGroup = _source.outputAudioMixerGroup;
+            var lp = go.AddComponent<AudioLowPassFilter>();
+            lp.cutoffFrequency = Mathf.Lerp(18000f, 900f, far * far);
+            src.Play();
+            Object.Destroy(go, _ricochet.length / Mathf.Max(0.5f, src.pitch) + 0.1f);
         }
 
         public static void PlaySwoosh()

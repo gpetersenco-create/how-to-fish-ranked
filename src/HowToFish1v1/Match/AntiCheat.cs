@@ -155,7 +155,7 @@ namespace HowToFish1v1.Match
                 int local = LayerMask.NameToLayer("LocalPlayer");
                 if (local >= 0) mask &= ~(1 << local);
                 if (!Physics.Raycast(head.position + head.forward * 0.5f, head.forward, out var hit, 300f, mask, QueryTriggerInteraction.Ignore)) return false;
-                if (!hit.collider || !hit.collider.CompareTag("Level")) return false;
+                if (!Ricochet.CanBounce(hit, head.forward)) return false;
                 Vector3 dir = Vector3.Reflect(head.forward, hit.normal).normalized;
                 Vector3 rel = point - hit.point;
                 float along = Vector3.Dot(rel, dir);
