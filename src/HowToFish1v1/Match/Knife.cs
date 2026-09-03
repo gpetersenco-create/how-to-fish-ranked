@@ -365,6 +365,58 @@ namespace HowToFish1v1.Match
             Object.Destroy(go, _ricochet.length / Mathf.Max(0.5f, src.pitch) + 0.1f);
         }
 
+        private static AudioClip _beep, _boom;
+
+        /// <summary>The planted bomb's beep: higher and sharper as time runs out.</summary>
+        public static void PlayBeep(Vector3 at, float urgency)
+        {
+            Ensure();
+            if (!_beep)
+            {
+                int n = (int)(Rate * 0.09f);
+                var data = new float[n];
+                for (int i = 0; i < n; i++) { float t = (float)i / Rate; data[i] = Mathf.Sin(2f * Mathf.PI * 1900f * t) * Mathf.Exp(-t * 40f) * 0.7f; }
+                _beep = AudioClip.Create("HTF1v1_Beep", n, 1, Rate, false); _beep.SetData(data, 0);
+            }
+            var go = new GameObject("HTF1v1_BeepSound");
+            go.transform.position = at;
+            var src = go.AddComponent<AudioSource>();
+            src.clip = _beep; src.spatialBlend = 1f; src.rolloffMode = AudioRolloffMode.Linear; src.minDistance = 3f; src.maxDistance = 60f;
+            src.pitch = Mathf.Lerp(1f, 1.5f, urgency); src.volume = 0.8f;
+            if (_source) src.outputAudioMixerGroup = _source.outputAudioMixerGroup;
+            src.Play();
+            Object.Destroy(go, 0.3f);
+        }
+
+        /// <summary>The bomb going off: a deep boom with a long rumble, heard across the map.</summary>
+        public static void PlayExplosion(Vector3 at)
+        {
+            Ensure();
+            if (!_boom)
+            {
+                int n = (int)(Rate * 1.6f);
+                var data = new float[n];
+                var rng = new System.Random(5);
+                float lp = 0f;
+                for (int i = 0; i < n; i++)
+                {
+                    float t = (float)i / Rate;
+                    float noise = (float)(rng.NextDouble() * 2 - 1);
+                    lp += (noise - lp) * Mathf.Lerp(0.35f, 0.02f, Mathf.Clamp01(t / 1.2f));
+                    float thump = Mathf.Sin(2f * Mathf.PI * Mathf.Lerp(90f, 35f, Mathf.Clamp01(t * 3f)) * t) * Mathf.Exp(-t * 4f);
+                    data[i] = Mathf.Clamp((lp * 2.5f * Mathf.Exp(-t * 2.2f) + thump * 0.9f) * Mathf.Min(1f, t / 0.004f), -1f, 1f);
+                }
+                _boom = AudioClip.Create("HTF1v1_Boom", n, 1, Rate, false); _boom.SetData(data, 0);
+            }
+            var go = new GameObject("HTF1v1_BoomSound");
+            go.transform.position = at;
+            var src = go.AddComponent<AudioSource>();
+            src.clip = _boom; src.spatialBlend = 0.6f; src.rolloffMode = AudioRolloffMode.Linear; src.minDistance = 10f; src.maxDistance = 200f; src.volume = 1f;
+            if (_source) src.outputAudioMixerGroup = _source.outputAudioMixerGroup;
+            src.Play();
+            Object.Destroy(go, 2f);
+        }
+
         public static void PlaySwoosh()
         {
             Ensure();

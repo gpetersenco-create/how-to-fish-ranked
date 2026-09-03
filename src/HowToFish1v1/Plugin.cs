@@ -13,7 +13,7 @@ namespace HowToFish1v1
     {
         public const string Guid = "com.gavin.howtofish1v1";
         public const string Name = "HowToFish1v1";
-        public const string Version = "0.3.0";
+        public const string Version = "0.3.1";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -70,6 +70,8 @@ namespace HowToFish1v1
             Knife.Update();
             Trickshot.Update();
             Ricochet.Update();
+            BombSite.Update();
+            Spectate.Update();
             AntiCheat.Update();
             UI.ClassPreview.Update();
             Leaderboard.Update();
@@ -85,6 +87,7 @@ namespace HowToFish1v1
             Scoreboard.Draw();
             HitReactions.Draw();
             Hud.DrawRadar();
+            Hud.DrawBombHud();
             Match.KillCam.DrawOverlay();
             Hud.DrawKillcamCard();
             Hud.DrawAnnouncement();

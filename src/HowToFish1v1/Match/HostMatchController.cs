@@ -20,6 +20,11 @@ namespace HowToFish1v1.Match
 
         private readonly MonoBehaviour _runner;
         private readonly Dictionary<int, string> _helloVersions = new Dictionary<int, string>();
+        // Search and Destroy: who is holding the plant/defuse key, and how far along they are (seconds).
+        private readonly Dictionary<int, bool> _bombHolding = new Dictionary<int, bool>();
+        private readonly Dictionary<int, double> _bombProgress = new Dictionary<int, double>();
+        private double _lastBombTick = -1;
+        private float _nextProgressBroadcast;
         private byte _returnIsland;
         private bool _resetRunning;
 
@@ -32,6 +37,7 @@ namespace HowToFish1v1.Match
             ModNet.AimReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastAimState(conn.ClientId, msg.Ads); };
             ModNet.KnifeReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastKnifeState(conn.ClientId, msg.Skin); };
             ModNet.BounceReceived += (conn, msg) => { if (IsOpen) ModNet.BroadcastBounce(conn.ClientId, msg.From, msg.To); };
+            ModNet.BombReceived += (conn, msg) => { _bombHolding[conn.ClientId] = msg.Holding; if (!msg.Holding) _bombProgress.Remove(conn.ClientId); };
             ModState.KillDetected += OnKill;
         }
 
@@ -54,6 +60,10 @@ namespace HowToFish1v1.Match
             FfaRespawnSeconds = Mathf.Max(0f, Plugin.Cfg.FfaRespawnSeconds.Value),
             RoundEndSeconds = Mathf.Max(0f, Plugin.Cfg.RoundEndSeconds.Value),
             MatchEndSeconds = Mathf.Max(3f, Plugin.Cfg.MatchEndSeconds.Value),
+            RoundSeconds = Mathf.Max(20f, Plugin.Cfg.RoundSeconds.Value),
+            PlantSeconds = Mathf.Max(1f, Plugin.Cfg.PlantSeconds.Value),
+            DefuseSeconds = Mathf.Max(1f, Plugin.Cfg.DefuseSeconds.Value),
+            BombSeconds = Mathf.Max(10f, Plugin.Cfg.BombSeconds.Value),
             MaxLoadoutGuns = Mathf.Max(0, Plugin.Cfg.MaxLoadoutGuns.Value),
             SoloDebug = Plugin.Cfg.SoloDebug.Value
         };
@@ -115,8 +125,41 @@ namespace HowToFish1v1.Match
                 if (!present.Contains(slot.Id)) Machine.PlayerLeft(slot.Id);
             ApplyKnownVersions();
 
+            TickBomb();
             Machine.Tick(Now);
             Flush();
+        }
+
+        /// <summary>Search and Destroy timing: players holding the key at the site plant or defuse over a few seconds.</summary>
+        private void TickBomb()
+        {
+            if (!MatchModes.IsBomb(Machine.State.Mode) || Machine.State.Phase != MatchPhase.Live) { if (_bombProgress.Count > 0) _bombProgress.Clear(); _lastBombTick = -1; return; }
+            double now = Now;
+            double dt = _lastBombTick < 0 ? 0 : now - _lastBombTick;
+            _lastBombTick = now;
+            // The host's own key counts too.
+            if (Player.LocalPlayer) _bombHolding[Player.LocalPlayer.OwnerId] = BombSite.Holding;
+            var site = BombSite.SitePos;
+            bool changed = false;
+            foreach (var kv in _bombHolding.ToList())
+            {
+                int id = kv.Key;
+                bool ok = kv.Value && Machine.CanWorkBomb(id);
+                var p = ok ? PlayerManager.Players.FirstOrDefault(x => x && x.OwnerId == id) : null;
+                ok = p && !p.Dying.IsDead && p.Transform && Vector3.Distance(p.Transform.position, site) <= BombSite.Reach + 0.5f;
+                if (!ok) { if (_bombProgress.Remove(id)) changed = true; continue; }
+                double need = Machine.State.BombPlanted ? Machine.Rules.DefuseSeconds : Machine.Rules.PlantSeconds;
+                double prog = (_bombProgress.TryGetValue(id, out var cur) ? cur : 0) + dt;
+                _bombProgress[id] = prog;
+                changed = true;
+                if (prog >= need)
+                {
+                    bool done = Machine.State.BombPlanted ? Machine.Defuse(id, now) : Machine.Plant(id, now);
+                    if (done) { Plugin.Log.LogInfo($"Bomb {(Machine.State.BombPlanted ? "planted" : "defused")} by {p.SteamName}"); _bombProgress.Clear(); _bombHolding.Clear(); }
+                    break;
+                }
+            }
+            if (changed && Time.unscaledTime >= _nextProgressBroadcast) { _nextProgressBroadcast = Time.unscaledTime + 0.15f; Machine.Dirty = true; }
         }
 
         private void OnHello(NetworkConnection conn, HelloBroadcast msg)
@@ -277,6 +320,15 @@ namespace HowToFish1v1.Match
             player.Vitals._syncedPoison.Value = 0;
         }
 
+        private float BombProgressFraction(out int who)
+        {
+            who = -1; double best = 0;
+            foreach (var kv in _bombProgress) if (kv.Value > best) { best = kv.Value; who = kv.Key; }
+            if (who < 0) return 0f;
+            double need = Machine.State.BombPlanted ? Machine.Rules.DefuseSeconds : Machine.Rules.PlantSeconds;
+            return (float)System.Math.Min(1.0, best / need);
+        }
+
         private MatchStateBroadcast ToBroadcast(MatchState s, MatchRules rules)
         {
             var tm = InstanceFinder.TimeManager;
@@ -293,7 +345,11 @@ namespace HowToFish1v1.Match
                 PhaseEndsAtTick = endTick, LastRoundWinnerTeam = s.LastRoundWinnerTeam,
                 MatchWinnerTeam = s.MatchWinnerTeam, MatchWinnerId = s.MatchWinnerId, StatusText = s.StatusText ?? "",
                 MapIndex = (byte)s.MapIndex, KillsToWin = rules.KillsToWin, RoundsToWin = rules.RoundsToWin, Players = entries,
-                RespawnSeconds = (float)rules.FfaRespawnSeconds, RoundEndSeconds = (float)rules.RoundEndSeconds, MatchEndSeconds = (float)rules.MatchEndSeconds
+                RespawnSeconds = (float)rules.FfaRespawnSeconds, RoundEndSeconds = (float)rules.RoundEndSeconds, MatchEndSeconds = (float)rules.MatchEndSeconds,
+                BombPlanted = s.BombPlanted, AttackersTeam = (byte)s.AttackersTeam,
+                BombEndsAtTick = tm.TickDelta > 0 && s.BombPlanted ? (uint)System.Math.Max(0, System.Math.Round(s.BombExplodesAt / tm.TickDelta)) : 0u,
+                RoundEndsAtTick = tm.TickDelta > 0 && s.RoundEndsAt > 0 ? (uint)System.Math.Max(0, System.Math.Round(s.RoundEndsAt / tm.TickDelta)) : 0u,
+                PlantProgress = BombProgressFraction(out int progId), PlantProgressId = progId
             };
         }
     }

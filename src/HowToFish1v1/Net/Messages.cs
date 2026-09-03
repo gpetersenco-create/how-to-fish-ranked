@@ -44,6 +44,9 @@ namespace HowToFish1v1.Net.Proto2
     /// <summary>Host to everyone: this player's bullet ricocheted.</summary>
     public struct BounceStateBroadcast : IBroadcast { public int OwnerId; public Vector3 From; public Vector3 To; }
 
+    /// <summary>Client to host: I am holding the plant/defuse key at the site (or released it).</summary>
+    public struct BombBroadcast : IBroadcast { public bool Holding; }
+
     public struct AimStateBroadcast : IBroadcast
     {
         public int OwnerId;
@@ -111,5 +114,12 @@ namespace HowToFish1v1.Net.Proto2
         public float RespawnSeconds;
         public float RoundEndSeconds;
         public float MatchEndSeconds;
+        // Search and Destroy
+        public bool BombPlanted;
+        public uint BombEndsAtTick;
+        public uint RoundEndsAtTick;
+        public byte AttackersTeam;
+        public float PlantProgress;     // 0..1 of the most advanced plant/defuse in progress
+        public int PlantProgressId;     // who is working the bomb (-1 none)
     }
 }

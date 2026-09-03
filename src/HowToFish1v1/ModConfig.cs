@@ -18,6 +18,11 @@ namespace HowToFish1v1
         public ConfigEntry<int> KnifeSkin;
         public ConfigEntry<float> HitmarkerVolume;
         public ConfigEntry<bool> AntiCheat;
+        public ConfigEntry<KeyCode> PlantKey;
+        public ConfigEntry<float> RoundSeconds;
+        public ConfigEntry<float> PlantSeconds;
+        public ConfigEntry<float> DefuseSeconds;
+        public ConfigEntry<float> BombSeconds;
         public ConfigEntry<bool> Announcer;
         public ConfigEntry<int> Crosshair;
         public ConfigEntry<float> CrosshairSize;
@@ -62,6 +67,11 @@ namespace HowToFish1v1
             CrosshairSize = file.Bind("General", "CrosshairSize", 14f, "Custom crosshair size in pixels (at 1080p).");
             CrosshairColor = file.Bind("General", "CrosshairColor", "#F5C740", "Custom crosshair colour (hex).");
             HitmarkerStyle = file.Bind("General", "HitmarkerStyle", 0, "Hit marker: 0 game default, 1 X, 2 plus, 3 box, 4 circle (picked in the lobby).");
+            PlantKey = file.Bind("General", "PlantKey", KeyCode.F, "Search and Destroy: hold at the site to plant or defuse.");
+            RoundSeconds = file.Bind("Rules", "RoundSeconds", 90f, "Search and Destroy: seconds the attackers have to plant.");
+            PlantSeconds = file.Bind("Rules", "PlantSeconds", 4f, "Search and Destroy: seconds to plant.");
+            DefuseSeconds = file.Bind("Rules", "DefuseSeconds", 6f, "Search and Destroy: seconds to defuse.");
+            BombSeconds = file.Bind("Rules", "BombSeconds", 40f, "Search and Destroy: seconds until the planted bomb explodes.");
             AntiCheat = file.Bind("General", "AntiCheat", true, "Host only: detect silent aim, aimbot snaps, rapid fire, damage and speed hacks; announce and kick the cheater.");
             HitmarkerVolume = file.Bind("General", "HitmarkerVolume", 1f, "Volume of the mod's hitmarker sound (0-2).");
             DamageMultiplier = file.Bind("Rules", "DamageMultiplier", 1f, "Player-vs-player damage scale. 1.0 = full weapon damage (the game normally uses 0.25).");

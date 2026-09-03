@@ -47,6 +47,7 @@ namespace HowToFish1v1.Patches
         private static void KillCamFollow(PlayerDeathCam __instance)
         {
             if (Match.KillCam.Active) Match.KillCam.ApplyDeathCam(__instance);
+            else Match.Spectate.ApplyDeathCam(__instance);
         }
 
         // Final killcam while alive: override the player camera after it has positioned itself.

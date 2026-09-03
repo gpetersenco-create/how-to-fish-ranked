@@ -54,6 +54,8 @@ namespace HowToFish1v1.Net
             GenericReader<BounceBroadcast>.SetRead(r => Open(r, b => new BounceBroadcast { From = b.ReadVector3(), To = b.ReadVector3() }));
             GenericWriter<BounceStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteVector3(v.From); b.WriteVector3(v.To); }));
             GenericReader<BounceStateBroadcast>.SetRead(r => Open(r, b => new BounceStateBroadcast { OwnerId = b.ReadInt32(), From = b.ReadVector3(), To = b.ReadVector3() }));
+            GenericWriter<BombBroadcast>.SetWrite((w, v) => Envelope(w, b => b.WriteBoolean(v.Holding)));
+            GenericReader<BombBroadcast>.SetRead(r => Open(r, b => new BombBroadcast { Holding = b.ReadBoolean() }));
             GenericWriter<AimStateBroadcast>.SetWrite((w, v) => Envelope(w, b => { b.WriteInt32(v.OwnerId); b.WriteBoolean(v.Ads); }));
             GenericReader<AimStateBroadcast>.SetRead(r => Open(r, b => new AimStateBroadcast { OwnerId = b.ReadInt32(), Ads = b.ReadBoolean() }));
 
@@ -135,6 +137,12 @@ namespace HowToFish1v1.Net
                 b.WriteSingle(v.MatchEndSeconds);
                 foreach (var p in players) b.WriteUInt8Unpacked(p.Charm);
                 foreach (var p in players) b.WriteInt32(p.Vote);
+                b.WriteBoolean(v.BombPlanted);
+                b.WriteUInt32(v.BombEndsAtTick);
+                b.WriteUInt32(v.RoundEndsAtTick);
+                b.WriteUInt8Unpacked(v.AttackersTeam);
+                b.WriteSingle(v.PlantProgress);
+                b.WriteInt32(v.PlantProgressId);
             }));
             GenericReader<MatchStateBroadcast>.SetRead(r => Open(r, b =>
             {
@@ -183,6 +191,16 @@ namespace HowToFish1v1.Net
                 }
                 for (int i = 0; i < n; i++) s.Players[i].Charm = b.Remaining >= 1 ? b.ReadUInt8Unpacked() : (byte)1;
                 for (int i = 0; i < n; i++) s.Players[i].Vote = b.Remaining >= 4 ? b.ReadInt32() : -1;
+                s.PlantProgressId = -1;
+                if (b.Remaining >= 18)
+                {
+                    s.BombPlanted = b.ReadBoolean();
+                    s.BombEndsAtTick = b.ReadUInt32();
+                    s.RoundEndsAtTick = b.ReadUInt32();
+                    s.AttackersTeam = b.ReadUInt8Unpacked();
+                    s.PlantProgress = b.ReadSingle();
+                    s.PlantProgressId = b.ReadInt32();
+                }
                 return s;
             }));
         }

@@ -485,5 +485,42 @@ namespace HowToFish1v1.Tests
             Assert.Null(MatchModes.GunFilter(MatchMode.FreeForAll));
             Assert.Equal(8, MatchModes.MaxPlayers(MatchMode.SniperOnly));
         }
+
+        [Fact]
+        public void SearchAndDestroyFlow()
+        {
+            var m = Live(MatchMode.SearchAndDestroy, 4, new MatchRules { RoundsToWin = 2, RoundSeconds = 60, BombSeconds = 20, RoundEndSeconds = 1 });
+            // Round 1: team 0 attacks. Time runs out with no plant: defenders (team 1) win.
+            Assert.Equal(0, m.State.AttackersTeam);
+            Assert.False(m.Plant(2, 10));          // defender cannot plant
+            m.Tick(3 + 60 + 0.1);
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+            Assert.Equal(1, m.State.TeamScore[1]);
+            m.Tick(65); m.Tick(70);                // round 2 countdown then live
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            Assert.Equal(1, m.State.AttackersTeam);
+            // Round 2: team 1 attacks and plants; attackers wiped after the plant does not end the round.
+            Assert.True(m.CanWorkBomb(2));
+            Assert.True(m.Plant(2, 72));
+            Assert.True(m.State.BombPlanted);
+            m.Kill(2, 1, 73); m.Kill(4, 1, 74);    // both attackers dead
+            Assert.Equal(MatchPhase.Live, m.State.Phase);
+            Assert.True(m.CanWorkBomb(1));         // defender can defuse
+            m.Tick(72 + 20 + 0.1);                 // nobody defused: explosion, attackers (team 1) win and take the match
+            Assert.Equal(MatchPhase.MatchEnd, m.State.Phase);
+            Assert.Equal(1, m.State.MatchWinnerTeam);
+        }
+
+        [Fact]
+        public void DefuseGivesDefendersTheRound()
+        {
+            var m = Live(MatchMode.SearchAndDestroy, 2, new MatchRules { RoundsToWin = 6, RoundSeconds = 60, BombSeconds = 20 });
+            Assert.True(m.Plant(1, 10));
+            Assert.False(m.Defuse(1, 12));         // planter's own team cannot defuse
+            Assert.True(m.Defuse(2, 12));
+            Assert.Equal(MatchPhase.RoundEnd, m.State.Phase);
+            Assert.Equal(1, m.State.TeamScore[1]);
+            Assert.False(m.State.BombPlanted);
+        }
 }
 }

@@ -83,6 +83,17 @@ namespace HowToFish1v1.Match
             }
         }
 
+        private static double SecondsUntilTick(uint tick)
+        {
+            var tm = InstanceFinder.TimeManager;
+            if (tm == null || tick == 0) return 0;
+            long dt = (long)tick - tm.Tick;
+            return dt <= 0 ? 0 : dt * tm.TickDelta;
+        }
+
+        public static double BombSecondsLeft => HasState && Latest.BombPlanted ? SecondsUntilTick(Latest.BombEndsAtTick) : 0;
+        public static double RoundSecondsLeft => HasState ? SecondsUntilTick(Latest.RoundEndsAtTick) : 0;
+
         /// <summary>"Gavin" in 1v1, "Team A"/"Team B" otherwise.</summary>
         public static string TeamLabel(int team)
         {
@@ -125,7 +136,7 @@ namespace HowToFish1v1.Match
             {
                 if (s.Round <= 1) MatchEvents.ResetTally();
                 bool final = !MatchModes.IsFfa((MatchMode)s.Mode) && (s.TeamScoreA == s.RoundsToWin - 1 || s.TeamScoreB == s.RoundsToWin - 1);
-                Announcer.Play(MatchModes.IsSolo((MatchMode)s.Mode) ? "round" : final ? "final" : MatchModes.OneBullet((MatchMode)s.Mode) ? "oitc" : MatchModes.IsFfa((MatchMode)s.Mode) ? "round" : "round" + Mathf.Clamp(s.Round, 1, 6));
+                Announcer.Play(MatchModes.IsSolo((MatchMode)s.Mode) ? "round" : final ? "final" : MatchModes.OneBullet((MatchMode)s.Mode) ? "oitc" : MatchModes.IsBomb((MatchMode)s.Mode) ? (BombSite.IsAttacker ? "attack" : "defend") : MatchModes.IsFfa((MatchMode)s.Mode) ? "round" : "round" + Mathf.Clamp(s.Round, 1, 6));
             }
             if (phase == MatchPhase.MatchEnd) Results.Snapshot(s);
             if (phase == MatchPhase.MatchEnd && _prevPhase != MatchPhase.MatchEnd) KillCam.StartFinal();

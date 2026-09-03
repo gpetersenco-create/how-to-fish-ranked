@@ -60,6 +60,23 @@ namespace HowToFish1v1.Core
         public IReadOnlyList<ArenaSpawn> FfaSpawns => _ffa;
         public IReadOnlyList<ArenaBot> Bots => _bots;
         public IReadOnlyList<ArenaBird> Birds => _birds;
+        /// <summary>Bomb site for Search and Destroy: the map centre, on top of whatever stands there.</summary>
+        public float SiteX => 0f;
+        public float SiteZ => 0f;
+        public float SiteY
+        {
+            get
+            {
+                float top = 0f;
+                foreach (var b in _boxes)
+                {
+                    if (b.Kind == BoxKind.Invisible || b.Name == "Floor" || b.RotX != 0 || b.RotZ != 0) continue;
+                    if (System.Math.Abs(b.X - SiteX) <= b.SX / 2f && System.Math.Abs(b.Z - SiteZ) <= b.SZ / 2f) top = System.Math.Max(top, b.Y + b.SY / 2f);
+                }
+                return top;
+            }
+        }
+
         /// <summary>Height of the invisible ceiling (higher on the trickshot map).</summary>
         public float Ceiling { get; private set; } = CeilingY;
 

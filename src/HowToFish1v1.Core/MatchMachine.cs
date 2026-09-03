@@ -163,6 +163,7 @@ namespace HowToFish1v1.Core
         private void BeginRound(double now)
         {
             foreach (var p in State.Players) p.DeadThisRound = false;
+            State.BombPlanted = false; State.PlanterId = -1; State.BombExplodesAt = 0; State.RoundEndsAt = 0;
             Effects.Add(new Effect(EffectKind.ResetPlayers));
             State.Phase = MatchPhase.Countdown;
             State.PhaseEndsAt = now + Rules.CountdownSeconds;
@@ -178,7 +179,15 @@ namespace HowToFish1v1.Core
                     if (now >= State.PhaseEndsAt)
                     {
                         State.Phase = MatchPhase.Live;
+                        if (MatchModes.IsBomb(State.Mode)) State.RoundEndsAt = now + Rules.RoundSeconds;
                         Dirty = true;
+                    }
+                    break;
+                case MatchPhase.Live:
+                    if (MatchModes.IsBomb(State.Mode))
+                    {
+                        if (State.BombPlanted && now >= State.BombExplodesAt) EndRound(State.AttackersTeam, "The bomb exploded", now);
+                        else if (!State.BombPlanted && State.RoundEndsAt > 0 && now >= State.RoundEndsAt) EndRound(1 - State.AttackersTeam, "Time ran out", now);
                     }
                     break;
                 case MatchPhase.RoundEnd:
@@ -289,11 +298,21 @@ namespace HowToFish1v1.Core
             bool teamWiped = State.TeamMembers(team).All(p => p.DeadThisRound);
             if (!teamWiped) return;
             int winner = State.TeamCount(1 - team) > 0 ? 1 - team : -1;
+            // Search and Destroy: attackers wiped after the plant does not end the round; the bomb still has to be defused.
+            if (MatchModes.IsBomb(State.Mode) && State.BombPlanted && team == State.AttackersTeam) return;
+            EndRound(winner, winner >= 0 ? TeamLabel(winner) + " wins the round" : "Round over", now);
+        }
+
+        /// <summary>A round is decided: score it, end the match on the deciding round, otherwise pause before the next.</summary>
+        private void EndRound(int winner, string status, double now)
+        {
+            if (State.Phase != MatchPhase.Live && State.Phase != MatchPhase.Countdown) return;
+            Dirty = true;
             if (winner >= 0)
             {
                 State.TeamScore[winner]++;
                 State.LastRoundWinnerTeam = winner;
-                State.StatusText = TeamLabel(winner) + " wins the round";
+                State.StatusText = status;
                 if (State.TeamScore[winner] >= Rules.RoundsToWin)
                 {
                     // The deciding kill ends the match right away so the final killcam plays while it is still fresh.
@@ -307,10 +326,46 @@ namespace HowToFish1v1.Core
             else
             {
                 State.LastRoundWinnerTeam = -1;
-                State.StatusText = "Round over";
+                State.StatusText = status;
             }
             State.Phase = MatchPhase.RoundEnd;
             State.PhaseEndsAt = now + Rules.RoundEndSeconds;
+        }
+
+        // ------------------------------------------------------------------ search and destroy
+
+        /// <summary>An attacker finished planting.</summary>
+        public bool Plant(int playerId, double now)
+        {
+            if (!MatchModes.IsBomb(State.Mode) || State.Phase != MatchPhase.Live || State.BombPlanted) return false;
+            var slot = State.Slot(playerId);
+            if (slot == null || slot.DeadThisRound || slot.Team != State.AttackersTeam) return false;
+            State.BombPlanted = true;
+            State.PlanterId = playerId;
+            State.BombExplodesAt = now + Rules.BombSeconds;
+            State.StatusText = "Bomb planted";
+            Dirty = true;
+            return true;
+        }
+
+        /// <summary>A defender finished defusing: the round goes to the defenders.</summary>
+        public bool Defuse(int playerId, double now)
+        {
+            if (!MatchModes.IsBomb(State.Mode) || State.Phase != MatchPhase.Live || !State.BombPlanted) return false;
+            var slot = State.Slot(playerId);
+            if (slot == null || slot.DeadThisRound || slot.Team == State.AttackersTeam) return false;
+            State.BombPlanted = false;
+            EndRound(1 - State.AttackersTeam, "Bomb defused", now);
+            return true;
+        }
+
+        /// <summary>Whether a player may work the bomb right now (plant as an attacker, defuse as a defender).</summary>
+        public bool CanWorkBomb(int playerId)
+        {
+            if (!MatchModes.IsBomb(State.Mode) || State.Phase != MatchPhase.Live) return false;
+            var slot = State.Slot(playerId);
+            if (slot == null || slot.DeadThisRound) return false;
+            return State.BombPlanted ? slot.Team != State.AttackersTeam : slot.Team == State.AttackersTeam;
         }
 
         /// <summary>Trickshot: the player landed a mid-air hit; the match ends and the final killcam replays it.</summary>

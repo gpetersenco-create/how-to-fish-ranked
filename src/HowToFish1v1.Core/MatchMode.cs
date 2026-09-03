@@ -3,7 +3,7 @@ namespace HowToFish1v1.Core
     public enum MatchMode : byte
     {
         OneVOne = 0, TwoVTwo = 1, ThreeVThree = 2, FreeForAll = 3, Trickshot = 4,
-        OneInTheChamber = 5, SniperOnly = 6, KnifeOnly = 7
+        OneInTheChamber = 5, SniperOnly = 6, KnifeOnly = 7, SearchAndDestroy = 8
     }
 
     /// <summary>How a kill was dealt, for medals and killstreak rules.</summary>
@@ -13,7 +13,7 @@ namespace HowToFish1v1.Core
     {
         public static readonly MatchMode[] All =
         {
-            MatchMode.OneVOne, MatchMode.TwoVTwo, MatchMode.ThreeVThree, MatchMode.FreeForAll,
+            MatchMode.OneVOne, MatchMode.TwoVTwo, MatchMode.ThreeVThree, MatchMode.SearchAndDestroy, MatchMode.FreeForAll,
             MatchMode.OneInTheChamber, MatchMode.SniperOnly, MatchMode.KnifeOnly, MatchMode.Trickshot
         };
 
@@ -28,6 +28,7 @@ namespace HowToFish1v1.Core
                 case MatchMode.OneInTheChamber: return "One in the Chamber";
                 case MatchMode.SniperOnly: return "Sniper Only";
                 case MatchMode.KnifeOnly: return "Knife Only";
+                case MatchMode.SearchAndDestroy: return "Search & Destroy";
                 default: return "1v1";
             }
         }
@@ -54,6 +55,9 @@ namespace HowToFish1v1.Core
             }
         }
 
+        /// <summary>Attackers plant a bomb on the site; defenders stop them. One life per round.</summary>
+        public static bool IsBomb(MatchMode m) => m == MatchMode.SearchAndDestroy;
+
         /// <summary>One bullet in the gun, one more per kill, no reloading, every bullet kills.</summary>
         public static bool OneBullet(MatchMode m) => m == MatchMode.OneInTheChamber;
 
@@ -64,6 +68,7 @@ namespace HowToFish1v1.Core
             {
                 case MatchMode.TwoVTwo: return 2;
                 case MatchMode.ThreeVThree: return 3;
+                case MatchMode.SearchAndDestroy: return 3;
                 case MatchMode.Trickshot: return 1;
                 default: return IsFfa(m) ? 0 : 1;
             }

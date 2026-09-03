@@ -132,7 +132,8 @@ namespace HowToFish1v1.UI
                     break;
                 case MatchPhase.Countdown:
                     int n = (int)System.Math.Ceiling(left);
-                    _banner.text = n <= 0 ? "FIGHT" : (ClientMatchView.IsFfa ? $"{n}" : $"Round {s.Round}\n{n}");
+                    string role = BombSite.IsMode ? (BombSite.IsAttacker ? "\n<size=45%>PLANT THE BOMB</size>" : "\n<size=45%>DEFEND THE SITE</size>") : "";
+                    _banner.text = n <= 0 ? "FIGHT" : (ClientMatchView.IsFfa ? $"{n}" : $"Round {s.Round}{role}\n{n}");
                     break;
                 case MatchPhase.Live:
                     if (Trickshot.IsMode) _banner.text = (Time.unscaledTime - _liveAt < 2f) ? "JUMP AND HIT A BOT" : "";
@@ -151,6 +152,41 @@ namespace HowToFish1v1.UI
         }
 
         private static bool DeadNow() => Player.LocalPlayer && Player.LocalPlayer.Dying.IsDead;
+
+        /// <summary>Search and Destroy: round / bomb timer, the plant or defuse prompt with progress, and the explosion flash.</summary>
+        public static void DrawBombHud()
+        {
+            if (!BombSite.IsMode || ModState.PanelOpen || Results.Visible) return;
+            var s = ClientMatchView.Latest;
+            var saved = RankedStyles.BeginCanvas();
+            float flash = BombSite.ExplosionFlash;
+            if (flash > 0f) { GUI.color = new Color(1f, 0.95f, 0.8f, flash * 0.9f); GUI.DrawTexture(new Rect(0, 0, RankedStyles.DesignW, RankedStyles.DesignH), RankedStyles.White); GUI.color = Color.white; }
+            if (ModState.Phase == MatchPhase.Live)
+            {
+                double left = s.BombPlanted ? ClientMatchView.BombSecondsLeft : ClientMatchView.RoundSecondsLeft;
+                string label = s.BombPlanted ? "BOMB" : "ROUND";
+                var col = s.BombPlanted ? new Color(1f, 0.35f, 0.3f) : Color.white;
+                float cx = RankedStyles.DesignW / 2f;
+                RankedStyles.Box(new Rect(cx - 110, 90, 220, 54), RankedStyles.PanelColor, 14f);
+                if (s.BombPlanted) RankedStyles.Glow(new Rect(cx - 110, 90, 220, 54), new Color(1f, 0.3f, 0.2f, 0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 8f)), 1.4f);
+                var st = new GUIStyle(RankedStyles.H1Center) { fontSize = 34 }; st.normal.textColor = col;
+                GUI.Label(new Rect(cx - 110, 92, 220, 50), $"<size=50%>{label}</size>  {System.Math.Max(0, (int)System.Math.Ceiling(left)):0}", st);
+                if (!KillCam.Active)
+                {
+                    string prompt = BombSite.Prompt();
+                    if (prompt.Length > 0) GUI.Label(new Rect(0, RankedStyles.DesignH - 300, RankedStyles.DesignW, 40), prompt, new GUIStyle(RankedStyles.H1Center) { fontSize = 26 });
+                    if (s.PlantProgress > 0f && s.PlantProgressId >= 0)
+                    {
+                        string who = "";
+                        foreach (var e in ClientMatchView.Players) if (e.Id == s.PlantProgressId) who = e.Name;
+                        RankedStyles.Bar(new Rect(cx - 220, RankedStyles.DesignH - 250, 440, 16), s.PlantProgress, s.BombPlanted ? new Color(0.4f, 0.9f, 0.5f) : new Color(1f, 0.55f, 0.2f));
+                        GUI.Label(new Rect(0, RankedStyles.DesignH - 228, RankedStyles.DesignW, 30), $"{who} {(s.BombPlanted ? "defusing" : "planting")}...", RankedStyles.SmallCenter);
+                    }
+                }
+            }
+            if (Spectate.Active) GUI.Label(new Rect(0, RankedStyles.DesignH - 180, RankedStyles.DesignW, 40), $"SPECTATING  {Spectate.TargetName}   <size=60%>click or Space to switch</size>", RankedStyles.H1Center);
+            GUI.matrix = saved;
+        }
 
         /// <summary>UAV killstreak: a radar bottom-left with every enemy as a blip, relative to where you look.</summary>
         public static void DrawRadar()

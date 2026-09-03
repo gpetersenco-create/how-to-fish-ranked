@@ -10,7 +10,7 @@ namespace HowToFish1v1.Match
     /// <summary>
     /// Announcer lines. Drop files named announcer_&lt;key&gt;.mp3 / .wav / .ogg into the plugin folder and they play at
     /// the matching moment; without a file a short synthesized chime plays instead. Keys: round, round1..round6, final,
-    /// victory, defeat, firstblood, streak3, streak5, streak7, trickshot, oitc.
+    /// victory, defeat, firstblood, streak3, streak5, streak7, trickshot, oitc, planted, defused, exploded, attack, defend.
     /// </summary>
     public static class Announcer
     {
@@ -25,7 +25,7 @@ namespace HowToFish1v1.Match
             if (_loaded) yield break;
             _loaded = true;
             string dir = Path.GetDirectoryName(typeof(Announcer).Assembly.Location);
-            foreach (var key in new[] { "round", "round1", "round2", "round3", "round4", "round5", "round6", "final", "victory", "defeat", "firstblood", "streak3", "streak5", "streak7", "trickshot", "oitc" })
+            foreach (var key in new[] { "round", "round1", "round2", "round3", "round4", "round5", "round6", "final", "victory", "defeat", "firstblood", "streak3", "streak5", "streak7", "trickshot", "oitc", "planted", "defused", "exploded", "attack", "defend" })
             {
                 foreach (var ext in new[] { ".wav", ".ogg", ".mp3" })
                 {
@@ -91,6 +91,11 @@ namespace HowToFish1v1.Match
                 case "firstblood": notes = new[] { 660f, 880f }; noteLen = 0.12f; break;
                 case "streak": notes = new[] { 587f, 740f, 880f }; noteLen = 0.11f; break;
                 case "trickshot": notes = new[] { 784f, 988f, 1175f, 1568f }; noteLen = 0.12f; break;
+                case "planted": notes = new[] { 880f, 880f, 1175f }; noteLen = 0.1f; break;
+                case "defused": notes = new[] { 659f, 784f, 1047f }; noteLen = 0.14f; break;
+                case "exploded": notes = new[] { 220f, 165f }; noteLen = 0.3f; break;
+                case "attack": notes = new[] { 587f, 784f }; noteLen = 0.12f; break;
+                case "defend": notes = new[] { 587f, 440f }; noteLen = 0.12f; break;
                 default: notes = new[] { 494f, 659f }; noteLen = 0.13f; break;
             }
             int n = (int)(Rate * (notes.Length * noteLen + 0.25f));

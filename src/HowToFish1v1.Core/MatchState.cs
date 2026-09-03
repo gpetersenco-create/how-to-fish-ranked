@@ -24,6 +24,13 @@ namespace HowToFish1v1.Core
         public bool ArenaBuilt;
         /// <summary>Set once the first kill of the match has been made (first blood medal).</summary>
         public bool FirstBloodDone;
+
+        // Search and Destroy
+        public bool BombPlanted;
+        public double BombExplodesAt;
+        public double RoundEndsAt;          // Live phase deadline for the attackers to plant
+        public int PlanterId = -1;
+        public int AttackersTeam => (Round % 2 == 1) ? 0 : 1;   // teams swap the bomb every round
         public int MapIndex;
         public int BuiltMapIndex = -1;
 
