@@ -27,7 +27,19 @@ namespace HowToFish1v1.Match
             _runner = runner;
             ModNet.HelloReceived += OnHello;
             ModNet.LoadoutReceived += OnLoadout;
+            ModNet.RemoteDisconnected += id => _helloVersions.Remove(id);
             ModState.KillDetected += OnKill;
+        }
+
+        /// <summary>Applies remembered hellos to slots whose mod flag is out of date (players can join after their hello arrived).</summary>
+        private void ApplyKnownVersions()
+        {
+            foreach (var kv in _helloVersions)
+            {
+                var slot = Machine.State.Slot(kv.Key);
+                bool ok = kv.Value == Plugin.Version;
+                if (slot != null && slot.HasMod != ok) Machine.PlayerSaidHello(kv.Key, ok);
+            }
         }
 
         private MatchRules RulesFromConfig() => new MatchRules
@@ -48,7 +60,9 @@ namespace HowToFish1v1.Match
             if (Machine == null || Machine.State.Phase == MatchPhase.Inactive) Machine = new MatchMachine(RulesFromConfig());
             Machine.Open();
             foreach (var p in PlayerManager.Players) Machine.PlayerJoined(p.OwnerId, p.SteamName);
-            foreach (var kv in _helloVersions) Machine.PlayerSaidHello(kv.Key, kv.Value == Plugin.Version);
+            // The host's own client always has the mod.
+            if (Player.LocalPlayer) _helloVersions[Player.LocalPlayer.OwnerId] = Plugin.Version;
+            ApplyKnownVersions();
             Flush();
         }
 
@@ -82,6 +96,7 @@ namespace HowToFish1v1.Match
             foreach (var p in PlayerManager.Players) Machine.PlayerJoined(p.OwnerId, p.SteamName);
             foreach (var slot in Machine.State.Players.ToList())
                 if (!present.Contains(slot.Id)) Machine.PlayerLeft(slot.Id);
+            ApplyKnownVersions();
 
             Machine.Tick(Now);
             Flush();
@@ -90,12 +105,15 @@ namespace HowToFish1v1.Match
         private void OnHello(NetworkConnection conn, HelloBroadcast msg)
         {
             _helloVersions[conn.ClientId] = msg.ModVersion ?? "";
-            if (Machine != null) { Machine.PlayerSaidHello(conn.ClientId, msg.ModVersion == Plugin.Version); Flush(); }
+            if (Machine != null) { ApplyKnownVersions(); Flush(); }
         }
 
         private void OnLoadout(NetworkConnection conn, LoadoutBroadcast msg)
         {
+            // A loadout message is proof of the mod too.
+            if (!string.IsNullOrEmpty(msg.ModVersion)) _helloVersions[conn.ClientId] = msg.ModVersion;
             if (Machine == null) return;
+            ApplyKnownVersions();
             Machine.SetLoadout(conn.ClientId, msg.ItemIds, msg.Ready, msg.RankPoints);
             Flush();
         }

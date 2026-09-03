@@ -16,7 +16,7 @@ namespace HowToFish1v1.UI
 
         public static void Update()
         {
-            bool show = ModState.IsActive && ClientMatchView.HasState && Player.LocalPlayer;
+            bool show = ModState.IsActive && ClientMatchView.HasState && Player.LocalPlayer && !ModState.PanelOpen;
             if (!show)
             {
                 if (_score) _score.gameObject.SetActive(false);
@@ -49,7 +49,7 @@ namespace HowToFish1v1.UI
             switch (ModState.Phase)
             {
                 case MatchPhase.Lobby:
-                    _banner.text = s.StatusText ?? "";
+                    _banner.text = ModState.PanelOpen ? "" : (s.StatusText ?? "") + "\nPress F5 to open the lobby";
                     break;
                 case MatchPhase.Countdown:
                     int n = (int)System.Math.Ceiling(left);

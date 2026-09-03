@@ -24,12 +24,14 @@ namespace HowToFish1v1.Net
                 w.WriteUInt8ArrayAndSize(v.ItemIds ?? Array.Empty<byte>());
                 w.WriteBoolean(v.Ready);
                 w.WriteInt32(v.RankPoints);
+                w.WriteString(v.ModVersion ?? "");
             });
             GenericReader<LoadoutBroadcast>.SetRead(r => new LoadoutBroadcast
             {
                 ItemIds = r.ReadUInt8ArrayAndSizeAllocated() ?? Array.Empty<byte>(),
                 Ready = r.ReadBoolean(),
-                RankPoints = r.ReadInt32()
+                RankPoints = r.ReadInt32(),
+                ModVersion = r.ReadStringAllocated() ?? ""
             });
 
             GenericWriter<ArenaBroadcast>.SetWrite((w, v) =>

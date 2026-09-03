@@ -28,6 +28,14 @@ namespace HowToFish1v1.Match
             ModNet.ClientStopped += OnStopped;
         }
 
+        /// <summary>Call every frame: keeps re-sending our hello until the host lists us with the mod.</summary>
+        public static void Update()
+        {
+            if (!Player.LocalPlayer) return;
+            bool known = HasState && Me is PlayerEntry me && me.HasMod;
+            ModNet.KeepHelloAlive(known);
+        }
+
         public static PlayerEntry[] Players => HasState && Latest.Players != null ? Latest.Players : Array.Empty<PlayerEntry>();
         public static MatchMode Mode => HasState ? (MatchMode)Latest.Mode : MatchMode.OneVOne;
         public static bool IsFfa => MatchModes.IsFfa(Mode);
@@ -86,6 +94,8 @@ namespace HowToFish1v1.Match
                 Plugin.Log.LogInfo($"Phase {_prevPhase} -> {phase} mode {MatchModes.Name((MatchMode)s.Mode)} round {s.Round} score {s.TeamScoreA}-{s.TeamScoreB} status='{s.StatusText}'");
             ModState.Phase = phase;
             ModState.SpawnSlotLookup = SpawnSlotOf;
+            // Joiners arrive through a plain Steam invite, not our menu: the host running the mode makes this a ranked session for them too.
+            if (phase != MatchPhase.Inactive) ModState.RankedSession = true;
 
             if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live) LoadoutService.RefillLocalAmmo();
             if (phase == MatchPhase.MatchEnd && s.MatchNumber != _lastRankedMatch) ApplyRank(s);

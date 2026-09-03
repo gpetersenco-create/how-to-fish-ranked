@@ -12,6 +12,8 @@ namespace HowToFish1v1.Net
         public byte[] ItemIds;
         public bool Ready;
         public int RankPoints;
+        /// <summary>Doubles as a hello: any loadout message proves the sender runs this mod version.</summary>
+        public string ModVersion;
     }
 
     public struct ArenaBroadcast : IBroadcast
