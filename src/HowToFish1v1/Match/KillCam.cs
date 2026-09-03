@@ -16,8 +16,10 @@ namespace HowToFish1v1.Match
     public static class KillCam
     {
         private const float ReplayLead = 5f;       // seconds before the kill to start from
-        private const float SlowWindow = 1.5f;     // seconds before the kill where the replay slows down
-        private const float SlowSpeed = 0.5f;
+        private const float SlowLeadBeforeShot = 0.5f;   // slow motion starts this long before the killing shot
+        private const float SlowFallback = 1.5f;         // if no shot was recorded, slow this long before the death
+        private const float SlowSpeed = 0.4f;
+        private static float _slowStart;
         private const float ReplayTail = 0.3f;     // seconds after the kill to keep showing
         private const float LiveFollowMax = 8f;
         private const float EyeForward = 0.12f;    // keep the killer's own head mesh behind the near plane
@@ -64,7 +66,7 @@ namespace HowToFish1v1.Match
         public static bool Active => _mode != Mode.Off;
         public static bool IsFinal => Active && _final;
         public static bool IsReplay => _mode == Mode.Replay;
-        public static bool SlowMotion => IsReplay && _killTime - _replayT < SlowWindow && _replayT <= _killTime + ReplayTail;
+        public static bool SlowMotion => IsReplay && _replayT >= _slowStart && _replayT <= _killTime + ReplayTail;
         public static string KillerName { get; private set; } = "";
         public static string VictimName { get; private set; } = "";
         public static string KillerInfo { get; private set; } = "";
@@ -98,6 +100,9 @@ namespace HowToFish1v1.Match
             _final = final;
             _startedAt = Time.unscaledTime;
             _replayT = killTime - ReplayLead;
+            // Slow down just before the shot that did it (the last shot the killer fired before the death), not a fixed window.
+            float lastShot = Recorder.LastShotBefore(killerId, killTime);
+            _slowStart = lastShot > 0f && killTime - lastShot < 3f ? lastShot - SlowLeadBeforeShot : killTime - SlowFallback;
             _snapped = false;
             _mode = Mode.Replay;
             KillerName = killerName ?? "";
@@ -340,7 +345,7 @@ namespace HowToFish1v1.Match
                 if (_lastAdvanceFrame != Time.frameCount)
                 {
                     _lastAdvanceFrame = Time.frameCount;
-                    float speed = (_killTime - _replayT < SlowWindow) ? SlowSpeed : 1f;
+                    float speed = _replayT >= _slowStart ? SlowSpeed : 1f;
                     _replayT += Time.unscaledDeltaTime * speed;
                 }
                 if (_replayT > _killTime + ReplayTail)

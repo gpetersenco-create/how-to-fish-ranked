@@ -39,6 +39,15 @@ namespace HowToFish1v1.Match
             return ads;
         }
 
+        /// <summary>Time of the player's last shot at or before t, or -1 if none was recorded.</summary>
+        public static float LastShotBefore(int ownerId, float t)
+        {
+            if (!_shots.TryGetValue(ownerId, out var list)) return -1f;
+            float best = -1f;
+            foreach (var s in list) if (s <= t + 0.25f && s > best) best = s;
+            return best;
+        }
+
         /// <summary>True if the player fired in the (t0, t1] window.</summary>
         public static bool FiredBetween(int ownerId, float t0, float t1)
         {
