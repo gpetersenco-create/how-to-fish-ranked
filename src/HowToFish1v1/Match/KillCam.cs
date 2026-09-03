@@ -11,9 +11,10 @@ namespace HowToFish1v1.Match
     /// <summary>
     /// CoD-style killcam. After the local player dies to someone, the camera replays the killer's recorded first-person view
     /// from a few seconds before the kill, slowing down just before the killing shot, with a ghost of the victim showing
-    /// where they were. The replay is sized to fit the time until the respawn / next round; if time remains it follows the
-    /// killer live, otherwise it holds the last frame. At match end everyone watches the final kill the same way.
-    /// Drives whichever camera the game currently uses (death cam while dead, player cam while alive).
+    /// where they were. The killer's gun is a render-only copy driven by the recorded part poses, so sway, aiming, recoil,
+    /// reloads, inspects and weapon swaps play back as they happened. The replay is sized to fit the time until the
+    /// respawn / next round; if time remains it follows the killer live, otherwise it holds the last frame. At match end
+    /// everyone watches the final kill the same way. Drives whichever camera the game currently uses.
     /// </summary>
     public static class KillCam
     {
@@ -26,7 +27,7 @@ namespace HowToFish1v1.Match
         private const float BudgetMargin = 0.4f;         // finish the replay this long before the phase can end
         private const float DefaultBudget = 7f;          // when the host did not send its timing rules
         private const float LiveFollowMax = 8f;
-        private const float EyeForward = 0.12f;          // keep the killer's own head mesh behind the near plane
+        private const float EyeForward = 0.12f;          // remote killers: keep their head mesh behind the near plane
         private const float FadeSpeed = 4f;
 
         private enum Mode { Off, Replay, Hold, LiveFollow }
@@ -41,7 +42,7 @@ namespace HowToFish1v1.Match
         private static int _lastAdvanceFrame = -1;
         private static float _fade;
 
-        // Weapon of the kill (reset for every replay so a missing gun never reuses the previous kill's values).
+        // Weapon of the current replay moment (reset for every gun so a missing gun never reuses the previous values).
         private static float _adsFov = 40f, _adsDamping = 0.1f, _sniperPct = 0.9f;
         private static Vector3 _adsPos;
         private static bool _sniperSight;
@@ -57,15 +58,24 @@ namespace HowToFish1v1.Match
         private static float _savedNearClip = -1f;
         private static Texture2D _scopeTex;
 
-        // Scene objects and everything hidden or created for the replay.
-        private static GameObject _ghost, _viewGun, _flash;
+        // The gun copy: one child per recorded part of the killer's held item, in the recorder's order.
+        private static GameObject _viewGun, _flash;
+        private static Item _gunSource;
+        private static Transform[] _gunParts;
         private static readonly List<Renderer> _gunRenderers = new List<Renderer>();
+        private static readonly List<Object> _gunCreated = new List<Object>();
+        private static bool _remoteKiller;
+        private static float _tpOffset;
+        private static Vector3 _flashLocal;
+
+        // Everything else hidden or created for the replay.
+        private static GameObject _ghost;
         private static readonly List<Object> _created = new List<Object>();
         private static readonly List<Renderer> _hiddenRenderers = new List<Renderer>();
         private static readonly List<Canvas> _hiddenCanvases = new List<Canvas>();
         private static Item _hiddenItem;
         private static DeadPlayer _hiddenCorpse;
-        private static bool _hudHidden, _handsHidden;
+        private static bool _hudHidden;
         private static float _flashUntil, _lastShotCheck;
         private static Vector3 _previewGhostPos;
         private static Quaternion _previewGhostRot;
@@ -180,7 +190,8 @@ namespace HowToFish1v1.Match
             string gun = entry.Name != null ? LoadoutService.Summary(entry.Loadout) : "";
             KillerInfo = string.IsNullOrEmpty(rank) ? gun : $"{rank.ToUpperInvariant()}   |   {gun}";
 
-            BuildViewGun();
+            var killer = FindPlayer(_killerId);
+            _remoteKiller = killer && killer.Owner != null && !killer.Owner.IsLocalClient;
             HideKiller();
             HideLocalViewmodel();
             try { PlayerUI.ToggleMainCanvas(false); _hudHidden = true; } catch (System.Exception) { }
@@ -190,63 +201,68 @@ namespace HowToFish1v1.Match
         {
             _fireSound = ""; _fireSoundCount = 1; _fireVolume = 1f;
             _adsFov = 40f; _adsDamping = 0.1f; _sniperPct = 0.9f; _adsPos = Vector3.zero; _sniperSight = false;
-            _aimPercent = 0f; _aimVel = 0f; _flashUntil = 0f;
-            ReplayAds = false;
+            _flashUntil = 0f;
         }
 
         private static Player FindPlayer(int ownerId) => PlayerManager.Players.FirstOrDefault(p => p && p.OwnerId == ownerId);
 
-        /// <summary>
-        /// A render-only copy of the killer's held gun. Remote players' guns are pushed forward by the game's third-person
-        /// offset; that is undone so the copy sits where the killer saw it. During the replay the copy rides along with the
-        /// replayed eye pose, reading as the first-person gun.
-        /// </summary>
-        private static void BuildViewGun()
+        private static void DestroyViewGun()
         {
-            var killer = FindPlayer(_killerId);
-            if (!killer || !killer.Transform) return;
-            var item = killer.Holding ? killer.Holding.HeldItem : null;
-            var head = killer.CamObject ? killer.CamObject : killer.Transform;
-            if (!item || !head) return;
-            Vector3 fix = Vector3.zero;
-            try { if (item is Tool tool && killer.Owner != null && !killer.Owner.IsLocalClient) fix = -head.forward * tool.ThirdPersonOffset; }
-            catch (System.Exception) { }
+            if (_viewGun) Object.Destroy(_viewGun);
+            _viewGun = null; _flash = null; _gunSource = null; _gunParts = null;
+            _gunRenderers.Clear();
+            foreach (var o in _gunCreated) if (o) Object.Destroy(o);
+            _gunCreated.Clear();
+        }
+
+        /// <summary>
+        /// A render-only copy of an item the killer held during the replay, one child per recorded part. The parts are
+        /// placed every frame from the recording, so the copy moves exactly as the real gun did (for the local player's own
+        /// replay this includes the game's sway, aim, recoil and animations; remote players' guns get a synthetic version).
+        /// </summary>
+        private static void BuildViewGun(Item item)
+        {
+            DestroyViewGun();
+            ResetWeaponState();
+            if (!item) return;
+            _tpOffset = 0f;
+            try { if (item is Tool tool && _remoteKiller) _tpOffset = tool.ThirdPersonOffset; } catch (System.Exception) { }
 
             _viewGun = new GameObject("HTF1v1_KillcamGun");
-            _viewGun.transform.SetPositionAndRotation(head.position, head.rotation);
-            _gunRenderers.Clear();
-            foreach (var r in item.GetComponentsInChildren<Renderer>(true))
+            var rends = Recorder.RenderersOf(item);
+            _gunParts = new Transform[rends.Length];
+            for (int i = 0; i < rends.Length; i++)
             {
-                if (!r || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                var r = rends[i];
+                if (!r) continue;
                 var copy = new GameObject(r.name);
-                copy.transform.SetPositionAndRotation(r.transform.position + fix, r.transform.rotation);
-                copy.transform.localScale = r.transform.lossyScale;
-                Renderer made = null;
+                copy.transform.SetParent(_viewGun.transform, false);
+                Renderer made;
                 if (r is SkinnedMeshRenderer smr)
                 {
                     var mesh = new Mesh();
-                    smr.BakeMesh(mesh);
-                    _created.Add(mesh);
+                    try { smr.BakeMesh(mesh); } catch (System.Exception) { Object.Destroy(mesh); Object.Destroy(copy); continue; }
+                    _gunCreated.Add(mesh);
                     copy.AddComponent<MeshFilter>().sharedMesh = mesh;
-                    var mr = copy.AddComponent<MeshRenderer>();
-                    mr.sharedMaterials = smr.sharedMaterials;
-                    copy.transform.localScale = Vector3.one;
-                    made = mr;
+                    made = copy.AddComponent<MeshRenderer>();
+                    made.sharedMaterials = smr.sharedMaterials;
                 }
-                else if (r is MeshRenderer src)
+                else
                 {
                     var mf = r.GetComponent<MeshFilter>();
                     if (!mf || !mf.sharedMesh) { Object.Destroy(copy); continue; }
                     copy.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
-                    var mr = copy.AddComponent<MeshRenderer>();
-                    mr.sharedMaterials = src.sharedMaterials;
-                    made = mr;
+                    made = copy.AddComponent<MeshRenderer>();
+                    made.sharedMaterials = r.sharedMaterials;
+                    copy.transform.localScale = r.transform.lossyScale;
                 }
-                else { Object.Destroy(copy); continue; }
                 made.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                copy.transform.SetParent(_viewGun.transform, true);
+                made.enabled = false;
+                _gunParts[i] = copy.transform;
                 _gunRenderers.Add(made);
             }
+            _gunSource = item;
+
             if (item is Weapon w && w.Attachments)
             {
                 try
@@ -267,17 +283,17 @@ namespace HowToFish1v1.Match
                 catch (System.Exception) { _adsFov = 40f; _sniperSight = false; }
                 Transform fp = null;
                 try { fp = w.Attachments.FirePoint; } catch (System.Exception) { }
+                _flashLocal = fp ? item.transform.InverseTransformPoint(fp.position) : new Vector3(0f, 0f, 0.7f);
                 _flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _flash.name = "HTF1v1_MuzzleFlash";
                 Object.Destroy(_flash.GetComponent<Collider>());
+                _flash.transform.SetParent(_viewGun.transform, false);
                 _flash.transform.localScale = Vector3.one * 0.14f;
                 var mat = new Material(Arena.ArenaMaterials.For(BoxKind.Yellow));
-                _created.Add(mat);
+                _gunCreated.Add(mat);
                 mat.EnableKeyword("_EMISSION");
                 if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.35f) * 4f);
                 _flash.GetComponent<MeshRenderer>().sharedMaterial = mat;
-                _flash.transform.SetPositionAndRotation((fp ? fp.position : head.position + head.forward * 0.8f) + fix, head.rotation);
-                _flash.transform.SetParent(_viewGun.transform, true);
                 _flash.SetActive(false);
             }
         }
@@ -290,13 +306,12 @@ namespace HowToFish1v1.Match
         private static float _recoil;
 
         /// <summary>
-        /// Places the gun copy on the replayed eye pose with first-person motion: walk bob from the killer's speed, sway that
-        /// lags behind turns, a kick on each shot, and the slide towards the sight while aiming. Sniper sights hide the gun
-        /// once the scope overlay takes over, like the game does.
+        /// Remote players' guns are recorded without any first-person motion (the game draws them rigidly on the head), so
+        /// the copy gets a synthetic walk bob, turn sway, shot kick and slide towards the sight. Returns the head-space offset
+        /// and rotation to apply to the gun root.
         /// </summary>
-        private static void PlaceViewGun(Vector3 eyePos, Quaternion eyeRot)
+        private static void SyntheticMotion(Vector3 eyePos, Quaternion eyeRot, out Vector3 offset, out Quaternion rot)
         {
-            if (!_viewGun) return;
             float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
             float speed = 0f;
             Vector3 angVel = Vector3.zero;
@@ -322,12 +337,46 @@ namespace HowToFish1v1.Match
             Vector3 kick = new Vector3(0f, _recoil * 0.02f, -_recoil * 0.06f);
             Quaternion kickRot = Quaternion.Euler(-_recoil * 4f, 0f, 0f);
 
-            Vector3 ads = _adsPos * _aimPercent;
-            _viewGun.transform.SetPositionAndRotation(eyePos + eyeRot * (bob + kick + ads), eyeRot * _sway * kickRot);
+            offset = bob + kick + _adsPos * _aimPercent;
+            rot = _sway * kickRot;
+        }
 
+        /// <summary>Places the gun copy for the replay moment: rebuilds it when the killer swapped items, then poses every part from the recording.</summary>
+        private static void PlaceViewGun(Vector3 eyePos, Quaternion eyeRot, float t)
+        {
+            if (!Recorder.TryGetGun(_killerId, t, out var gs))
+            {
+                if (_viewGun) _viewGun.SetActive(false);
+                return;
+            }
+            if (gs.Item != _gunSource) BuildViewGun(gs.Item);
+            if (!_viewGun) return;
+            bool ok = gs.Pos != null && _gunParts != null && gs.Pos.Length == _gunParts.Length;
+            _viewGun.SetActive(ok);
+            if (!ok) return;
+
+            Vector3 offset = Vector3.zero; Quaternion rot = Quaternion.identity;
+            if (_remoteKiller) SyntheticMotion(eyePos, eyeRot, out offset, out rot);
+            _viewGun.transform.SetPositionAndRotation(eyePos + eyeRot * offset, eyeRot * rot);
+
+            Vector3 fix = _remoteKiller ? -Vector3.forward * _tpOffset : Vector3.zero;   // undo the third-person push
             bool hideGun = _sniperSight && _aimPercent > _sniperPct;
-            foreach (var r in _gunRenderers) if (r && r.enabled == hideGun) r.enabled = !hideGun;
-            if (_flash && _flash.activeSelf && Time.unscaledTime > _flashUntil) _flash.SetActive(false);
+            for (int i = 0; i < _gunParts.Length; i++)
+            {
+                var part = _gunParts[i];
+                if (!part) continue;
+                part.localPosition = gs.Pos[i] + fix;
+                part.localRotation = gs.Rot[i];
+                var r = part.GetComponent<Renderer>();
+                bool on = gs.On != null && i < gs.On.Length && gs.On[i] && !hideGun;
+                if (r && r.enabled != on) r.enabled = on;
+            }
+            if (_flash)
+            {
+                _flash.transform.localPosition = gs.RootPos + gs.RootRot * _flashLocal + fix;
+                _flash.transform.localRotation = gs.RootRot;
+                if (_flash.activeSelf && Time.unscaledTime > _flashUntil) _flash.SetActive(false);
+            }
         }
 
         /// <summary>Replays any shot the killer fired since the last frame of replay time: flash plus the gun's own sound.</summary>
@@ -349,12 +398,36 @@ namespace HowToFish1v1.Match
 
         public static void Stop()
         {
+            bool was = Active;
             _mode = Mode.Off;
             _final = false;
             _preview = false;
             _killerId = -1;
             _victimId = -1;
             Cleanup();
+            if (was) ResetLocalFireInputs();
+        }
+
+        /// <summary>Inputs are frozen during an alive killcam; a fire button that was held when it began must not stay "held".</summary>
+        private static void ResetLocalFireInputs()
+        {
+            var me = Player.LocalPlayer;
+            if (!me) return;
+            var items = new List<Item>();
+            if (me.Holding && me.Holding.HeldItem) items.Add(me.Holding.HeldItem);
+            try { if (me.Inventory != null) foreach (var kv in me.Inventory._items) if (kv.Value) items.Add(kv.Value); } catch (System.Exception) { }
+            foreach (var it in items)
+            {
+                if (!(it is Weapon w)) continue;
+                try
+                {
+                    var t = Traverse.Create(w);
+                    t.Field("_holdingFireInput").SetValue(false);
+                    t.Field("_holdingAdsInput").SetValue(false);
+                    t.Field("_queuedShoot").SetValue(false);
+                }
+                catch (System.Exception) { }
+            }
         }
 
         public static void OnMatchLeftEndPhase() { if (_final) Stop(); }
@@ -380,9 +453,7 @@ namespace HowToFish1v1.Match
             _hiddenItem = null; _hiddenCorpse = null;
             if (_ghost) Object.Destroy(_ghost);
             _ghost = null;
-            if (_viewGun) Object.Destroy(_viewGun);
-            _viewGun = null; _flash = null;
-            _gunRenderers.Clear();
+            DestroyViewGun();
             foreach (var o in _created) if (o) Object.Destroy(o);
             _created.Clear();
             if (_clipCam && _savedNearClip > 0f) _clipCam.nearClipPlane = _savedNearClip;
@@ -390,12 +461,6 @@ namespace HowToFish1v1.Match
             RestoreFov();
             ReplayAds = false;
             _aimPercent = 0f; _aimVel = 0f;
-            var me = Player.LocalPlayer;
-            if (_handsHidden)
-            {
-                _handsHidden = false;
-                try { if (me && me.Hands && !me.Dying.IsDead) me.Hands.ToggleHandMeshes(true); } catch (System.Exception) { }
-            }
             if (_hudHidden)
             {
                 _hudHidden = false;
@@ -488,28 +553,53 @@ namespace HowToFish1v1.Match
             return t;
         }
 
+        private static void HideRenderer(Renderer r)
+        {
+            if (!r || _hiddenRenderers.Contains(r)) return;
+            r.enabled = false;
+            _hiddenRenderers.Add(r);
+        }
+
         private static void HideRenderers(Component root)
         {
             if (!root) return;
-            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
-                if (r && r.enabled) { r.enabled = false; _hiddenRenderers.Add(r); }
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true)) HideRenderer(r);
         }
 
-        /// <summary>We look through the killer's eyes, so their body, their live gun and their name tag must not be drawn.</summary>
+        /// <summary>The player's own arm/hand meshes live on PlayerHands and are toggled by the game every frame.</summary>
+        private static void HideHandModels(Player p)
+        {
+            if (!p || !p.Hands) return;
+            try
+            {
+                var t = Traverse.Create(p.Hands);
+                HideRenderer(t.Field<Renderer>("_handModelLeft").Value);
+                HideRenderer(t.Field<Renderer>("_handModelRight").Value);
+            }
+            catch (System.Exception) { }
+        }
+
+        /// <summary>We look through the killer's eyes, so their body, hands, live gun and name tag must not be drawn.</summary>
         private static void HideKiller()
         {
             var killer = FindPlayer(_killerId);
             if (!killer || !killer.Transform) return;
             HideRenderers(killer.Transform);
+            HideHandModels(killer);
             foreach (var c in killer.Transform.GetComponentsInChildren<Canvas>(true))
                 if (c && c.enabled) { c.enabled = false; _hiddenCanvases.Add(c); }
             _hiddenItem = killer.Holding ? killer.Holding.HeldItem : null;
             HideRenderers(_hiddenItem);
         }
 
-        /// <summary>The killer may swap weapons mid-replay (fresh renderers) and the victim's ragdoll may land after we start.</summary>
+        /// <summary>
+        /// The game re-enables hand and tool meshes every frame, the killer may swap weapons mid-replay (fresh renderers)
+        /// and the victim's ragdoll may land after we start: keep everything hidden that should be hidden.
+        /// </summary>
         private static void RehideDuringReplay(Player me)
         {
+            foreach (var r in _hiddenRenderers) if (r && r.enabled) r.enabled = false;
+            foreach (var c in _hiddenCanvases) if (c && c.enabled) c.enabled = false;
             var killer = FindPlayer(_killerId);
             if (killer && killer.Holding)
             {
@@ -529,7 +619,7 @@ namespace HowToFish1v1.Match
             var me = Player.LocalPlayer;
             if (!me || me.Dying.IsDead || me.OwnerId == _killerId) return;   // as the killer we are already hidden
             HideRenderers(me.Holding ? me.Holding.HeldItem : null);
-            try { if (me.Hands) { me.Hands.ToggleHandMeshes(false); _handsHidden = true; } } catch (System.Exception) { }
+            HideHandModels(me);
         }
 
         private static void ShowKiller()
@@ -639,9 +729,9 @@ namespace HowToFish1v1.Match
                         RehideDuringReplay(me);
                         UpdateGhost(true, t);
                         ApplyAim(cam, baseFov);
-                        PlaceViewGun(rp, rr);
+                        PlaceViewGun(rp, rr, t);
                         if (_mode == Mode.Replay) ReplayShots();
-                        pos = rp + rr * Vector3.forward * EyeForward;
+                        pos = _remoteKiller ? rp + rr * Vector3.forward * EyeForward : rp;
                         rot = rr;
                         return true;
                     }

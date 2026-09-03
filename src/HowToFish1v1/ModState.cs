@@ -26,7 +26,8 @@ namespace HowToFish1v1
         public static bool BlockSaves => IsActive || RankedSession;
 
         public static bool FreezeInputs =>
-            PanelOpen || Phase == MatchPhase.Countdown || Phase == MatchPhase.RoundEnd || Phase == MatchPhase.MatchEnd;
+            PanelOpen || Phase == MatchPhase.Countdown || Phase == MatchPhase.RoundEnd || Phase == MatchPhase.MatchEnd
+            || Match.KillCam.UsesPlayerCam;   // watching a killcam while alive: no shooting or looking around
 
         /// <summary>Team pad slot for a player (side, index within team, team size); null in free-for-all or when unknown. Set by ClientMatchView.</summary>
         public static Func<int, (Side side, int index, int count)?> SpawnSlotLookup;

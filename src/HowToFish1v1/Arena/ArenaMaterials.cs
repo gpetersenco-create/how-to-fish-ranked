@@ -34,6 +34,11 @@ namespace HowToFish1v1.Arena
             return m;
         }
 
+        private static Shader _lit;
+
+        /// <summary>The render pipeline's lit shader (with working emission), for anything the mod draws itself.</summary>
+        public static Shader LitShader => _lit ? _lit : (_lit = FindShader());
+
         private static Shader FindShader()
         {
             foreach (var name in new[] { "Universal Render Pipeline/Lit", "Universal Render Pipeline/Simple Lit", "Standard" })
