@@ -41,6 +41,27 @@ namespace HowToFish1v1.Patches
             SpawnManager.PlayerSpawnRot = __state.Item2;
         }
 
+        // Kill cam: after the game's death camera orbits the ragdoll, override it to follow the killer.
+        [HarmonyPatch(typeof(PlayerDeathCam), "LateUpdate")]
+        [HarmonyPostfix]
+        private static void KillCamFollow(PlayerDeathCam __instance)
+        {
+            if (ModState.IsActive) Match.KillCam.ApplyDeathCam(__instance);
+        }
+
+        // Final killcam while alive: override the player camera after it has positioned itself.
+        [HarmonyPatch(typeof(PlayerCamera), "Update")]
+        [HarmonyPostfix]
+        private static void FinalKillCam(PlayerCamera __instance)
+        {
+            if (ModState.IsActive && Match.KillCam.IsFinal && __instance.Owner.IsLocalClient) Match.KillCam.ApplyPlayerCam(__instance);
+        }
+
+        // Tab opens the fish journal in the base game; during matches Tab is the scoreboard.
+        [HarmonyPatch(typeof(PlayerThinking), "ThinkingInput")]
+        [HarmonyPrefix]
+        private static bool NoJournal() => !ModState.IsActive;
+
         // The "hold to give up" respawn would drop the inventory and move the boat; the host resets players instead.
         [HarmonyPatch(typeof(PlayerDying), "LocalRespawn")]
         [HarmonyPrefix]

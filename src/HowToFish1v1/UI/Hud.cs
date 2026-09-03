@@ -69,6 +69,13 @@ namespace HowToFish1v1.UI
 
             double left = ClientMatchView.SecondsLeftInPhase;
             TrackLive();
+            if (KillCam.Active)
+            {
+                string head = KillCam.IsFinal ? "FINAL KILLCAM" : (KillCam.IsReplay ? "KILLCAM" : "KILLED BY");
+                string who = KillCam.IsFinal ? $"{KillCam.KillerName}  killed  {KillCam.VictimName}" : KillCam.KillerName;
+                _banner.text = $"<size=60%>{head}</size>\n{who}\n<size=45%>{KillCam.KillerInfo}</size>";
+                return;
+            }
             switch (ModState.Phase)
             {
                 case MatchPhase.Lobby:

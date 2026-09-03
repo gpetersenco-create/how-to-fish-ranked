@@ -43,12 +43,16 @@ namespace HowToFish1v1.Net
                 b.WriteString(v.Killer ?? "");
                 b.WriteString(v.Victim ?? "");
                 b.WriteBoolean(v.Suicide);
+                b.WriteInt32(v.KillerId);
+                b.WriteInt32(v.VictimId);
             }));
             GenericReader<KillFeedBroadcast>.SetRead(r => Open(r, b => new KillFeedBroadcast
             {
                 Killer = b.ReadStringAllocated() ?? "",
                 Victim = b.ReadStringAllocated() ?? "",
-                Suicide = b.ReadBoolean()
+                Suicide = b.ReadBoolean(),
+                KillerId = b.ReadInt32(),
+                VictimId = b.ReadInt32()
             }));
 
             GenericWriter<ArenaBroadcast>.SetWrite((w, v) => Envelope(w, b =>

@@ -99,6 +99,8 @@ namespace HowToFish1v1.Match
             if (phase != MatchPhase.Inactive) ModState.RankedSession = true;
 
             if (phase == MatchPhase.Live && _prevPhase != MatchPhase.Live) LoadoutService.RefillLocalAmmo();
+            if (phase == MatchPhase.MatchEnd && _prevPhase != MatchPhase.MatchEnd) KillCam.StartFinal();
+            if (phase != MatchPhase.MatchEnd && _prevPhase == MatchPhase.MatchEnd) KillCam.OnMatchLeftEndPhase();
             if (phase == MatchPhase.MatchEnd && s.MatchNumber != _lastRankedMatch) ApplyRank(s);
             // Ranked sessions: the lobby screen shows itself whenever the match is in the lobby and hides when a match starts.
             if (ModState.RankedSession)

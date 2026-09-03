@@ -129,7 +129,11 @@ namespace HowToFish1v1.Match
             {
                 bool suicide = killerSlot == null || killer == victim.OwnerId;
                 Plugin.Log.LogInfo($"Kill: {(suicide ? "(self)" : killerSlot.Name)} -> {victimSlot?.Name}");
-                ModNet.BroadcastKill(new KillFeedBroadcast { Killer = suicide ? "" : killerSlot.Name, Victim = victimSlot?.Name ?? "", Suicide = suicide });
+                ModNet.BroadcastKill(new KillFeedBroadcast
+                {
+                    Killer = suicide ? "" : killerSlot.Name, Victim = victimSlot?.Name ?? "", Suicide = suicide,
+                    KillerId = suicide ? -1 : killer, VictimId = victim.OwnerId
+                });
             }
             Flush();
         }

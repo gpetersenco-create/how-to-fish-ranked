@@ -23,6 +23,8 @@ namespace HowToFish1v1.Net.Proto2
         public string Killer;
         public string Victim;
         public bool Suicide;
+        public int KillerId;
+        public int VictimId;
     }
 
     public struct ArenaBroadcast : IBroadcast
