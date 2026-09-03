@@ -1,14 +1,14 @@
 ﻿{
-    "version":  "0.2.11",
-    "notes":  "Leaderboard writes now authenticated; killcam gun bob/sway/recoil and visible victim ghost; lobby shows versions; Quit-to-apply update button",
+    "version":  "0.2.12",
+    "notes":  "Killcam overhaul: final killcam no longer cut off (match ends on the deciding kill, 9 s end phase), replay fitted to the respawn window, gunshots now audible, scope/zoom follows the killer\u0027s real aim curve, muzzle flash while aiming, remote guns placed at the right first-person offset, killer\u0027s live gun and name tag hidden, victim ghost floor-snapped with a facing marker, your own hands/gun and the death panel hidden during the final killcam, camera/objects always cleaned up, black fade between cuts. New: SOLO TEST button in the lobby and F8 killcam preview for testing alone.",
     "files":  [
                   {
                       "name":  "HowToFish1v1.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.11/HowToFish1v1.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.12/HowToFish1v1.dll"
                   },
                   {
                       "name":  "HowToFish1v1.Core.dll",
-                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.11/HowToFish1v1.Core.dll"
+                      "url":  "https://github.com/gpetersenco-create/how-to-fish-ranked/releases/download/v0.2.12/HowToFish1v1.Core.dll"
                   }
               ]
 }
