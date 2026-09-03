@@ -14,7 +14,8 @@ namespace HowToFish1v1.UI
     {
         private const int Size = 256;
         private const int SS = 3;   // supersamples per axis
-        private const float Canvas = 1.12f;
+        private const float Canvas = 1.26f;
+        private const float CornerRadius = 0.07f;
         private static readonly Dictionary<int, Texture2D> _cache = new Dictionary<int, Texture2D>();
 
         private static readonly Color[] TierColors =
@@ -80,6 +81,33 @@ namespace HowToFish1v1.UI
                 d = Mathf.Min(d, SegDist(px, py, xi, yi, xj, yj));
             }
             return inside ? d : -d;
+        }
+
+        /// <summary>Offsets a convex polygon inward by r: edges slide along their inward normals and corners are re-intersected.</summary>
+        private static Vector2[] Inset(Vector2[] pts, float r)
+        {
+            int n = pts.Length;
+            float area = 0f;
+            for (int i = 0; i < n; i++) { var a = pts[i]; var b = pts[(i + 1) % n]; area += a.x * b.y - b.x * a.y; }
+            float sgn = area > 0f ? 1f : -1f;
+            var px = new float[n]; var py = new float[n]; var dx = new float[n]; var dy = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                var a = pts[i]; var b = pts[(i + 1) % n];
+                float ex = b.x - a.x, ey = b.y - a.y, l = Mathf.Sqrt(ex * ex + ey * ey);
+                ex /= l; ey /= l;
+                float nx = -ey * sgn, ny = ex * sgn;
+                px[i] = a.x + nx * r; py[i] = a.y + ny * r; dx[i] = ex; dy[i] = ey;
+            }
+            var outPts = new Vector2[n];
+            for (int i = 0; i < n; i++)
+            {
+                int h = (i + n - 1) % n;
+                float den = dx[h] * dy[i] - dy[h] * dx[i];
+                float t = ((px[i] - px[h]) * dy[i] - (py[i] - py[h]) * dx[i]) / den;
+                outPts[i] = new Vector2(px[h] + dx[h] * t, py[h] + dy[h] * t);
+            }
+            return outPts;
         }
 
         private static Vector2[] StarPts(float cx, float cy, float r)
@@ -208,7 +236,7 @@ namespace HowToFish1v1.UI
                     Blend(ref outPx, Mix(new Color(1f, 0.85f, 0.35f), new Color(1f, 0.97f, 0.75f), (v - 0.62f) / 0.34f), Smooth(cd));
             }
 
-            float d = Poly(u, v, shield);
+            float d = Poly(u, v, shield) + CornerRadius;   // shield is pre-inset, so this rounds the corners
             if (d < -0.015f) return outPx;
             float alpha = Smooth(d);
             const float rim = 0.09f, bevel = 0.05f;
@@ -294,7 +322,7 @@ namespace HowToFish1v1.UI
         {
             var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             var px = new Color32[Size * Size];
-            var shield = ShieldPts(GroupOf(tier));
+            var shield = Inset(ShieldPts(GroupOf(tier)), CornerRadius);
             float inv = 1f / (SS * SS);
             for (int y = 0; y < Size; y++)
             {

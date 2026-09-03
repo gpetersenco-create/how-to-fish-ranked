@@ -54,7 +54,7 @@ namespace HowToFish1v1.Match
 
         // Camera state we override and restore.
         private static Camera _fovCam;
-        private static float _baseFov = -1f, _curFov = -1f;
+        private static float _baseFov = -1f, _curFov = -1f, _savedCamFov = -1f;
         private static Camera _clipCam;
         private static float _savedNearClip = -1f;
         private static Texture2D _scopeTex;
@@ -990,8 +990,8 @@ namespace HowToFish1v1.Match
 
         private static void RestoreFov()
         {
-            if (_fovCam && _baseFov > 0f) _fovCam.fieldOfView = _baseFov;
-            _fovCam = null; _baseFov = -1f; _curFov = -1f;
+            if (_fovCam && _savedCamFov > 0f) _fovCam.fieldOfView = _savedCamFov;
+            _fovCam = null; _baseFov = -1f; _curFov = -1f; _savedCamFov = -1f;
         }
 
         /// <summary>
@@ -1008,6 +1008,7 @@ namespace HowToFish1v1.Match
             {
                 RestoreFov();
                 _fovCam = cam;
+                _savedCamFov = cam.fieldOfView;
                 _baseFov = baseFov > 0f ? baseFov : cam.fieldOfView;
             }
             _curFov = Mathf.Lerp(_baseFov, Mathf.Clamp(_adsFov, 5f, 120f), _aimPercent);
@@ -1174,7 +1175,23 @@ namespace HowToFish1v1.Match
             var me = Player.LocalPlayer;
             if (!me || !me.Dying.IsDead) return;   // the player camera owns the view while alive
             var cam = Traverse.Create(deathCam).Field<Camera>("_deathCam").Value;
-            if (cam && Pose(cam, -1f, out var p, out var r)) cam.transform.SetPositionAndRotation(p, r);
+            // The death camera keeps its prefab field of view, which is far narrower than the player's FOV setting,
+            // so the replay looked zoomed in. Use the same base FOV the player camera uses.
+            if (cam && Pose(cam, PlayerBaseFov(), out var p, out var r)) cam.transform.SetPositionAndRotation(p, r);
+        }
+
+        /// <summary>The player's configured field of view (the game keeps it in a static on PlayerCamera), or -1 if unavailable.</summary>
+        private static float PlayerBaseFov()
+        {
+            try
+            {
+                float f = Traverse.Create(typeof(PlayerCamera)).Field<float>("_origFov").Value;
+                if (f > 1f) return f;
+                var me = Player.LocalPlayer;
+                if (me && me.Camera && me.Camera.Cam) return me.Camera.Cam.fieldOfView;
+            }
+            catch (System.Exception) { }
+            return -1f;
         }
 
         /// <summary>From the player camera's Update (Harmony postfix) while the local player is alive (final killcam, preview).</summary>
@@ -1182,9 +1199,7 @@ namespace HowToFish1v1.Match
         {
             if (!UsesPlayerCam || !playerCam) return;
             var cam = playerCam.Cam;
-            float orig = -1f;
-            try { orig = Traverse.Create(playerCam).Field<float>("_origFov").Value; } catch (System.Exception) { }
-            if (cam && Pose(cam, orig, out var p, out var r)) cam.transform.SetPositionAndRotation(p, r);
+            if (cam && Pose(cam, PlayerBaseFov(), out var p, out var r)) cam.transform.SetPositionAndRotation(p, r);
         }
     }
 }
